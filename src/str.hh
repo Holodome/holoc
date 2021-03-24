@@ -25,7 +25,7 @@ struct Str {
         data[len] = 0;
         this->len = len;
     }
-    Str(const char *text, u32 start, u32 end) {
+    Str(const char *text, int start, int end) {
         assert(end >= start);
         init();
         u32 len = end - start;
@@ -118,29 +118,10 @@ struct Str {
         data[l] = 0;
         len = l;
     }
-    
-    // Library funcions placed here  
-    static bool cmp(const char *a, const char *b) {
-        return strcmp(a, b);
-    }
-    
-    static bool cmpn(const char *a, const char *b, size_t n) {
-        return strncmp(a, b, n);
-    }
-    
-    static size_t formatv(char *dst, size_t dst_size, const char *format, va_list args) {
-        return ::vsnprintf(dst, dst_size, format, args);
-    }
-    
-    static size_t format(char *dst, size_t dst_size, const char *format, ...) {
-        va_list args;
-        va_start(args, format);
-        size_t result = ::vsnprintf(dst, dst_size, format, args);
-        va_end(args);
-        return result;
-    }
-    
 };
+
+// @TODO
+typedef Str StrUTF8;
 
 #define STR_HH 1
 #endif

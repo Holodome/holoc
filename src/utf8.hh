@@ -29,13 +29,9 @@ inline u32 utf8_encode(u32 utf32, u8 *dst) {
     return len;
 }
 
-inline u32 utf8_decode(u8 *src, u8 **new_dst) {
+inline u32 utf8_decode(const u8 *src, const u8 **new_dst) {
     u32 len = 0;
     u32 utf32 = 0;
-    if (!*src) {
-        goto end;
-    }
-
     if ((src[0] & 0x80) == 0x00) {
         utf32 = src[0];
         len = 1;
@@ -53,7 +49,7 @@ inline u32 utf8_decode(u8 *src, u8 **new_dst) {
             | (src[3] & 0x3F);     
         len = 4;
     }
-end:
+    
     *new_dst = src + len;
     return utf32;
 }

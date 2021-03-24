@@ -12,6 +12,7 @@ enum struct AstKind {
     Ident,
     Unary,
     Binary,
+    Print,
     Count
 };
 
@@ -101,6 +102,12 @@ struct AstAssign : public AstExpression {
     AstIdent *ident = 0;
     AstExpression *expr = 0;
 };  
+
+struct AstPrint : public AstExpression {
+    AstPrint() { kind = AstKind::Print; }  
+    
+    
+};
 
 #define AST_HH 1
 #endif
