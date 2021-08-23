@@ -1,6 +1,8 @@
 #include "strings.h"
 
 #include <stdio.h>
+#define IEEE754_CONVERT_IMPLEMENTATION 
+#include "ieee754_convert.h"
 
 uptr vfmt(char *buf, uptr buf_size, const char *format, va_list args) {
     return vsnprintf(buf, buf_size, format, args);
@@ -30,51 +32,23 @@ b32 is_alpha(u32 symb) {
     return ('a' <= symb && symb <= 'z') || ('A' <= symb && symb <= 'Z');
 }
 
-void str_to_mantissa_exponent(const char *str, uptr len, 
-        u32 *mantissa_out, u32 *exponent_out) {
-    u32 integer_part = 0;
-    u32 fraction_part = 0;
-    u32 fraction_part_delimeter = 1;
+f64 str_to_f64(const char *str, uptr len) {
+    return ieee754_convert_f64(str, len);
+}
 
-    b32 dot_is_passed = FALSE;
+i64 str_to_i64(const char *str, uptr len) {
+    i64 result = 0;
+    b32 is_negative = FALSE;
     while (len--) {
-        u32 symb = *str++;
-        if (is_digit(symb)) {
-            if (dot_is_passed) {
-                fraction_part = fraction_part * 10 + (symb - '0');
-                fraction_part_delimeter *= 10;
-            } else {
-                integer_part = integer_part * 10 + (symb - '0');
-            }
-        } else if (symb == '.') {
-            dot_is_passed = TRUE;
+        char symb = *str++;
+        if (symb == '-') {
+            is_negative = TRUE;
+        } else if (symb == '+') {
+        } else if ('0' <= symb && symb <= '9') {
+            result = result * 10 + (symb - '0');
         } else {
             break;
         }
     }
-
-    if (integer_part || fraction_part) {
-        u32 frac = fraction_part;
-        u32 delim = fraction_part_delimeter;
-        u32 frac_bin = 0;
-#define MANTISSA_BITS 52 
-        u32 mantissa_bits_count = 0;
-        while (mantissa_bits_count++ < MANTISSA_BITS) {
-            frac *= 2;
-            frac_bin = (frac_bin << 1) | (frac / delim);
-            frac %= delim;
-            if (frac == 0) {
-                break;
-            }
-        }
-        printf("%x %x\n", frac_bin, integer_part);
-    }
-}
-
-f64 str_to_f64(const char *str, uptr len) {
-    f64 result = 0;
     return result;
-} 
-i64 str_to_i64(const char *str, uptr len);
-
-
+}

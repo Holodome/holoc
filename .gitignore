@@ -486,3 +486,5 @@ build/
 *.hla
 *.log
 *.vars
+
+.vscode/

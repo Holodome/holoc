@@ -1,14 +1,20 @@
-@echo off
+@ECHO OFF
+CLS
+REM Seprate complation units build
+SETLOCAL EnableDelayedExpansion
 
-cls
-if not exist .\out mkdir out 
-pushd out 
+PUSHD src
+SET build_files=
+FOR /R %%f IN (*.c) DO (
+    SET build_files=!build_files! %%f	
+)
+POPD
+ECHO Files: %build_files%
 
-where cl /q
-if %ERRORLEVEL% neq 0 call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+PUSHD build 
 
-set "build_options=-nologo -DEBUG -fp:fast -Od -Oi -Zi -FC -I"..\src" -std:c++17 -D_CRT_SECURE_NO_WARNINGS"
+SET "error_policy=-Wall -Werror -Wno-unused-function -Wno-missing-braces"
+SET "linked_libs=-L./ -luser32 -lkernel32 -lgdi32"
+clang %build_files% -g -gcodeview -O0 %error_policy% -I../src -I../thirdparty %linked_libs% -o lang.exe
 
-cl %build_options% ../src/main.cc -link -opt:ref gdi32.lib user32.lib kernel32.lib -out:lang.exe
-
-popd 
+POPD
