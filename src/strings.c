@@ -1,11 +1,14 @@
 #include "strings.h"
 
-#include <stdio.h>
+#include <stdio.h> // vprintf
+
 #define IEEE754_CONVERT_IMPLEMENTATION 
 #include "ieee754_convert.h"
+#define STB_SPRINTF_IMPLEMENTATION
+#include "stb_sprintf.h"
 
 uptr vfmt(char *buf, uptr buf_size, const char *format, va_list args) {
-    return vsnprintf(buf, buf_size, format, args);
+    return stbsp_vsnprintf(buf, buf_size, format, args);
 }
 
 uptr fmt(char *buf, uptr buf_size, const char *format, ...) {
@@ -16,8 +19,12 @@ uptr fmt(char *buf, uptr buf_size, const char *format, ...) {
     return result;
 }
 
+b32 is_ascii(u32 symb) {
+    return symb <= 0x7F;
+}
+
 b32 is_space(u32 symb) {
-    return symb == ' ';
+    return symb == ' ' || symb == '\r';
 }
 
 b32 is_nextline(u32 symb) {
@@ -30,6 +37,19 @@ b32 is_digit(u32 symb) {
 
 b32 is_alpha(u32 symb) {
     return ('a' <= symb && symb <= 'z') || ('A' <= symb && symb <= 'Z');
+}
+
+b32 is_ident(u32 symb) {
+    return is_alpha(symb) || is_digit(symb) || symb == '_';
+}
+
+b32 is_punct(u32 symb) {
+    return symb == '!' || symb == '\"' || symb == '#' || symb == '$' || symb == '%' || symb == '&' 
+        || symb == '\'' || symb == '(' || symb == ')' || symb == '*' || symb == '+' || symb == ',' 
+        || symb == '-' || symb == '.' || symb == '/' || symb == ':' || symb == ';' || symb == '<' 
+        || symb == '=' || symb == '>' || symb == '?' || symb == '@' || symb == '[' || symb == '\\' 
+        || symb == ']' || symb == '^' || symb == '_' || symb == '`' || symb == '{' || symb == '|' 
+        || symb == '}' || symb == '~';
 }
 
 f64 str_to_f64(const char *str, uptr len) {
@@ -51,4 +71,93 @@ i64 str_to_i64(const char *str, uptr len) {
         }
     }
     return result;
+}
+
+b32 str_eq(const char *a, const char *b) {
+    while (*a && *b && *a == *b) {
+        ++a;
+        ++b;
+    }
+    b32 result = *a == 0 && *b == 0;
+    return result;
+}
+
+b32 str_eqn(const char *a, const char *b, uptr n) {
+    while (*a && *b && (*a == *b) && n--) {
+        ++a;
+        ++b;
+    }
+    b32 result = n == 0;
+    return result;
+}
+
+uptr str_len(const char *str) {
+    uptr result = 0;
+    while (*str++) {
+        ++result;
+    }
+    return result;
+}
+
+u32 utf8_encode(u32 utf32, u8 *dst) {
+    u32 len = 0;
+    if (utf32 <= 0x0000007F) {
+        *dst = utf32;   
+        len = 1;    
+    } else if (utf32 <= 0x000007FF) {
+        *dst++ = 0xC0 | (utf32 >> 6);
+        *dst++ = 0x80 | (utf32 & 0x3F);
+        len = 2;
+    } else if (utf32 <= 0x0000FFFF) {
+        *dst++ = 0xE0 | (utf32 >> 12);
+        *dst++ = 0x80 | ((utf32 >> 6) & 0x3F);
+        *dst++ = 0x80 | (utf32 & 0x3F);
+        len = 3;
+    } else if (utf32 <= 0x0010FFFF) {
+        *dst++ = 0xF0 | (utf32 >> 18);
+        *dst++ = 0x80 | ((utf32 >> 12) & 0x3F);
+        *dst++ = 0x80 | ((utf32 >> 6) & 0x3F);
+        *dst++ = 0x80 | (utf32 & 0x3F);
+        len = 4;
+    } 
+    return len;
+}
+
+u32 utf8_decode(const u8 *src, u32 *len_out) {
+    u32 len = 0;
+    u32 utf32 = 0;
+    if ((src[0] & 0x80) == 0x00) {
+        utf32 = src[0];
+        len = 1;
+    } else if ((src[0] & 0xE0) == 0xC0) {
+        if ((src[1] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x1F) << 6) | (src[1] & 0x3F);     
+            len = 2; 
+        }
+    } else if ((src[0] & 0xF0) == 0xE0) {
+        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x0F) << 12) | ((src[1] & 0x3F) << 6) | (src[2] & 0x3F);     
+            len = 3;
+        }
+    } else if ((src[0] & 0xF8) == 0xF0) {
+        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80 && (src[3] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) | ((src[2] & 0x3F) << 6) 
+                | (src[3] & 0x3F);     
+            len = 4;
+        }
+    }
+    
+    *len_out = len;
+    return utf32;
+}
+
+void outf(const char *msg, ...) {
+    va_list args;
+    va_start(args, msg);
+    voutf(msg, args);
+    va_end(args);
+}
+
+void voutf(const char *msg, va_list args) {
+    vprintf(msg, args);
 }

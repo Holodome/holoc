@@ -17,12 +17,6 @@
 #ifndef IEE754_CONVERT_H
 #define IEE754_CONVERT_H 1
 
-// Floating-point formats of different widths
-enum ieee754_convert_format {
-    IEEE754_CONVERT_32BIT,
-    IEEE754_CONVERT_64BIT,
-};
-
 float ieee754_convert_f32(const char *str, int unsigned length);
 double ieee754_convert_f64(const char *str, int unsigned length);
 
@@ -36,6 +30,12 @@ int ieee754_convert_check_correctness();
 typedef unsigned long ieee754_convert_u32;
 typedef unsigned long long ieee754_convert_u64;
 typedef long long ieee754_convert_i64;
+
+// Floating-point formats of different widths
+enum ieee754_convert_format {
+    IEEE754_CONVERT_32BIT,
+    IEEE754_CONVERT_64BIT,
+};
 
 typedef struct {
     int sign_bit;

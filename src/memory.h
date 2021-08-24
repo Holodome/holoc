@@ -40,6 +40,7 @@ typedef struct MemoryArena {
 #define arena_alloc_struct(_arena, _type) (_type *)arena_alloc(_arena, sizeof(_type))
 #define arena_alloc_array(_arena, _count, _type) (_type *)arena_alloc(_arena, sizeof(_type) * _count)
 void *arena_alloc(MemoryArena *arena, uptr size);
+char *arena_alloc_str(MemoryArena *arena, const char *src);
 void *arena_copy(MemoryArena *arena, const void *src, uptr size);
 void arena_free_last_block(MemoryArena *arena);
 // Frees all blocks

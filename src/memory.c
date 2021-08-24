@@ -1,6 +1,8 @@
 #include "memory.h"
 
-#include <string.h>
+#include "strings.h"
+
+#include <string.h> // memset, memcpy, memmove
 #include <stdlib.h>
 
 void *mem_alloc(uptr size) {
@@ -89,6 +91,13 @@ void *arena_copy(MemoryArena *arena, const void *src, uptr size) {
     void *result = arena_alloc(arena, size);
     mem_copy(result, src, size);
     return result;
+}
+
+char *arena_alloc_str(MemoryArena *arena, const char *src) {
+    uptr length = str_len(src);
+    void *result = arena_alloc(arena, length + 1);
+    mem_copy(result, src, length + 1);
+    return result; 
 }
 
 void arena_free_last_block(MemoryArena *arena) {
