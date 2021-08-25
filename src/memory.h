@@ -3,10 +3,18 @@
 
 // Wrappers for stdandard functions
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory
+// using mem_alloc instead of arena allocators is not advised in general use-cases
+// malloc
 void *mem_alloc(uptr size);
+// strdup
+char *mem_alloc_str(char *str);
+// free
 void mem_free(void *ptr);
+// memcpy
 void mem_copy(void *dst, const void *src, uptr size);
+// memmove
 void mem_move(void *dst, const void *src, uptr size);
+// memset
 void mem_zero(void *dst, uptr size);
 
 // Memory blocks are used in arena-like allocators

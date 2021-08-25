@@ -1,18 +1,62 @@
 #include "filesystem.h"
 
-#define FILESYSTEM_HASH_SIZE 128
+#include <stdio.h>
 
-typedef struct FilesystemHashEntry {
+#include "strings.h"
+#include "memory.h"
+#include "hashing.h"
+
+typedef struct FilesystemFile {
+    char *name;
+    FileData data;
     
-} FilesystemHashEntry;
+    struct FilesystemFile *next;
+} FilesystemFile;
 
-// Filesystem provides hash-based way to retrieve text information from different sources.
-// Altough it is named filesystem, generally it servers as hash table for getting text based on name string.
-// It still can be used to get text file data.
-// 
 typedef struct Filesystem {
-    FilesystemHashEntry hash[FILESYSTEM_HASH_SIZE];  
+    MemoryArena arena;
+    
+    FilesystemFile *files;
 } Filesystem;
 
-// static Filesystem filesystem;
+static Filesystem filesystem;
 
+FileData *get_file_data(const char *filename) {
+    FileData *result = 0;
+    
+    FilesystemFile *file = 0;
+    for (FilesystemFile *scan = filesystem.files;
+         scan;
+         scan = scan->next) {
+        if (str_eq(scan->name, filename)) {
+            file = scan;
+            break;
+        }        
+    }
+    
+    if (file) {
+        result = &file->data;
+    } else {
+        file = arena_alloc_struct(&filesystem.arena, FilesystemFile);
+        file->name = arena_alloc_str(&filesystem.arena, filename);
+        
+        FILE *file_obj = fopen(filename, "rb");
+        if (file_obj) {
+            fseek(file_obj, 0, SEEK_END);
+            uptr len = ftell(file_obj);
+            fseek(file_obj, 0, SEEK_SET);
+            file->data.data_size = len;
+            file->data.data = arena_alloc(&filesystem.arena, len);
+            fread(file->data.data, 1, len, file_obj);
+        }
+        
+        LLIST_ADD(filesystem.files, file);
+        result = &file->data;
+    }
+    
+    return result;
+}
+
+const char *get_file_at(SourceLocation loc) {
+    return 0;
+}

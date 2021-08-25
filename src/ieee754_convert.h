@@ -111,6 +111,7 @@ static void ieee754_convert_abstracted(const char *str, int unsigned length,
     // adjust the exponent
     ieee754_convert_u64 exponent_bias = (1 << (info.exponent_bits - 1)) - 1;
     ieee754_convert_u64 exponent_biased = exponent + exponent_bias;
+    assert(exponent_biased < (1 << info.exponent_bits));
     // normalize the mantissa
     // remove leading 1
     ieee754_convert_u64 mantissa = combined & ((1llu << combined_point_index) - 1);
@@ -176,5 +177,60 @@ int ieee754_convert_check_correctness() {
     return result;
 }
 
+#if 0
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <math.h>
+
+void benchmark_ieee754_convert() {
+    int times = 10000;
+    double *values = calloc(times, sizeof(double));
+    char **value_strings = calloc(times, sizeof(char *));
+    int string_buffer_size = 1 << 20;
+    char *value_strings_buffer = calloc(string_buffer_size, 1);
+    int *lengths = calloc(times, sizeof(int));
+    int value_strings_buffer_idx = 0;
+    for (int i = 0; i < times; ++i) {
+        double value = (double)rand() / (double)RAND_MAX;
+        value = value * 100000;
+        
+        int length = sprintf(value_strings_buffer + value_strings_buffer_idx, "%f", value);
+        value_strings[i] = value_strings_buffer + value_strings_buffer_idx;
+        values[i] = value;
+        lengths[i] = length;
+        value_strings_buffer_idx += length + 1;
+    }
+    
+    double epsilon = 0.000001;
+    
+    int str_to_f64_misses = 0;
+    clock_t str_to_f64_start = clock();
+    for (int i = 0; i < times; ++i) {
+        double value = ieee754_convert_f64(value_strings[i], lengths[i]);        
+        str_to_f64_misses += (fabs(value - values[i]) > epsilon);
+    }
+    clock_t str_to_f64_end = clock();
+    clock_t atof_start = clock();
+    int atof_misses = 0;
+    for (int i = 0; i < times; ++i) {
+        double value = atof(value_strings[i]);        
+        atof_misses += (fabs(value - values[i]) > epsilon);
+    }
+    clock_t atof_end = clock();
+ 
+    int str_to_f64_total = str_to_f64_end - str_to_f64_start;   
+    int atof_total = atof_end - atof_start;
+    double str_to_f64_total_time = (double)str_to_f64_total * CLOCKS_PER_SEC;
+    double atof_total_time = (double)atof_total * CLOCKS_PER_SEC;
+    double str_to_f64_average = str_to_f64_total_time / (double)times;
+    double atof_average = atof_total_time / (double)times;
+    printf("ieee754_convert_f64: %.2f total, %.6f average, missses: %d\n", str_to_f64_total_time, str_to_f64_average, str_to_f64_misses);
+    printf("atof: %.2f total, %.6f average, missses: %d\n", atof_total_time, atof_average, atof_misses);
+}
+
+#endif 
 
 #endif 

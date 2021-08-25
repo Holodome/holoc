@@ -3,14 +3,21 @@
 #include "strings.h"
 
 #include <string.h> // memset, memcpy, memmove
-#include <stdlib.h>
+#include <stdlib.h> // malloc, free
 
 void *mem_alloc(uptr size) {
     void *result = 0;
     result = malloc(size);
     assert(result);
-    memset(result, 0, size);
+    mem_zero(result, size);
     return result;
+}
+
+char *mem_alloc_str(char *str) {
+    uptr len = str_len(str) + 1;
+    char *result = mem_alloc(len);
+    mem_copy(result, str, len);
+    return result;    
 }
 
 void mem_free(void *ptr) {

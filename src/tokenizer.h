@@ -60,3 +60,5 @@ Token *peek_tok(Tokenizer *tokenizer);
 void eat_tok(Tokenizer *tokenizer);
 // call eat_tok and return peek_tok
 Token *peek_next_tok(Tokenizer *tokenizer);
+
+void fmt_tok(char *buf, uptr buf_sz, Token *token);

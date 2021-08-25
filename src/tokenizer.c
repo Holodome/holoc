@@ -128,3 +128,27 @@ Token *peek_next_tok(Tokenizer *tokenizer) {
     eat_tok(tokenizer);
     return peek_tok(tokenizer);    
 }
+
+void fmt_tok(char *buf, uptr buf_sz, Token *token) {
+    if (token->kind < TOKEN_EOS) {
+        fmt(buf, buf_sz, "[%c]", token->kind);
+    } else {
+        switch (token->kind) {
+            case TOKEN_EOS: {
+                fmt(buf, buf_sz, "[EOS]");
+            } break;
+            case TOKEN_IDENT: {
+                fmt(buf, buf_sz, "[IDENT %s]", token->value_str);
+            } break;
+            case TOKEN_STR: {
+                fmt(buf, buf_sz, "[STR %s]", token->value_str);
+            } break;
+            case TOKEN_INT: {
+                fmt(buf, buf_sz, "[INT %lld]", token->value_int);
+            } break;
+            case TOKEN_REAL: {
+                fmt(buf, buf_sz, "[REAL %f]", token->value_real);
+            } break;
+        }
+    }
+}
