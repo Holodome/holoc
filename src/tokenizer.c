@@ -17,11 +17,48 @@ void delete_tokenizer(Tokenizer *tokenizer) {
     arena_clear(&tokenizer->arena);
 }
 
-static void advance(Tokenizer *tokenizer) {
-    ++tokenizer->symb_number;
-    ++tokenizer->cursor;
-    tokenizer->symb = *tokenizer->cursor;
+// Returns current index in tokenizer.
+// Same can be achieved using separate variable for counting,
+// which is less preferable due to increased complexity and neglible perfomace change (single instruction)
+static uptr get_buffer_idx(Tokenizer *tokenizer) {
+    return tokenizer->cursor - tokenizer->buffer;
 }
+
+static b32 has_space_for(Tokenizer *tokenizer, u32 count) {
+    return get_buffer_idx(tokenizer) + count < tokenizer->buffer_size;
+}
+
+// Safely advance cursor. If end of buffer is reached, 0 is set to tokenizer->symb and  
+// false is returned
+static b32 advance(Tokenizer *tokenizer) {
+    b32 result = TRUE;
+    if (has_space_for(tokenizer, 1)) {
+        ++tokenizer->symb_number;
+        ++tokenizer->cursor;
+        tokenizer->symb = *tokenizer->cursor;
+    } else {
+        tokenizer->symb = 0;
+        result = FALSE;
+    }
+    return result;
+}
+
+static b32 next_eq(Tokenizer *tokenizer, const char *str) {
+    
+}
+
+#define check_multigraph(_tokenizer, _str) check_multigraph_(_tokenizer, _str, sizeof(_str) - 1) 
+static void check_multigraph_(Tokenizer *tokenizer, const char *str, uptr len) {
+    b32 result = FALSE;
+    if (next_eq(tokenizer, str)) {
+        while (len--) {
+            advance(tokenizer);
+        }
+        result = TRUE;
+    }
+    return result;
+}
+
 
 Token *peek_tok(Tokenizer *tokenizer) {
     Token *token = tokenizer->active_token;
@@ -30,8 +67,8 @@ Token *peek_tok(Tokenizer *tokenizer) {
         tokenizer->active_token = token;
 
         for (;;) {
-            if (tokenizer->cursor - tokenizer->buffer >= tokenizer->buffer_size || 
-                    !tokenizer->symb) {
+            assert(has_space_for(tokenizer, 1));
+            if (!tokenizer->symb) {
                 token->kind = TOKEN_EOS;
                 break;
             }
@@ -49,7 +86,7 @@ Token *peek_tok(Tokenizer *tokenizer) {
                     advance(tokenizer);
                 }
                 continue;
-            }
+            } else if (next_eq)
             
             SourceLocation source_loc;
             source_loc.source_name = tokenizer->source_name;
@@ -87,8 +124,17 @@ Token *peek_tok(Tokenizer *tokenizer) {
                 char *str = arena_alloc(&tokenizer->arena, len + 1);
                 mem_copy(str, start, len);
                 str[len] = 0;
-                token->kind = TOKEN_IDENT;
-                token->value_str = str;
+                
+                if (str_eq(str, "print")) {
+                    token->kind = TOKEN_KW_PRINT;
+                } else if (str_eq(str, "while")) {
+                    token->kind = TOKEN_KW_WHILE;
+                } else if (str_eq(str, "return")) {
+                    token->kind = TOKEN_KW_RETURN;
+                } else {
+                    token->kind = TOKEN_IDENT;
+                    token->value_str = str;
+                }
                 break;
             } else if (tokenizer->symb == '\"') {
                 advance(tokenizer);
@@ -105,7 +151,16 @@ Token *peek_tok(Tokenizer *tokenizer) {
                 token->value_str = str;
                 break;
             } else if (is_punct(tokenizer->symb)) {
-                token->kind = tokenizer->symb;
+                // Because muttiple operators can be put together (+=-2),
+                // first check by descending length
+                if (next_eq(tokenizer, "<<=")) {
+                    token->kind = TOKEN_ILSHIFT;
+                    advance_multiple(tokenizer, 3);
+                } else if (next_eq(tokenizer->))
+                } else {
+                    // All unhandled cases before - single character 
+                    token->kind = tokenizer->symb;
+                }
                 advance(tokenizer);
                 break;
             } else {

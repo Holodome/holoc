@@ -1,7 +1,18 @@
+// memory.h
+// Defines memory-related functions, as well as block and arena allocator.
+// Note that behaviour of allocator and idea behind it is different from standard libary
+// All allocated memory is always implicitly set 0, (Zero Is Initialization - unlike RAII)
+// Defining own memory allocation functions is useful in debugging - 
+// virtual memory-based bounds checking can be implicitly done in debugger with use of 
+// os protection functions (ex. VirtualProtect on windows)
+// 
+// Idea behind ZII is to provide general way of allocating objects. Thus it can be said 
+// that any (besides things that don't) object can be created by setting it to zero.
+// ex. MemoryArena arena = {0}; // Arena can be used from now, without explicit initializtion (arena = create_arena(...))
 #pragma once 
 #include "general.h"
 
-// Wrappers for stdandard functions
+// standard library-like functions
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory
 // using mem_alloc instead of arena allocators is not advised in general use-cases
 // malloc
@@ -18,13 +29,12 @@ void mem_move(void *dst, const void *src, uptr size);
 void mem_zero(void *dst, uptr size);
 
 // Memory blocks are used in arena-like allocators
-// Instead of callyng system allocation procedure each time allocation needs to be made, 
-// the program allocates blocks of memory in advance and allocates from them later
-// Although this potentially wastes some space, usually this is not the issue
+// Used to batch several allocations together instead of making multiple os callss
 typedef struct MemoryBlock { 
     uptr size; 
     uptr used; 
     u8 *base;
+    // Used only in arena, not related to block itselfs
     struct MemoryBlock *next;
 } MemoryBlock;
 
@@ -33,10 +43,22 @@ MemoryBlock *mem_alloc_block(uptr size);
 
 #define MEMORY_ARENA_DEFAULT_MINIMAL_BLOCK_SIZE MB(4)
 #define MEMORY_ARENA_DEFAULT_ALIGNMENT 16
+
+// Region-based memory management.
+// In most cases, memory allocation lifetime can be logically assigned to lifetime
+// of some parent object. For example, all tokens exist within tokenizer, AST exists 
+// within parser etc. 
+// Because of that, life of programmer can be made easier by using arena allocators.
+// By allocating on arena, freeing all memory can be done in single call, without need
+// to manually free each object. Besides that, arena allocator allocates big blocks of 
+// memory in advance, which lowers number of OS calls, which makes memory consumption of 
+// single allocation more stable (which ofthen becomes bottleneck in other cases).  
+//
 // Structure used to link several allocations together as well as allocate from blocks
 // Can be zero-initialized, then minimal_block_size is set to default value
 // How arena manages its blocks is not controlled by other parts of this program
 // Calling arena-based allocation functions makes the most optimal allocation in terms of saving memory
+// and user has no control over that.
 typedef struct MemoryArena {
     MemoryBlock *current_block;
     uptr minimum_block_size;

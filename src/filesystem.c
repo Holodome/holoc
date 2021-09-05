@@ -37,21 +37,21 @@ FileData *get_file_data(const char *filename) {
     if (file) {
         result = &file->data;
     } else {
-        file = arena_alloc_struct(&filesystem.arena, FilesystemFile);
-        file->name = arena_alloc_str(&filesystem.arena, filename);
-        
         FILE *file_obj = fopen(filename, "rb");
         if (file_obj) {
+            file = arena_alloc_struct(&filesystem.arena, FilesystemFile);
+            file->name = arena_alloc_str(&filesystem.arena, filename);
+            
             fseek(file_obj, 0, SEEK_END);
             uptr len = ftell(file_obj);
             fseek(file_obj, 0, SEEK_SET);
             file->data.data_size = len;
             file->data.data = arena_alloc(&filesystem.arena, len);
             fread(file->data.data, 1, len, file_obj);
-        }
-        
-        LLIST_ADD(filesystem.files, file);
-        result = &file->data;
+           
+            LLIST_ADD(filesystem.files, file);
+            result = &file->data;
+        } 
     }
     
     return result;

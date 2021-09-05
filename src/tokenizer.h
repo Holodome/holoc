@@ -12,7 +12,30 @@ enum {
     TOKEN_IDENT, // value_str
     TOKEN_INT, // value_int
     TOKEN_REAL, // value_real
-    TOKEN_STR, // value_str
+    TOKEN_STR, // value_str,
+    
+    TOKEN_KW_PRINT, // print
+    TOKEN_KW_WHILE, // while
+    TOKEN_KW_RETURN, // return 
+    // Digraphs and trigraphs
+    TOKEN_LE, // <=
+    TOKEN_GE, // >=
+    TOKEN_EQ, // == 
+    TOKEN_NE, // !=
+    TOKEN_LSHIFT, // <<
+    TOKEN_RSHIFT, // >>
+    // TOKEN_POW TODO
+    TOKEN_IADD, // +=
+    TOKEN_ISUB, // -=
+    TOKEN_IAND, // &=
+    TOKEN_IOR, // |=
+    TOKEN_IXOR, // ^=
+    TOKEN_IMOD, // %= 
+    TOKEN_IDIV, // /=
+    TOKEN_IMUL, // *=
+    
+    TOKEN_ILSHIFT, // <<=
+    TOKEN_IRIGHTSHIFT, // >>= 
 };
 
 typedef struct Token {
@@ -34,15 +57,16 @@ typedef struct Token {
 // Tokenizer does not do error handling in inselft, instead it provides error tokens (TOKEN_NONE) that usage code can decide what to do with.
 // This way error handling can be centralized, because errors can happen in several places, not only in tokenizing.
 typedef struct Tokenizer {
+    // Stores copy of given buffer and all tokens.
     MemoryArena arena;
     // Buffer is copied on tokenizer arena and deleted with tokenizer
     // Tag string set by usage code. It is set into source_location in tokens and can be used elsewhere
     char *source_name;
     u8 *buffer;
     uptr buffer_size;
-    
+    // Internal indicator used to navigate buffer
     u8 *cursor;
-    // Current symbol
+    // Current symbol. Besides that, used for indicating end of buffer (0)
     u32 symb;
     u32 line_number;
     u32 symb_number;
