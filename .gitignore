@@ -488,3 +488,4 @@ build/
 *.vars
 
 .vscode/
+.DS_Store
