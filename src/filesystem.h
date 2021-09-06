@@ -1,8 +1,10 @@
 #pragma once
 #include "general.h"
 
-// Structure that can be used to retrieve text from filesystem, for example for error hanndling.
-// See filesystem for details
+typedef struct FileID {
+    u32 value;
+} FileID;
+
 typedef struct SourceLocation {
     const char *source_name;
     int line;
@@ -17,10 +19,19 @@ typedef struct FileData {
     uptr data_size;
 } FileData;
 
-// If file is not loaded, loads it and returns data.
-// If it is already loaded, just return data
-// 0 means error
-// @TODO find a way to tell error 
-FileData *get_file_data(const char *filename);
+FileID get_id_for_buffer(const char *buf, )
+FileID get_id_for_filename(const char *filename);
+
+// Load file procedure
+FileData *DEBUG_get_file_data(const char *filename);
 // returns pointer to source location inside file contents
 const char *get_file_at(SourceLocation loc);
+
+#if 0
+FileID file_id = get_id_for_filename("input.txt");
+Tokenizer tokenizer = create_tokenizer(file_id);
+
+FileID buffer_id = get_id_for_raw("a := 2; print a;", "test1");
+Tokenizer tokenizer = create_tokenizer(file_id);
+
+#endif 

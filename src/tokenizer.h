@@ -5,26 +5,47 @@
 
 #include "filesystem.h" // SourceLocation
 
+#define MAX_IDENT_LEN 32
+#define TOKEN_GENERAL 0x100
+#define TOKEN_KEYWORD 0x120
+#define TOKEN_MULTISYMB 0x160
+#define IS_TOKEN_ASCII(_tok) (0 <= (_tok) && (_tok) <= 255)
+#define IS_TOKEN_GENERAL(_tok) (TOKEN_GENERAL <= (_tok) && (_tok) < TOKEN_KEYWORD)
+#define IS_TOKEN_KEYWORD(_tok) (TOKEN_KEYWORD <= (_tok) && (_tok) < TOKEN_MULTISYMB)
+#define IS_TOKEN_MULTISYMB(_tok) (TOKEN_MULTISYMB <= (_tok) && (_tok) < TOKEN_COUNT)
+// Token kind space is reserved to handle expanding easilly
+// Values 0-255 correspond to single-symbol ASCII tokens
+// Values 256-287 (32) correspond to basic kinds
+// Values 288-351 (64) correspond to keywords 
+// Values 352-(TOKEN_COUNT - 1) correspond to multisymbol tokens
 enum {
     TOKEN_NONE = 0x0,
     // Mentally insert ASCII tokens here...
-    TOKEN_EOS = 0x100, 
+    TOKEN_EOS = TOKEN_GENERAL, 
     TOKEN_IDENT, // value_str
     TOKEN_INT, // value_int
     TOKEN_REAL, // value_real
     TOKEN_STR, // value_str,
     
-    TOKEN_KW_PRINT, // print
+    TOKEN_KW_PRINT = TOKEN_KEYWORD, // print
     TOKEN_KW_WHILE, // while
     TOKEN_KW_RETURN, // return 
+    TOKEN_KW_IF, // if 
+    TOKEN_KW_ELSE, // else
+    TOKEN_KW__END,
+    
     // Digraphs and trigraphs
+    TOKEN_ILSHIFT = TOKEN_MULTISYMB, // <<=
+    TOKEN_IRSHIFT, // >>= 
+    
+    TOKEN_DECL, // ::
+    TOKEN_ARR, // ->
     TOKEN_LE, // <=
     TOKEN_GE, // >=
     TOKEN_EQ, // == 
-    TOKEN_NE, // !=
+    TOKEN_NEQ, // !=
     TOKEN_LSHIFT, // <<
     TOKEN_RSHIFT, // >>
-    // TOKEN_POW TODO
     TOKEN_IADD, // +=
     TOKEN_ISUB, // -=
     TOKEN_IAND, // &=
@@ -34,8 +55,7 @@ enum {
     TOKEN_IDIV, // /=
     TOKEN_IMUL, // *=
     
-    TOKEN_ILSHIFT, // <<=
-    TOKEN_IRIGHTSHIFT, // >>= 
+    TOKEN_COUNT,
 };
 
 typedef struct Token {

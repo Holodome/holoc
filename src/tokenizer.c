@@ -2,6 +2,44 @@
 
 #include "strings.h"
 
+static const char *TOKEN_BASIC_STRS[] = {
+    "EOS",
+    "Ident",
+    "Int",
+    "Real",
+    "Str"
+};  
+
+static const char *KEYWORD_STRS[] = {
+    "print",
+    "while",
+    "return",
+    "if",
+    "else"
+};
+
+static const char *MULTISYMB_STRS[] = {
+    "<<=",
+    ">>=",
+    "::",
+    "->",
+    "<=",
+    ">=",
+    "==",
+    "!=",
+    "<<",
+    ">>",
+    "+=",
+    "-=",
+    "&=",
+    "|=",
+    "^=",
+    "%=",
+    "/=",
+    "*=",
+};  
+
+
 Tokenizer create_tokenizer(const void *buffer, uptr buffer_size, const char *name) {
     Tokenizer tokenizer = {0};
     tokenizer.buffer = arena_copy(&tokenizer.arena, buffer, buffer_size);
@@ -43,22 +81,38 @@ static b32 advance(Tokenizer *tokenizer) {
     return result;
 }
 
-static b32 next_eq(Tokenizer *tokenizer, const char *str) {
-    
+static b32 next_eq(Tokenizer *tokenizer, const char *str, uptr *out_len) {
+    b32 result = FALSE;
+    uptr len = str_len(str);
+    if (has_space_for(tokenizer, len)) {
+        result = str_eqn((const char *)tokenizer->cursor, str, len);
+    }
+    if (out_len) {
+        *out_len = len;
+    }
+    return result;
 }
 
-#define check_multigraph(_tokenizer, _str) check_multigraph_(_tokenizer, _str, sizeof(_str) - 1) 
-static void check_multigraph_(Tokenizer *tokenizer, const char *str, uptr len) {
+static b32 parse(Tokenizer *tokenizer, const char *str) {
     b32 result = FALSE;
-    if (next_eq(tokenizer, str)) {
+    uptr len = 0;
+    if (next_eq(tokenizer, str, &len)) {
         while (len--) {
-            advance(tokenizer);
+            b32 temp = advance(tokenizer);
+            assert(temp);
         }
         result = TRUE;
     }
     return result;
 }
 
+// NOTE: that this function is different from other error functions in program.
+// This is due to the fact that tokenizer has its own copy of input buffer
+// Ideally all error calls have to go through filesystem (or buffer system)
+// This may help with big files, when we don't load whole text thing in memory at once
+static void report_error(Tokenizer *tokenizer, SourceLocation *loc) {
+    
+}
 
 Token *peek_tok(Tokenizer *tokenizer) {
     Token *token = tokenizer->active_token;
@@ -67,26 +121,34 @@ Token *peek_tok(Tokenizer *tokenizer) {
         tokenizer->active_token = token;
 
         for (;;) {
-            assert(has_space_for(tokenizer, 1));
             if (!tokenizer->symb) {
                 token->kind = TOKEN_EOS;
                 break;
             }
             
-            if (tokenizer->symb == '\n') {
+            if (parse(tokenizer, "\n") || parse(tokenizer, "\n\r")) {
                 ++tokenizer->line_number;
                 tokenizer->symb_number = 0;
-                advance(tokenizer);
                 continue;
             } else if (is_space(tokenizer->symb)) {
                 advance(tokenizer);
                 continue;
-            } else if (tokenizer->symb == '#') {
+            } else if (parse(tokenizer, "//")) {
                 while (tokenizer->symb != '\n') {
                     advance(tokenizer);
                 }
                 continue;
-            } else if (next_eq)
+            } else if (parse(tokenizer, "/*")) {
+                for (;;) {
+                    do {
+                        advance(tokenizer);
+                    } while (tokenizer->symb != '*');
+                    if (parse(tokenizer, "*/")) {
+                        break;
+                    }
+                }
+                continue;
+            }
             
             SourceLocation source_loc;
             source_loc.source_name = tokenizer->source_name;
@@ -125,13 +187,14 @@ Token *peek_tok(Tokenizer *tokenizer) {
                 mem_copy(str, start, len);
                 str[len] = 0;
                 
-                if (str_eq(str, "print")) {
-                    token->kind = TOKEN_KW_PRINT;
-                } else if (str_eq(str, "while")) {
-                    token->kind = TOKEN_KW_WHILE;
-                } else if (str_eq(str, "return")) {
-                    token->kind = TOKEN_KW_RETURN;
-                } else {
+                for (u32 i = TOKEN_KW_PRINT, local_i = 0; i <= TOKEN_KW_ELSE; ++i, ++local_i) {
+                    if (str_eq(KEYWORD_STRS[local_i], str)) {
+                        token->kind = i;
+                        break;
+                    }
+                }
+                
+                if (!token->kind) {
                     token->kind = TOKEN_IDENT;
                     token->value_str = str;
                 }
@@ -152,16 +215,20 @@ Token *peek_tok(Tokenizer *tokenizer) {
                 break;
             } else if (is_punct(tokenizer->symb)) {
                 // Because muttiple operators can be put together (+=-2),
-                // first check by descending length
-                if (next_eq(tokenizer, "<<=")) {
-                    token->kind = TOKEN_ILSHIFT;
-                    advance_multiple(tokenizer, 3);
-                } else if (next_eq(tokenizer->))
-                } else {
+                // check by descending length
+                // @TODO correct length
+                for (u32 i = TOKEN_ILSHIFT, local_i = 0; i <= TOKEN_IMUL; ++i, ++local_i) {
+                    if (parse(tokenizer, MULTISYMB_STRS[local_i])) {
+                        token->kind = i;
+                        break;
+                    }
+                }
+                
+                if (!token->kind) {
                     // All unhandled cases before - single character 
                     token->kind = tokenizer->symb;
+                    advance(tokenizer);
                 }
-                advance(tokenizer);
                 break;
             } else {
                 token->kind = TOKEN_NONE;
@@ -185,24 +252,28 @@ Token *peek_next_tok(Tokenizer *tokenizer) {
 }
 
 void fmt_tok(char *buf, uptr buf_sz, Token *token) {
-    if (token->kind < TOKEN_EOS) {
-        fmt(buf, buf_sz, "[%c]", token->kind);
+    if (IS_TOKEN_ASCII(token->kind)) {
+        fmt(buf, buf_sz, "%c", token->kind);
+    } else if (IS_TOKEN_MULTISYMB(token->kind)) {
+        fmt(buf, buf_sz, "%s", MULTISYMB_STRS[token->kind - TOKEN_MULTISYMB]);
+    } else if (IS_TOKEN_KEYWORD(token->kind)) {
+        fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[token->kind - TOKEN_KEYWORD]);
     } else {
         switch (token->kind) {
             case TOKEN_EOS: {
-                fmt(buf, buf_sz, "[EOS]");
+                fmt(buf, buf_sz, "<EOS>");
             } break;
             case TOKEN_IDENT: {
-                fmt(buf, buf_sz, "[IDENT %s]", token->value_str);
+                fmt(buf, buf_sz, "<ident>%s", token->value_str);
             } break;
             case TOKEN_STR: {
-                fmt(buf, buf_sz, "[STR %s]", token->value_str);
+                fmt(buf, buf_sz, "<str>%s", token->value_str);
             } break;
             case TOKEN_INT: {
-                fmt(buf, buf_sz, "[INT %lld]", token->value_int);
+                fmt(buf, buf_sz, "<int>%lld", token->value_int);
             } break;
             case TOKEN_REAL: {
-                fmt(buf, buf_sz, "[REAL %f]", token->value_real);
+                fmt(buf, buf_sz, "<real>%f", token->value_real);
             } break;
         }
     }

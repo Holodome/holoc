@@ -77,6 +77,24 @@ static void ast_view(AST *ast, int depth) {
     
 }
 
+static void token_view(Tokenizer *tokenizer) {
+    SourceLocation *last_source_location = 0;
+    
+    Token *token = peek_tok(tokenizer);
+    while (token->kind != TOKEN_EOS) {
+        if (last_source_location && token->source_loc.line != last_source_location->line) {
+            outf("\n");
+        }
+        last_source_location = &token->source_loc;
+        
+        char buffer[128];
+        fmt_tok(buffer, sizeof(buffer), token);
+        outf("%s ", buffer);
+        token = peek_next_tok(tokenizer);
+    }
+    outf("\n");
+}
+
 int main(int argc, char **argv) {
     ProgramSettings settings = parse_command_line_args(argc, argv);
     if (settings.print_help) {
@@ -102,13 +120,7 @@ int main(int argc, char **argv) {
             (void)ast;
         } break;
         case PROGRAM_TOKEN_VIEW: {
-            Token *token = peek_tok(&tokenizer);
-            while (token->kind != TOKEN_EOS) {
-                char buffer[128];
-                fmt_tok(buffer, sizeof(buffer), token);
-                outf("%s\n", buffer);
-                token = peek_next_tok(&tokenizer);
-            }
+            token_view(&tokenizer);
         } break;
         case PROGRAM_AST_VIEW: {
             Parser parser = create_parser(&tokenizer);

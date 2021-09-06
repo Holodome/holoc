@@ -21,7 +21,7 @@ typedef struct Filesystem {
 
 static Filesystem filesystem;
 
-FileData *get_file_data(const char *filename) {
+FileData *DEBUG_get_file_data(const char *filename) {
     FileData *result = 0;
     
     FilesystemFile *file = 0;
