@@ -161,3 +161,14 @@ void outf(const char *msg, ...) {
 void voutf(const char *msg, va_list args) {
     vprintf(msg, args);
 }
+
+void erroutf(const char *msg, ...) {
+    va_list args;
+    va_start(args, msg);
+    verroutf(msg, args);
+    va_end(args);
+}
+
+void verroutf(const char *msg, va_list args) {
+    vfprintf(stderr, msg, args);
+}

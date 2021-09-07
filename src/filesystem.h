@@ -6,7 +6,7 @@ typedef struct FileID {
 } FileID;
 
 typedef struct SourceLocation {
-    const char *source_name;
+    FileID file_id;
     int line;
     int symb;  
 } SourceLocation;
@@ -19,19 +19,9 @@ typedef struct FileData {
     uptr data_size;
 } FileData;
 
-FileID get_id_for_buffer(const char *buf, )
-FileID get_id_for_filename(const char *filename);
-
-// Load file procedure
-FileData *DEBUG_get_file_data(const char *filename);
-// returns pointer to source location inside file contents
-const char *get_file_at(SourceLocation loc);
-
-#if 0
-FileID file_id = get_id_for_filename("input.txt");
-Tokenizer tokenizer = create_tokenizer(file_id);
-
-FileID buffer_id = get_id_for_raw("a := 2; print a;", "test1");
-Tokenizer tokenizer = create_tokenizer(file_id);
-
-#endif 
+const char *get_file_name(FileID id);
+const FileData *get_file_data(FileID id);
+// @TODO limit on name length
+FileID get_file_id_for_buffer(const char *buf, uptr buf_sz, const char *name);
+FileID get_file_id_for_str(const char *str, const char *name);
+FileID get_file_id_for_filename(const char *filename);

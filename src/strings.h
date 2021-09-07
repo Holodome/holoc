@@ -29,3 +29,5 @@ u32 utf8_decode(const u8 *src,u32 *len_out);
 // Printf wrappers
 void outf(const char *msg, ...);
 void voutf(const char *msg, va_list args);
+void erroutf(const char *msg, ...);
+void verroutf(const char *msg, va_list args);
