@@ -27,7 +27,7 @@ u32 utf8_encode(u32 utf32, u8 *dst);
 // length is written in len. If len equals 0, error happened
 u32 utf8_decode(const u8 *src,u32 *len_out);
 // Printf wrappers
-void outf(const char *msg, ...);
-void voutf(const char *msg, va_list args);
-void erroutf(const char *msg, ...);
-void verroutf(const char *msg, va_list args);
+uptr outf(const char *msg, ...);
+uptr voutf(const char *msg, va_list args);
+uptr erroutf(const char *msg, ...);
+uptr verroutf(const char *msg, va_list args);

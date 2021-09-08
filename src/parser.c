@@ -3,25 +3,17 @@
 #include "strings.h"
 #include "tokenizer.h"
 #include "ast.h"
+#include "interp.h"
 
-static void report_error(Token *token, const char *msg, ...) {
-    va_list args;
-    va_start(args, msg);
-    // @TODO capture source location
-    voutf(msg, args);
-    va_end(args);
-}
-
-static void report_unexpected_token(Token *token, u32 expected) {
-    report_error(token, "%s:%u:%u Token %u expected (got %u)\n",
-        token->source_loc.source_name, token->source_loc.line, token->source_loc.symb,
+static void report_unexpected_token(Parser *parser, Token *token, u32 expected) {
+    report_error_tok(parser->interp, token, "Token %u expected (got %u)\n",
         expected, token->kind);
 }
 
-static b32 expect_tok(Token *token, u32 kind) {
+static b32 expect_tok(Parser *parser, Token *token, u32 kind) {
     b32 result = TRUE;
     if (token->kind != kind) {
-        report_unexpected_token(token, kind);
+        report_unexpected_token(parser, token, kind);
         result = FALSE;
     }
     return result;
@@ -48,9 +40,10 @@ static AST *create_int_lit(Parser *parser, i64 value) {
     return literal;
 }
 
-Parser create_parser(struct Tokenizer *tokenizer) {
+Parser create_parser(struct Tokenizer *tokenizer, struct Interp *interp) {
     Parser result = {0};
     result.tokenizer = tokenizer;
+    result.interp = interp;
     return result;
 }
 
@@ -76,7 +69,7 @@ AST *parse_expr2(Parser *parser) {
             eat_tok(parser->tokenizer);
             AST *temp = parse_expr(parser);
             token = peek_tok(parser->tokenizer);
-            if (expect_tok(token, ')')) {
+            if (expect_tok(parser, token, ')')) {
                 expr = temp;
                 eat_tok(parser->tokenizer);
             }
@@ -97,7 +90,7 @@ AST *parse_expr2(Parser *parser) {
         } break;
         default: {
             // @TODO find way to provide correct tokens
-            report_unexpected_token(token, TOKEN_NONE);
+            report_unexpected_token(parser, token, TOKEN_NONE);
         } 
     }
     return expr;
@@ -153,11 +146,11 @@ AST *parse_expr(Parser *parser) {
 AST *parse_assign(Parser *parser) {
     AST *assign = 0;
     Token *token = peek_tok(parser->tokenizer);
-    if (expect_tok(token, TOKEN_IDENT)) {
+    if (expect_tok(parser, token, TOKEN_IDENT)) {
         AST *ident = create_ident(parser, token->value_str);
         
         token = peek_next_tok(parser->tokenizer);
-        if (expect_tok(token, '=')) {
+        if (expect_tok(parser, token, '=')) {
             token = peek_next_tok(parser->tokenizer);
             AST *expr = parse_expr(parser);
             
@@ -175,10 +168,10 @@ AST *parse_statement(Parser *parser) {
     if (token->kind == TOKEN_IDENT) {
         statement = parse_assign(parser);
     } else {
-        report_unexpected_token(token, TOKEN_IDENT);
+        report_unexpected_token(parser, token, TOKEN_IDENT);
     }
     token =  peek_tok(parser->tokenizer);
-    if (expect_tok(token, ';')) {
+    if (expect_tok(parser, token, ';')) {
         eat_tok(parser->tokenizer);
     }
     return statement;

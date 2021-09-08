@@ -40,14 +40,16 @@ static const char *MULTISYMB_STRS[] = {
 };  
 
 
-Tokenizer create_tokenizer(const void *buffer, uptr buffer_size, const char *name) {
+Tokenizer create_tokenizer(FileID id) {
+    const FileData *file_data = get_file_data(id);
+    
     Tokenizer tokenizer = {0};
-    tokenizer.buffer = arena_copy(&tokenizer.arena, buffer, buffer_size);
-    tokenizer.buffer_size = buffer_size;
+    tokenizer.file_id = id;
+    tokenizer.buffer = arena_copy(&tokenizer.arena, file_data->data, file_data->size);
+    tokenizer.buffer_size = file_data->size;
     tokenizer.line_number = 1;
     tokenizer.symb = *tokenizer.buffer;
     tokenizer.cursor = tokenizer.buffer;
-    tokenizer.source_name = arena_alloc_str(&tokenizer.arena, name);
     return tokenizer;
 }
 
@@ -106,14 +108,6 @@ static b32 parse(Tokenizer *tokenizer, const char *str) {
     return result;
 }
 
-// NOTE: that this function is different from other error functions in program.
-// This is due to the fact that tokenizer has its own copy of input buffer
-// Ideally all error calls have to go through filesystem (or buffer system)
-// This may help with big files, when we don't load whole text thing in memory at once
-static void report_error(Tokenizer *tokenizer, SourceLocation *loc) {
-    
-}
-
 Token *peek_tok(Tokenizer *tokenizer) {
     Token *token = tokenizer->active_token;
     if (!token) {
@@ -151,7 +145,6 @@ Token *peek_tok(Tokenizer *tokenizer) {
             }
             
             SourceLocation source_loc;
-            source_loc.source_name = tokenizer->source_name;
             source_loc.line = tokenizer->line_number;
             source_loc.symb = tokenizer->symb_number;
             token->source_loc = source_loc;
@@ -216,7 +209,6 @@ Token *peek_tok(Tokenizer *tokenizer) {
             } else if (is_punct(tokenizer->symb)) {
                 // Because muttiple operators can be put together (+=-2),
                 // check by descending length
-                // @TODO correct length
                 for (u32 i = TOKEN_ILSHIFT, local_i = 0; i <= TOKEN_IMUL; ++i, ++local_i) {
                     if (parse(tokenizer, MULTISYMB_STRS[local_i])) {
                         token->kind = i;
@@ -224,14 +216,14 @@ Token *peek_tok(Tokenizer *tokenizer) {
                     }
                 }
                 
+                // All unhandled cases before - single character 
                 if (!token->kind) {
-                    // All unhandled cases before - single character 
                     token->kind = tokenizer->symb;
                     advance(tokenizer);
                 }
                 break;
             } else {
-                token->kind = TOKEN_NONE;
+                token->kind = TOKEN_ERROR;
                 advance(tokenizer);
                 break;
             }
@@ -258,7 +250,7 @@ void fmt_tok(char *buf, uptr buf_sz, Token *token) {
         fmt(buf, buf_sz, "%s", MULTISYMB_STRS[token->kind - TOKEN_MULTISYMB]);
     } else if (IS_TOKEN_KEYWORD(token->kind)) {
         fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[token->kind - TOKEN_KEYWORD]);
-    } else {
+    } else if (IS_TOKEN_GENERAL(token->kind)) {
         switch (token->kind) {
             case TOKEN_EOS: {
                 fmt(buf, buf_sz, "<EOS>");

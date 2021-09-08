@@ -5,7 +5,6 @@
 
 #include "filesystem.h" // SourceLocation
 
-#define MAX_IDENT_LEN 32
 #define TOKEN_GENERAL 0x100
 #define TOKEN_KEYWORD 0x120
 #define TOKEN_MULTISYMB 0x160
@@ -21,7 +20,8 @@
 enum {
     TOKEN_NONE = 0x0,
     // Mentally insert ASCII tokens here...
-    TOKEN_EOS = TOKEN_GENERAL, 
+    TOKEN_EOS = TOKEN_GENERAL,
+    TOKEN_ERROR, 
     TOKEN_IDENT, // value_str
     TOKEN_INT, // value_int
     TOKEN_REAL, // value_real
@@ -81,7 +81,7 @@ typedef struct Tokenizer {
     MemoryArena arena;
     // Buffer is copied on tokenizer arena and deleted with tokenizer
     // Tag string set by usage code. It is set into source_location in tokens and can be used elsewhere
-    char *source_name;
+    FileID file_id;
     u8 *buffer;
     uptr buffer_size;
     // Internal indicator used to navigate buffer
@@ -94,8 +94,7 @@ typedef struct Tokenizer {
     Token *active_token;
 } Tokenizer;
 
-Tokenizer create_tokenizer(const void *buffer, uptr buffer_size, 
-    const char *name);
+Tokenizer create_tokenizer(FileID id);
 // Deletes all tokens
 void delete_tokenizer(Tokenizer *tokenizer);
 // Returns current token. Stores token until it's eaten

@@ -6,7 +6,6 @@ typedef struct FileID {
 } FileID;
 
 typedef struct SourceLocation {
-    FileID file_id;
     int line;
     int symb;  
 } SourceLocation;
@@ -16,7 +15,7 @@ typedef struct FileData {
         u8 *data;
         char *str;
     };
-    uptr data_size;
+    uptr size;
 } FileData;
 
 const char *get_file_name(FileID id);

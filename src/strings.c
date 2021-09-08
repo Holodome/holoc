@@ -151,24 +151,26 @@ u32 utf8_decode(const u8 *src, u32 *len_out) {
     return utf32;
 }
 
-void outf(const char *msg, ...) {
+uptr outf(const char *msg, ...) {
     va_list args;
     va_start(args, msg);
-    voutf(msg, args);
+    uptr result = voutf(msg, args);
     va_end(args);
+    return result;
 }
 
-void voutf(const char *msg, va_list args) {
-    vprintf(msg, args);
+uptr voutf(const char *msg, va_list args) {
+    return vprintf(msg, args);
 }
 
-void erroutf(const char *msg, ...) {
+uptr erroutf(const char *msg, ...) {
     va_list args;
     va_start(args, msg);
-    verroutf(msg, args);
+    uptr result = verroutf(msg, args);
     va_end(args);
+    return result;
 }
 
-void verroutf(const char *msg, va_list args) {
-    vfprintf(stderr, msg, args);
+uptr verroutf(const char *msg, va_list args) {
+    return vfprintf(stderr, msg, args);
 }

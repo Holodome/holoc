@@ -38,7 +38,6 @@ static FilesystemFile *get_file_hash(u32 hash_value) {
             file = file->next;
         } else {
             file = arena_alloc_struct(&filesystem.arena, FilesystemFile);
-            file->hash = hash_value;   
             LLIST_ADD(filesystem.file_hash[hash_slot], file);
             break;
         } 
@@ -51,9 +50,11 @@ static FilesystemFile *create_file(const char *name) {
     u32 name_hash = hash_string(name);
     
     FilesystemFile *file = get_file_hash(name_hash);
-    if (file) {
+    assert(file);
+    if (file->hash) {
         erroutf("[ERROR] File with name '%s' already exists\n", name);
     } else {
+        file->hash = name_hash;
         file->name = arena_alloc_str(&filesystem.arena, name);
     }
     return file;
@@ -84,7 +85,9 @@ FileID get_file_id_for_buffer(const char *buf, uptr buf_sz, const char *name) {
     if (file) {
         file->is_data_initialized = TRUE;
         file->data.data = arena_copy(&filesystem.arena, buf, buf_sz);
-        file->data.data_size = buf_sz;
+        file->data.size = buf_sz;
+        
+        id.value = file->hash;
     }
     return id;
 }
@@ -103,9 +106,11 @@ FileID get_file_id_for_filename(const char *filename) {
         fseek(file_obj, 0, SEEK_END);
         uptr len = ftell(file_obj);
         fseek(file_obj, 0, SEEK_SET);
-        file->data.data_size = len;
+        file->data.size = len;
         file->data.data = arena_alloc(&filesystem.arena, len);
         fread(file->data.data, 1, len, file_obj);
+        
+        id.value = file->hash;
     }
     return id;
 }

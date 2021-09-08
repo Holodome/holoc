@@ -5,6 +5,7 @@
 #include "strings.h"
 #include "tokenizer.h"
 #include "parser.h"
+#include "interp.h"
 
 enum {
     PROGRAM_INTERP,
@@ -106,28 +107,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     
-    FileData *input_file_data = get_file_data(settings.filename);
-    if (!input_file_data) {
-        outf("Failed to read file '%s'\n", settings.filename);
-    }
-    
-    Tokenizer tokenizer = create_tokenizer(input_file_data->data, input_file_data->data_size, settings.filename);
-        
-    switch (settings.mode) {
-        case PROGRAM_INTERP: {
-            Parser parser = create_parser(&tokenizer);
-            AST *ast = parse(&parser);
-            (void)ast;
-        } break;
-        case PROGRAM_TOKEN_VIEW: {
-            token_view(&tokenizer);
-        } break;
-        case PROGRAM_AST_VIEW: {
-            Parser parser = create_parser(&tokenizer);
-            AST *ast = parse(&parser);
-            (void)ast;
-        } break;
-    }
+    Interp interp = create_interp(settings.filename);
+    do_interp(&interp);
     
     printf("Exited without errors\n");
     return 0;
