@@ -1,0 +1,22 @@
+{
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "Build",
+            "windows": {
+                "command": "${workspaceFolder}/build.bat"
+            },
+            "linux": {
+                "command": "${workspaceFolder}/build.sh"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+    ],
+    "version": "2.0.0"
+} 
