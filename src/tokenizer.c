@@ -22,6 +22,7 @@ static const char *MULTISYMB_STRS[] = {
     "<<=",
     ">>=",
     "::",
+    ":=",
     "->",
     "<=",
     ">=",
@@ -40,16 +41,16 @@ static const char *MULTISYMB_STRS[] = {
 };  
 
 
-Tokenizer create_tokenizer(FileID id) {
+Tokenizer *create_tokenizer(FileID id) {
     const FileData *file_data = get_file_data(id);
     
-    Tokenizer tokenizer = {0};
-    tokenizer.file_id = id;
-    tokenizer.buffer = arena_copy(&tokenizer.arena, file_data->data, file_data->size);
-    tokenizer.buffer_size = file_data->size;
-    tokenizer.line_number = 1;
-    tokenizer.symb = *tokenizer.buffer;
-    tokenizer.cursor = tokenizer.buffer;
+    Tokenizer *tokenizer = arena_bootstrap(Tokenizer, arena);
+    tokenizer->file_id = id;
+    tokenizer->buffer = arena_copy(&tokenizer->arena, file_data->data, file_data->size);
+    tokenizer->buffer_size = file_data->size;
+    tokenizer->line_number = 1;
+    tokenizer->symb = *tokenizer->buffer;
+    tokenizer->cursor = tokenizer->buffer;
     return tokenizer;
 }
 
@@ -243,30 +244,62 @@ Token *peek_next_tok(Tokenizer *tokenizer) {
     return peek_tok(tokenizer);    
 }
 
-void fmt_tok(char *buf, uptr buf_sz, Token *token) {
-    if (IS_TOKEN_ASCII(token->kind)) {
-        fmt(buf, buf_sz, "%c", token->kind);
-    } else if (IS_TOKEN_MULTISYMB(token->kind)) {
-        fmt(buf, buf_sz, "%s", MULTISYMB_STRS[token->kind - TOKEN_MULTISYMB]);
-    } else if (IS_TOKEN_KEYWORD(token->kind)) {
-        fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[token->kind - TOKEN_KEYWORD]);
-    } else if (IS_TOKEN_GENERAL(token->kind)) {
-        switch (token->kind) {
+uptr fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
+    uptr result = 0;
+    if (IS_TOKEN_ASCII(kind)) {
+        result = fmt(buf, buf_sz, "%c", kind);
+    } else if (IS_TOKEN_MULTISYMB(kind)) {
+        result = fmt(buf, buf_sz, "%s", MULTISYMB_STRS[kind - TOKEN_MULTISYMB]);
+    } else if (IS_TOKEN_KEYWORD(kind)) {
+        result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[kind - TOKEN_KEYWORD]);
+    } else if (IS_TOKEN_GENERAL(kind)) {
+        switch (kind) {
             case TOKEN_EOS: {
-                fmt(buf, buf_sz, "<EOS>");
+                result = fmt(buf, buf_sz, "<EOS>");
             } break;
             case TOKEN_IDENT: {
-                fmt(buf, buf_sz, "<ident>%s", token->value_str);
+                result = fmt(buf, buf_sz, "<ident>");
             } break;
             case TOKEN_STR: {
-                fmt(buf, buf_sz, "<str>%s", token->value_str);
+                result = fmt(buf, buf_sz, "<str>");
             } break;
             case TOKEN_INT: {
-                fmt(buf, buf_sz, "<int>%lld", token->value_int);
+                result = fmt(buf, buf_sz, "<int>");
             } break;
             case TOKEN_REAL: {
-                fmt(buf, buf_sz, "<real>%f", token->value_real);
+                result = fmt(buf, buf_sz, "<real>");
             } break;
         }
     }
+    return result;    
+}
+
+uptr fmt_tok(char *buf, uptr buf_sz, Token *token) {
+    uptr result = 0;
+    if (IS_TOKEN_ASCII(token->kind)) {
+        result = fmt(buf, buf_sz, "%c", token->kind);
+    } else if (IS_TOKEN_MULTISYMB(token->kind)) {
+        result = fmt(buf, buf_sz, "%s", MULTISYMB_STRS[token->kind - TOKEN_MULTISYMB]);
+    } else if (IS_TOKEN_KEYWORD(token->kind)) {
+        result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[token->kind - TOKEN_KEYWORD]);
+    } else if (IS_TOKEN_GENERAL(token->kind)) {
+        switch (token->kind) {
+            case TOKEN_EOS: {
+                result = fmt(buf, buf_sz, "<EOS>");
+            } break;
+            case TOKEN_IDENT: {
+                result = fmt(buf, buf_sz, "<ident>%s", token->value_str);
+            } break;
+            case TOKEN_STR: {
+                result = fmt(buf, buf_sz, "<str>%s", token->value_str);
+            } break;
+            case TOKEN_INT: {
+                result = fmt(buf, buf_sz, "<int>%lld", token->value_int);
+            } break;
+            case TOKEN_REAL: {
+                result = fmt(buf, buf_sz, "<real>%f", token->value_real);
+            } break;
+        }
+    }
+    return result;
 }

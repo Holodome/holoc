@@ -1,5 +1,5 @@
 CONSTANT :: 3;
-global_variable = 4;
+global_variable := 4;
 
 /* Multiline comment */
 inc :: (x: int) -> int {

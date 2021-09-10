@@ -5,7 +5,12 @@
 #include "ast.h"
 
 typedef struct Interp {
+    MemoryArena arena;
+    Tokenizer *tokenizer;
+    
     FileID file_id;
+    
+    b32 reported_error;
 } Interp;
 
 Interp create_interp(const char *filename);

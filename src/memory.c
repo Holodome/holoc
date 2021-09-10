@@ -124,6 +124,13 @@ void arena_clear(MemoryArena *arena) {
     }
 }
 
+void *arena_bootstrap_(uptr size, uptr arena_offset) {
+    MemoryArena bootstrap = {0};
+    void *struct_ptr = arena_alloc(&bootstrap, size);
+    *(MemoryArena *)((u8 *)struct_ptr + arena_offset) = bootstrap;
+    return struct_ptr;
+}
+
 TemporaryMemory begin_temp_memory(MemoryArena *arena) {
     ++arena->temp_memory_count;
     TemporaryMemory result;

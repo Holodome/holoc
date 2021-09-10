@@ -33,3 +33,10 @@ do { \
 
 #include <assert.h>
 #include <stdarg.h>
+#ifdef _MSC_VER
+#define DBG_BREAKPOINT __debugbreak()
+#else 
+#define DBG_BREAKPOINT __asm__("int $3")
+#endif 
+#define STRUCT_FIELD(_struct, _field) (((_struct *)0)->_field)
+#define STRUCT_OFFSET(_struct, _field) ((uptr)((u8 *)(&STRUCT_FIELD(_struct, _field))))

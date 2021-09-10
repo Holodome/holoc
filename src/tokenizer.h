@@ -38,8 +38,9 @@ enum {
     TOKEN_ILSHIFT = TOKEN_MULTISYMB, // <<=
     TOKEN_IRSHIFT, // >>= 
     
-    TOKEN_DECL, // ::
-    TOKEN_ARR, // ->
+    TOKEN_CONSTANT, // ::
+    TOKEN_AUTO_DECL, // :=
+    TOKEN_ARROW, // ->
     TOKEN_LE, // <=
     TOKEN_GE, // >=
     TOKEN_EQ, // == 
@@ -94,7 +95,7 @@ typedef struct Tokenizer {
     Token *active_token;
 } Tokenizer;
 
-Tokenizer create_tokenizer(FileID id);
+Tokenizer *create_tokenizer(FileID id);
 // Deletes all tokens
 void delete_tokenizer(Tokenizer *tokenizer);
 // Returns current token. Stores token until it's eaten
@@ -104,4 +105,5 @@ void eat_tok(Tokenizer *tokenizer);
 // call eat_tok and return peek_tok
 Token *peek_next_tok(Tokenizer *tokenizer);
 
-void fmt_tok(char *buf, uptr buf_sz, Token *token);
+uptr fmt_tok_kind(char *buf, uptr buf_sz, u32 kind);
+uptr fmt_tok(char *buf, uptr buf_sz, Token *token);

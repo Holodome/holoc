@@ -4,7 +4,7 @@
 #include "memory.h"
 
 #include "ast.h"
-
+#if 0
 typedef struct Parser {
     MemoryArena arena;
     struct Tokenizer *tokenizer;    
@@ -14,3 +14,4 @@ typedef struct Parser {
 Parser create_parser(struct Tokenizer *tokenizer, struct Interp *interp);
 // Return generated syntax tree for whole program
 AST *parse(Parser *parser);
+#endif 
