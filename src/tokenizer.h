@@ -52,12 +52,16 @@ enum {
     TOKEN_IAND, // &=
     TOKEN_IOR, // |=
     TOKEN_IXOR, // ^=
-    TOKEN_IMOD, // %= 
     TOKEN_IDIV, // /=
     TOKEN_IMUL, // *=
+    TOKEN_IMOD, // %=
+    TOKEN_LOGICAL_AND, // &&
+    TOKEN_LOGICAL_OR, // ||
     
     TOKEN_COUNT,
 };
+
+b32 is_token_assign(u32 tok);
 
 typedef struct Token {
     u32 kind;

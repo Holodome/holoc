@@ -174,3 +174,24 @@ uptr erroutf(const char *msg, ...) {
 uptr verroutf(const char *msg, va_list args) {
     return vfprintf(stderr, msg, args);
 }
+
+FmtBuffer create_fmt_buf(char *buf, uptr sz) {
+    FmtBuffer result;
+    result.current = result.start = buf;
+    result.size_remaining = result.size_total = sz;
+    return result;    
+}
+
+uptr vfmt_buf(FmtBuffer *buf, char *fmt, va_list args) {
+    uptr len = vfmt(buf->current, buf->size_remaining, fmt, args);
+    buf->current += len;
+    assert(buf->size_remaining >= len);
+    buf->size_remaining -= len;
+    return len;
+}
+
+uptr fmt_buf(FmtBuffer *buf, char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    return vfmt_buf(buf, fmt, args);
+}

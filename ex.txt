@@ -1,0 +1,44 @@
+CONSTANT :: 3;
+global_variable := 4;
+
+/* Multiline comment */
+inc :: (x: int) -> int {
+   result := x + 1;
+   return result; 
+}
+
+abs :: (x: int) -> int {
+    result: int;
+    if x > 0 {
+        result = x;
+    } else if x == 0 {
+        result = 0;
+    } else {
+        result = -x;
+    }
+}
+
+get_pow2 :: (x: int) -> int {
+    x = abs(x);
+    result := 0;
+    while x != 0 {
+        result += 1;
+        x >>= 1;
+    }
+    return result;
+}
+
+main :: () {
+    global_variable -= 1;
+    
+    a : int = 2 + global_variable + CONSTANT;
+    b := 3;
+    c := 143 / 8 % 2;
+    b = a << c;
+    # comment 
+    print a;
+    print b;
+    
+    v := 0;
+    print inc(v);
+}

@@ -30,7 +30,7 @@ static const char *MULTISYMB_STRS[] = {
     "!=",
     "<<",
     ">>",
-    "+=",
+    "+=",   
     "-=",
     "&=",
     "|=",
@@ -38,8 +38,16 @@ static const char *MULTISYMB_STRS[] = {
     "%=",
     "/=",
     "*=",
+    "%=",
+    "&&",
+    "||"
 };  
 
+b32 is_token_assign(u32 tok) {
+    return tok == '=' || tok == TOKEN_IADD || tok == TOKEN_ISUB || tok == TOKEN_IMUL ||
+        tok == TOKEN_IDIV || tok == TOKEN_IMOD || tok == TOKEN_IAND || tok == TOKEN_IOR ||
+        tok == TOKEN_IXOR || tok == TOKEN_ILSHIFT || tok == TOKEN_IRSHIFT; 
+}
 
 Tokenizer *create_tokenizer(FileID id) {
     const FileData *file_data = get_file_data(id);

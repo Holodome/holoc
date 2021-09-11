@@ -31,3 +31,31 @@ uptr outf(const char *msg, ...);
 uptr voutf(const char *msg, va_list args);
 uptr erroutf(const char *msg, ...);
 uptr verroutf(const char *msg, va_list args);
+
+// What is known a string usually. In some systems terminology between these terms differs,
+// but here Text is synonymous to string.
+// But cstrings should be called strings, and 'strings' are called text
+typedef struct Text {
+    char *data;
+    uptr len;
+} Text;
+
+typedef struct TextUTF8 {
+    u8 *data;
+    uptr len;
+} TextUTF8;
+
+// Structure to help writing complex formatters, when a lot of pointer arithmetic is involved
+// With it series of formatting functions can be written in chain without additional work
+// Futher we would want to expand this allowing dynamically growing pages is size/count
+// Basically this is what is known a stream
+typedef struct FmtBuffer {
+    char *start;
+    char *current;
+    uptr size_total;
+    uptr size_remaining;
+} FmtBuffer;
+
+FmtBuffer create_fmt_buf(char *buf, uptr sz);
+uptr vfmt_buf(FmtBuffer *buf, char *fmt, va_list args);
+uptr fmt_buf(FmtBuffer *buf, char *fmt, ...);
