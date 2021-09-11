@@ -45,6 +45,7 @@ const char *AST_BINARY_STRS[] = {
 void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth) {
     if (!ast) {
         fmt_buf(buf, "%*cNULL\n");
+        return;
     }
     
     switch (ast->kind) {
@@ -57,7 +58,7 @@ void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth) {
             }
         } break;
         case AST_LITERAL: {
-            fmt_buf(buf, "%*cLIT %s", depth, ' ', AST_LITERAL_STRS[ast->literal.kind]);
+            fmt_buf(buf, "%*cLIT %s: ", depth, ' ', AST_LITERAL_STRS[ast->literal.kind]);
             switch (ast->literal.kind) {
                 case AST_LITERAL_INT: {
                     fmt_buf(buf, "%lld", ast->literal.value_int);
@@ -114,10 +115,11 @@ void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth) {
         case AST_IF: {
             fmt_buf(buf, "%*cIF: COND:\n", depth, ' ');
             fmt_ast_tree_recursive(buf, ast->if_st.cond, depth + 1);
-            fmt_buf(buf, "%*cBLOCK:\n", depth, ' ');
+            fmt_buf(buf, "%*cBODY:\n", depth, ' ');
             fmt_ast_tree_recursive(buf, ast->if_st.block, depth + 1);
             if (ast->if_st.else_block) {
-                fmt_ast_tree_recursive(buf, ast->if_st.else_block, depth);
+                fmt_buf(buf, "%*cELSE:\n", depth, ' ');
+                fmt_ast_tree_recursive(buf, ast->if_st.else_block, depth + 1);
             }
         } break;
         case AST_FUNC_SIGNATURE: {
@@ -127,7 +129,7 @@ void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth) {
                  arg = arg->next) {
                 fmt_ast_tree_recursive(buf, arg, depth + 1);        
             }
-            fmt_buf(buf, "%*OUTS:\n", depth, ' ');
+            fmt_buf(buf, "%*cOUTS:\n", depth, ' ');
             for (AST *arg = ast->func_sign.outs;
                  arg;
                  arg = arg->next) {
@@ -139,7 +141,7 @@ void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth) {
             fmt_ast_tree_recursive(buf, ast->func_decl.name, depth + 1);
             fmt_buf(buf, "%*cSIGNATURE:\n", depth, ' ');
             fmt_ast_tree_recursive(buf, ast->func_decl.sign, depth + 1);
-            fmt_buf(buf, "%*BODY:\n", depth, ' ');
+            fmt_buf(buf, "%*cBODY:\n", depth, ' ');
             fmt_ast_tree_recursive(buf, ast->func_decl.block, depth + 1);
         } break;
         default: {

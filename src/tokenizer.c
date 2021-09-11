@@ -57,8 +57,10 @@ Tokenizer *create_tokenizer(FileID id) {
     tokenizer->buffer = arena_copy(&tokenizer->arena, file_data->data, file_data->size);
     tokenizer->buffer_size = file_data->size;
     tokenizer->line_number = 1;
-    tokenizer->symb = *tokenizer->buffer;
     tokenizer->cursor = tokenizer->buffer;
+    if (file_data->size) {
+        tokenizer->symb = *tokenizer->buffer;
+    }
     return tokenizer;
 }
 
@@ -74,7 +76,7 @@ static uptr get_buffer_idx(Tokenizer *tokenizer) {
 }
 
 static b32 has_space_for(Tokenizer *tokenizer, u32 count) {
-    return get_buffer_idx(tokenizer) + count < tokenizer->buffer_size;
+    return get_buffer_idx(tokenizer) + count <= tokenizer->buffer_size;
 }
 
 // Safely advance cursor. If end of buffer is reached, 0 is set to tokenizer->symb and  
@@ -129,7 +131,7 @@ Token *peek_tok(Tokenizer *tokenizer) {
                 break;
             }
             
-            if (parse(tokenizer, "\n") || parse(tokenizer, "\n\r")) {
+            if (parse(tokenizer, "\n\r") || parse(tokenizer, "\n")) {
                 ++tokenizer->line_number;
                 tokenizer->symb_number = 0;
                 continue;
@@ -232,6 +234,7 @@ Token *peek_tok(Tokenizer *tokenizer) {
                 }
                 break;
             } else {
+                DBG_BREAKPOINT;
                 token->kind = TOKEN_ERROR;
                 advance(tokenizer);
                 break;

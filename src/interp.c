@@ -137,164 +137,251 @@ AST *parse_block(Interp *interp);
 10: | 
 11: &&
 12: ||
-13: ?:
 */
+#define MAX_OPEARTOR_PRECEDENCE 12
 // Parse expression with ascending precedence - lower ones are parsed earlier
+// Currently this is made by making 
+#define parse_expr(_interp) parse_expr_precedence(_interp, MAX_OPEARTOR_PRECEDENCE)
 AST *parse_expr_precedence(Interp *interp, u32 precedence) {
     AST *expr = 0;
-    Token *tok = peek_tok(interp->tokenizer);
     switch (precedence) {
         case 0: {
-            
-        } break;
-        case 1: {
-            
-        } break;
-        case 2: {
-            
-        } break;
-        case 3: {
-            
-        } break;
-        case 4: {
-            
-        } break;
-        case 5: {
-            
-        } break;
-        case 6: {
-            
-        } break;
-        case 7: {
-            
-        } break;
-        case 8: {
-            
-        } break;
-        case 9: {
-            
-        } break;
-        case 10: {
-            
-        } break;
-        case 11: {
-            
-        } break;
-        case 12: {
-            
-        } break;
-        case 13: {
-            
-        } break;
-        default: assert(FALSE);
-    }
-    return expr;
-}
-
-AST *parse_expr2(Interp *interp) {
-    AST *expr = 0;
-    Token *tok = peek_tok(interp->tokenizer);
-    switch (tok->kind) {
-        case TOKEN_INT: {
-            eat_tok(interp->tokenizer);
-            AST *lit = create_int_lit(interp, tok->value_int);
-            expr = lit;
-        } break;
-        case TOKEN_IDENT: {
-            eat_tok(interp->tokenizer);
-            AST *ident = create_ident(interp, tok->value_str);
-            expr = ident;
-        } break;
-        case '(': {
-            eat_tok(interp->tokenizer);
-            AST *temp = parse_expr(interp);
-            tok = peek_tok(interp->tokenizer);
-            if (expect_tok(interp, tok, ')')) {
-                expr = temp;
-                eat_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tokenizer);
+            switch (tok->kind) {
+                case TOKEN_IDENT: {
+                    eat_tok(interp->tokenizer);
+                    AST *ident = create_ident(interp, tok->value_str);
+                    expr = ident;
+                } break;
+                case TOKEN_INT: {
+                    eat_tok(interp->tokenizer);
+                    AST *lit = create_int_lit(interp, tok->value_int);
+                    expr = lit;
+                } break;
+                case TOKEN_REAL: {
+                    NOT_IMPLEMENTED;
+                } break;
             }
         } break;
-        case '+': {
-            eat_tok(interp->tokenizer);
-            AST *unary = ast_new(interp, AST_UNARY);
-            unary->unary.kind = AST_UNARY_PLUS;
-            unary->unary.expr = parse_expr(interp);
-            expr = unary;
+        case 1: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            switch (tok->kind) {
+                case '(': {
+                    eat_tok(interp->tokenizer);
+                    AST *temp = parse_expr(interp);
+                    tok = peek_tok(interp->tokenizer);
+                    if (expect_tok(interp, tok, ')')) {
+                        expr = temp;
+                        eat_tok(interp->tokenizer);
+                    }
+                } break;
+                case '.': {
+                    NOT_IMPLEMENTED;
+                } break;
+                case '[': {
+                    NOT_IMPLEMENTED;
+                } break;
+            }
         } break;
-        case '-': {
-            eat_tok(interp->tokenizer);
-            AST *unary = ast_new(interp, AST_UNARY);
-            unary->unary.kind = AST_UNARY_MINUS;
-            unary->unary.expr = parse_expr(interp);
-            expr = unary;
+        case 2: {
+            Token *tok = peek_tok(interp->tokenizer);
+            switch (tok->kind) {
+                case '+': {
+                    eat_tok(interp->tokenizer);
+                    AST *unary = ast_new(interp, AST_UNARY);
+                    unary->unary.kind = AST_UNARY_PLUS;
+                    unary->unary.expr = parse_expr(interp);
+                    expr = unary;
+                } break;
+                case '-': {
+                    eat_tok(interp->tokenizer);
+                    AST *unary = ast_new(interp, AST_UNARY);
+                    unary->unary.kind = AST_UNARY_MINUS;
+                    unary->unary.expr = parse_expr(interp);
+                    expr = unary;
+                } break;
+                case '!': {
+                    eat_tok(interp->tokenizer);
+                    AST *unary = ast_new(interp, AST_UNARY);
+                    unary->unary.kind = AST_UNARY_LOGICAL_NOT;
+                    unary->unary.expr = parse_expr(interp);
+                    expr = unary;
+                } break;
+                case '~': {
+                    eat_tok(interp->tokenizer);
+                    AST *unary = ast_new(interp, AST_UNARY);
+                    unary->unary.kind = AST_UNARY_NOT;
+                    unary->unary.expr = parse_expr(interp);
+                    expr = unary;
+                } break;
+            }
+            
+            if (!expr) {
+                expr = parse_expr_precedence(interp, precedence - 1);
+            }
         } break;
-        case '!': {
-            eat_tok(interp->tokenizer);
-            AST *unary = ast_new(interp, AST_UNARY);
-            unary->unary.kind = AST_UNARY_LOGICAL_NOT;
-            unary->unary.expr = parse_expr(interp);
-            expr = unary;
+        case 3: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == '*' || tok->kind == '/' || tok->kind == '%') {
+                AST *bin = ast_new(interp, AST_BINARY);
+                switch (tok->kind) {
+                    case '*': {
+                        bin->binary.kind = AST_BINARY_MUL;
+                    } break;
+                    case '/': {
+                        bin->binary.kind = AST_BINARY_DIV;
+                    } break;
+                    case '%': {
+                        bin->binary.kind = AST_BINARY_MOD;
+                    } break;
+                }
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
         } break;
-        case '~': {
-            eat_tok(interp->tokenizer);
-            AST *unary = ast_new(interp, AST_UNARY);
-            unary->unary.kind = AST_UNARY_NOT;
-            unary->unary.expr = parse_expr(interp);
-            expr = unary;
+        case 4: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == '+' || tok->kind == '-') {
+                AST *bin = ast_new(interp, AST_BINARY);
+                if (tok->kind == '+') {
+                    bin->binary.kind = AST_BINARY_ADD;
+                } else if (tok->kind == '-') {
+                    bin->binary.kind = AST_BINARY_SUB;
+                }
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
         } break;
-        default: {
-            // @TODO find way to provide correct tokens
-            char tok_str[128];
-            fmt_tok_kind(tok_str, sizeof(tok_str), tok->kind);
-            report_error_tok(interp, tok, "Unexpected token %s in expression", tok_str);
-        } 
-    }
-    return expr;
-}
-
-AST *parse_expr1(Interp *interp) {
-    // If expression is not binary * or /, just pass the value. Otherwise it becomes left-hand value
-    AST *expr = parse_expr2(interp);
-    Token *tok = peek_tok(interp->tokenizer);
-    while (tok->kind == '*' || tok->kind == '/') {
-        AST *binary = ast_new(interp, AST_BINARY);
-        
-        if (tok->kind == '*') {
-            binary->binary.kind = AST_BINARY_MUL;
-        } else if (tok->kind == '/') {
-            binary->binary.kind = AST_BINARY_DIV;
-        }
-        eat_tok(interp->tokenizer);
-        AST *right = parse_expr2(interp);    
-        
-        binary->binary.left = expr;
-        binary->binary.right = right;
-        expr = binary;
-        // For next cycle
-        tok = peek_tok(interp->tokenizer);
-    }
-    return expr;
-}
-
-AST *parse_expr(Interp *interp) {
-    AST *expr = parse_expr1(interp);
-    Token *tok = peek_tok(interp->tokenizer);
-    while (tok->kind == '+' || tok->kind == '-') {
-        AST *binary = ast_new(interp, AST_BINARY);
-        
-        if (tok->kind == '+') {
-            binary->binary.kind = AST_BINARY_ADD;
-        } else if (tok->kind == '-') {
-            binary->binary.kind = AST_BINARY_SUB;
-        }
-        eat_tok(interp->tokenizer);
-        AST *right = parse_expr1(interp);    
-        
-        binary->binary.left = expr;
-        binary->binary.right = right;
-        expr = binary;
-        // For next cycle
-        tok = peek_tok(interp->tokenizer);
+        case 5: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == TOKEN_LSHIFT || tok->kind == TOKEN_RSHIFT) {
+                AST *bin = ast_new(interp, AST_BINARY);
+                if (tok->kind == TOKEN_RSHIFT) {
+                    bin->binary.kind = AST_BINARY_RSHIFT;
+                } else if (tok->kind == TOKEN_LSHIFT) {
+                    bin->binary.kind = AST_BINARY_SUB;
+                }
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        case 6: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == '<' || tok->kind == '>' || tok->kind == TOKEN_LE || tok->kind == TOKEN_GE) {
+                AST *bin = ast_new(interp, AST_BINARY);
+                if (tok->kind == TOKEN_LE) {
+                    bin->binary.kind = AST_BINARY_LE;
+                } else if (tok->kind == TOKEN_GE) {
+                    bin->binary.kind = AST_BINARY_GE;
+                } else if (tok->kind == '<') {
+                    bin->binary.kind = AST_BINARY_L;
+                } else if (tok->kind == '>') {
+                    bin->binary.kind = AST_BINARY_G;
+                }
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        case 7: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == TOKEN_EQ || tok->kind == TOKEN_NEQ) {
+                AST *bin = ast_new(interp, AST_BINARY);
+                if (tok->kind == TOKEN_EQ) {
+                    bin->binary.kind = AST_BINARY_EQ;
+                } else if (tok->kind == TOKEN_NEQ) {
+                    bin->binary.kind = AST_BINARY_NEQ;
+                }
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        case 8: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == '&') {
+                AST *bin = ast_new(interp, AST_BINARY);
+                bin->binary.kind = AST_BINARY_AND;
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        case 9: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == '&') {
+                AST *bin = ast_new(interp, AST_BINARY);
+                bin->binary.kind = AST_BINARY_XOR;
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        case 10: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == '&') {
+                AST *bin = ast_new(interp, AST_BINARY);
+                bin->binary.kind = AST_BINARY_OR;
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        case 11: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == TOKEN_LOGICAL_AND) {
+                AST *bin = ast_new(interp, AST_BINARY);
+                bin->binary.kind = AST_BINARY_LOGICAL_AND;
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        case 12: {
+            expr = parse_expr_precedence(interp, precedence - 1);
+            Token *tok = peek_tok(interp->tokenizer);
+            while (tok->kind == TOKEN_LOGICAL_OR) {
+                AST *bin = ast_new(interp, AST_BINARY);
+                bin->binary.kind = AST_BINARY_LOGICAL_OR;
+                eat_tok(interp->tokenizer);
+                bin->binary.left = expr;
+                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
+                expr = bin;
+                tok = peek_tok(interp->tokenizer);
+            }
+        } break;
+        default: assert(FALSE);
     }
     return expr;
 }
@@ -407,6 +494,11 @@ AST *parse_assign_ident(Interp *interp, AST *ident) {
         assign->assign.ident = ident;
         assign->assign.expr = add;
     }
+    
+    tok = peek_tok(interp->tokenizer);
+    if (!parse_end_of_statement(interp, tok)) {
+        assign = 0;
+    }
     return assign;
 }
 
@@ -416,9 +508,14 @@ AST *parse_if_compound(Interp *interp) {
         return 0;
     }
     
-    AST *if_st = ast_new(interp, AST_IF);
     tok = peek_next_tok(interp->tokenizer);
     AST *expr = parse_expr(interp);
+    if (!expr) {
+        return 0;
+    }
+    
+    AST *if_st = ast_new(interp, AST_IF);
+    if_st->if_st.cond = expr;
     tok = peek_tok(interp->tokenizer);
     if (expect_tok(interp, tok, '{')) {
         AST *block = parse_block(interp);
@@ -428,7 +525,7 @@ AST *parse_if_compound(Interp *interp) {
         if_st->if_st.block = block;
         tok = peek_tok(interp->tokenizer);
         if (tok->kind == TOKEN_KW_ELSE) {
-            tok = peek_tok(interp->tokenizer);
+            tok = peek_next_tok(interp->tokenizer);
             if (tok->kind == TOKEN_KW_IF) {
                 AST *else_if_st = parse_if_compound(interp);
                 if_st->if_st.else_block = else_if_st;
@@ -616,20 +713,16 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
             // @TODO parse type 
             AST *type = parse_expr(interp);
             tok = peek_tok(interp->tokenizer);
+            decl = ast_new(interp, AST_DECL);
+            decl->decl.ident = ident;   
             // @TODO use type
             if (tok->kind == '=') {
                 tok = peek_next_tok(interp->tokenizer);
                 AST *expr = parse_expr(interp);
                 if (expr) {
-                    decl = ast_new(interp, AST_DECL);
-                    decl->decl.ident = ident;
                     decl->decl.expr = expr;
                 }
-            } else if (tok->kind == ';') {
-                decl = ast_new(interp, AST_DECL);
-                decl->decl.ident = ident;
-                // @todo type
-            }
+            } 
             
             tok = peek_tok(interp->tokenizer);
             if (!parse_end_of_statement(interp, tok)) {

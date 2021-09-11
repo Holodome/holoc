@@ -40,3 +40,5 @@ do { \
 #endif 
 #define STRUCT_FIELD(_struct, _field) (((_struct *)0)->_field)
 #define STRUCT_OFFSET(_struct, _field) ((uptr)((u8 *)(&STRUCT_FIELD(_struct, _field))))
+#define NOT_IMPLEMENTED assert(!"NotImplemented")
+#define INVALID_DEFAULT_CASE assert(!"InvalidDefaultCase")

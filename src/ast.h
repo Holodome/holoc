@@ -66,6 +66,8 @@ enum {
     AST_BINARY_XOR, // ^
     AST_BINARY_LSHIFT, // <<
     AST_BINARY_RSHIFT, // >>
+    AST_BINARY_LOGICAL_AND, // &&
+    AST_BINARY_LOGICAL_OR, // ||
     AST_BINARY_COUNT,  
 };
 

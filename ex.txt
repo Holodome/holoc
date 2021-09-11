@@ -16,6 +16,7 @@ abs :: (x: int) -> int {
     } else {
         result = -x;
     }
+    return result;
 }
 
 get_pow2 :: (x: int) -> int {

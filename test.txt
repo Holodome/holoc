@@ -8,4 +8,5 @@ abs :: (x: int) -> int {
     } else {
         result = -x;
     }
+    return result;
 }
