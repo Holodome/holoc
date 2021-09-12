@@ -27,6 +27,7 @@ enum {
     
     AST_FUNC_SIGNATURE,
     AST_FUNC_DECL,
+    AST_FUNC_CALL,
     
     AST_COUNT
 };
@@ -72,13 +73,30 @@ enum {
 };
 
 typedef struct AST AST;
+
+// Because in C there is no templates, lists types have to be chosen carefully.
+// Basically, all is needed from list is fast iteration.
+// Fastest iteration is possile with arrays, however use of dynamic arrays can lead to fragmentation
+// And unecessary allocations
+// So during construction, linked lists are used.
+// @TODO it is possible to have ASTArray structure that is actually stored in AST, which is formed from the ASTList after its creation is finished
+//  But this is sort of premature optimization because there are only so many times we actully iterate each of these lists
+// (ofthen only one time)
+typedef struct ASTList {
+    AST *first;
+    AST *last;
+} ASTList;
+
+void ast_list_add(ASTList *list, AST *ast);
+
 struct AST {
     u32 kind;
     SourceLocation source_loc;
+    // for use in linked lists
+    AST *next;
     union  {
         struct {
-            // linked list of statements
-            AST *first_statement;      
+            ASTList statements;
         } block;
         struct {
             u32 kind;
@@ -111,8 +129,8 @@ struct AST {
             AST *expr;
         } decl;
         struct {
-            AST *arguments;
-            AST *outs;
+            ASTList arguments;
+            ASTList return_types;
         } func_sign;
         struct {
             AST *name;
@@ -120,16 +138,18 @@ struct AST {
             AST *block;
         } func_decl;
         struct {
-            AST *vars;
+            ASTList vars;
         } return_st;
         struct {
             AST *cond;
             AST *block;
             AST *else_block;
         } if_st;
+        struct {
+            AST *callable;
+            ASTList arguments;
+        } func_call;
     };
-    // for use in linked lists
-    AST *next;
 };
 
 void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth);

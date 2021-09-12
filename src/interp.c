@@ -117,9 +117,6 @@ AST *parse_comma_separated_idents(Interp *interp) {
     return idents;
 }
 
-AST *parse_expr2(Interp *interp);
-AST *parse_expr1(Interp *interp);
-AST *parse_expr(Interp *interp);
 AST *parse_decl(Interp *interp);
 AST *parse_decl_ident(Interp *interp, AST *ident);
 AST *parse_block(Interp *interp);
@@ -141,6 +138,7 @@ AST *parse_block(Interp *interp);
 #define MAX_OPEARTOR_PRECEDENCE 12
 // Parse expression with ascending precedence - lower ones are parsed earlier
 // Currently this is made by making 
+// @TODO remove recursion for precedence iteration
 #define parse_expr(_interp) parse_expr_precedence(_interp, MAX_OPEARTOR_PRECEDENCE)
 AST *parse_expr_precedence(Interp *interp, u32 precedence) {
     AST *expr = 0;

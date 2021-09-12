@@ -42,6 +42,13 @@ const char *AST_BINARY_STRS[] = {
     "IRShift"
 };
 
+void ast_list_add(ASTList *list, AST *ast) {
+    if (!list->first) {
+        list->first = ast;
+    }
+    LLIST_ADD(list->last, ast);
+}
+
 void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth) {
     if (!ast) {
         fmt_buf(buf, "%*cNULL\n");

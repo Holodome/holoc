@@ -89,3 +89,10 @@ typedef struct TemporaryMemory {
 
 TemporaryMemory begin_temp_memory(MemoryArena *arena);
 void end_temp_memory(TemporaryMemory temp);
+
+// @NOTE there are different allocation technicues (memory pool, packed set, slab allocators, free list linked lists)
+// that program may want to use later.
+// Because what allocation may seem suitable, we can't predict all use cases and features it should support
+// But in later future, it may be benefitial to have some kind of allocator object - such that usage code
+// may not specify allocation technique (like call arena_alloc - specific function). This is substaintilly better 
+// for prototyping

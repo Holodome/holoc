@@ -28,6 +28,7 @@ First of all, this project is not positioning itself as completely original prod
 
 * [Jonathan Blow](https://www.youtube.com/user/jblow888) - inspiration about syntax and language design
 * [Casey Muratori](https://www.youtube.com/c/MollyRocket) - huge influence on code style 
+* [Niklas Gray](https://www.gamasutra.com/blogs/author/NiklasGray/1016727/) - his articles on data structures pretty much reflect author's point of view (see 'Minimalist container library in C' and 'Data Structures')
 
 ## Goal
 
