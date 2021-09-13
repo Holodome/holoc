@@ -1,6 +1,4 @@
-# Language
-
-> (proper name to come)
+# PKBY
 
 This is complete complier and runner for bytecode-compiled language.
 

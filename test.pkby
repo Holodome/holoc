@@ -1,0 +1,12 @@
+
+abs :: (x: int) -> int {
+    result: int;
+    if x > 0 {
+        result = x;
+    } else if x == 0 {
+        result = 0;
+    } else {
+        result = -x;
+    }
+    return result;
+}
