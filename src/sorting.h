@@ -1,3 +1,6 @@
+// sorting.h
+//
+// Provides different soring algorithms
 #pragma once
 #include "general.h"
 
@@ -9,9 +12,9 @@ typedef struct SortEntry {
     u64 key;   // value that array needs to be sorted around. Floating-point needs special handling, see functions below
     u64 value; // any value that user can use to use sort data
 } SortEntry;
-// Constructing of keys for floating-point values
-u64 f32_to_sort_key(f32 value);
+// Construct soring key from floating-pointvalue
 u64 f64_to_sort_key(f64 value);
 
 // O(n)
+// Sorted result is stored in entries
 void radix_sort(SortEntry *entries, SortEntry *temp, uptr n);

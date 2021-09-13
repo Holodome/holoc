@@ -5,7 +5,7 @@
 void report_error(Interp *interp, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
-    erroutf("[ERROR] %s:", get_file_name(interp->file_id));
+    // erroutf("[ERROR] %s:", get_file_name(interp->file_id)); TODO
     verroutf(msg, args);
     erroutf("\n");    
     
@@ -14,10 +14,14 @@ void report_error(Interp *interp, const char *msg, ...) {
 }
 
 void report_error_at_internal(Interp *interp, SourceLocation source_loc, const char *msg, va_list args) {
-    const FileData *file_data = get_file_data(interp->file_id);
+    // const FileData *file_data = get_file_data(interp->file_id);
+    // @TODO capture source index and read only n first bytes instead of whole file
+    uptr file_size = get_file_size(interp->file_id);
+    char *file_contents = mem_alloc(file_size);
+    read_file(interp->file_id, 0, file_contents, file_size);
     // @TODO more robust algorithm
     u32 current_line_idx = 1;
-    const char *line_start = file_data->str;
+    const char *line_start = file_contents;
     while (current_line_idx != source_loc.line) {
         if (*line_start == '\n') {
             ++current_line_idx;
@@ -25,11 +29,12 @@ void report_error_at_internal(Interp *interp, SourceLocation source_loc, const c
         ++line_start;
     }
     const char *line_end = line_start;
-    while (*line_end != '\n' && (line_end - file_data->str) < file_data->size) {
+    while (*line_end != '\n' && (line_end - file_contents) < file_size) {
         ++line_end;
     }
     
-    erroutf("%s:%u:%u: \033[31merror\033[0m: ", get_file_name(interp->file_id), source_loc.line, source_loc.symb);
+    // @TODO
+    // erroutf("%s:%u:%u: \033[31merror\033[0m: ", get_file_name(interp->file_id), source_loc.line, source_loc.symb);
     verroutf(msg, args);
     erroutf("\n%.*s\n%*c\033[33m^\033[0m\n", line_end - line_start, line_start,
         source_loc.symb, ' ');
@@ -103,12 +108,12 @@ static AST *create_int_lit(Interp *interp, i64 value) {
     return literal;
 }
 
-AST *parse_comma_separated_idents(Interp *interp) {
-    AST *idents = 0;
+ASTList parse_comma_separated_idents(Interp *interp) {
+    ASTList idents = {0};
     Token *tok = peek_tok(interp->tokenizer);
     while (tok->kind == TOKEN_IDENT) {
         AST *ident = create_ident(interp, tok->value_str);
-        LLIST_ADD(idents, ident);
+        ast_list_add(&idents, ident);
         tok = peek_next_tok(interp->tokenizer);
         if (tok->kind == ',') {
             tok = peek_next_tok(interp->tokenizer);
@@ -551,13 +556,13 @@ AST *parse_statement(Interp *interp) {
         statement = parse_assign_ident(interp, ident);
     } else if (tok->kind == TOKEN_KW_RETURN) {
         tok = peek_next_tok(interp->tokenizer);
-        AST *return_vars = 0;
+        ASTList return_vars = {0};
         while (tok->kind != ';') {
             AST *expr = parse_expr(interp);
             if (!expr || interp->reported_error) {
                 break;
             }
-            LLIST_ADD(return_vars, expr);
+            ast_list_add(&return_vars, expr);
             
             tok = peek_tok(interp->tokenizer);
             if (tok->kind == ',') {
@@ -590,7 +595,7 @@ AST *parse_block(Interp *interp) {
         return 0;
     }
     
-    AST *statements = 0;
+    ASTList statements = {0};
     while (peek_tok(interp->tokenizer)->kind != '}') {
         AST *statement = parse_statement(interp);
         if (!statement) {
@@ -600,10 +605,10 @@ AST *parse_block(Interp *interp) {
         if (interp->reported_error) {
             break;
         }
-        LLIST_ADD(statements, statement);
+        ast_list_add(&statements, statement);
     }
     block = ast_new(interp, AST_BLOCK);
-    block->block.first_statement = statements;
+    block->block.statements = statements;
     
     tok = peek_tok(interp->tokenizer);
     if (expect_tok(interp, tok, '}')) {
@@ -621,11 +626,11 @@ AST *parse_function_signature(Interp *interp) {
     }
     tok = peek_next_tok(interp->tokenizer);
     // Parse arguments
-    AST *arguments = 0;
+    ASTList arguments = {0};
     while (tok->kind != ')') {
         if (expect_tok(interp, tok, TOKEN_IDENT)) {
             AST *ident = create_ident(interp, tok->value_str);
-            LLIST_ADD(arguments, ident);
+            ast_list_add(&arguments, ident);
             
             tok = peek_next_tok(interp->tokenizer);
             if (expect_tok(interp, tok, ':')) {
@@ -655,8 +660,8 @@ AST *parse_function_signature(Interp *interp) {
     if (tok->kind == TOKEN_ARROW) {
         tok = peek_next_tok(interp->tokenizer);
         
-        AST *outs = parse_comma_separated_idents(interp);
-        sign->func_sign.outs = outs;
+        ASTList outs = parse_comma_separated_idents(interp);
+        sign->func_sign.return_types = outs;
     }
     return sign;
 }
@@ -761,8 +766,10 @@ AST *parse_toplevel_item(Interp *interp) {
 
 Interp create_interp(const char *filename) {
     Interp interp = {0};
-    interp.file_id = get_file_id_for_filename(filename);
-    interp.tokenizer = create_tokenizer(interp.file_id);
+    interp.file_id = create_file(filename, FILE_MODE_READ);
+    InStream file_in = create_in_streamf_default(interp.file_id);
+    interp.tokenizer = create_tokenizer(&file_in);
+    destroy_in_stream(&file_in);
     return interp;
 }
 
@@ -776,10 +783,8 @@ void do_interp(Interp *interp) {
         if (interp->reported_error) {
             break;
         }
-        char buffer[4096] = {0};
-        FmtBuffer buf = create_fmt_buf(buffer, sizeof(buffer));
-        fmt_ast_tree_recursive(&buf, toplevel, 0);
-        outf(buffer);
+        
+        fmt_ast_tree_recursive(stdout_stream, toplevel, 0);
     }
 }
 

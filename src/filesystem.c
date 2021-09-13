@@ -6,111 +6,81 @@
 #include "memory.h"
 #include "hashing.h"
 
-#define FILESYSTEM_HASH_SIZE 128
+#include <sys/syslimits.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-typedef struct FilesystemFile {
-    char *name;
-    u32 hash; // id
-    b32 is_data_initialized;
-    FileData data;
-    
-    struct FilesystemFile *next;
-} FilesystemFile;
-
-typedef struct Filesystem {
-    MemoryArena arena;
-
-    FilesystemFile *file_hash[FILESYSTEM_HASH_SIZE];    
-} Filesystem;
-
-static Filesystem filesystem;
-
-static FilesystemFile *get_file_hash(u32 hash_value) {
-    u32 hash_slot = hash_value & (FILESYSTEM_HASH_SIZE - 1);
-    
-    FilesystemFile *file = filesystem.file_hash[hash_slot];
-    for (;;) {
-        if (file && file->hash == hash_value) {
-            break;
-        }  
-        
-        if (file && file->next) {
-            file = file->next;
-        } else {
-            file = arena_alloc_struct(&filesystem.arena, FilesystemFile);
-            LLIST_ADD(filesystem.file_hash[hash_slot], file);
-            break;
-        } 
-    }
-    
-    return file;
-}
-
-static FilesystemFile *create_file(const char *name) {
-    u32 name_hash = hash_string(name);
-    
-    FilesystemFile *file = get_file_hash(name_hash);
-    assert(file);
-    if (file->hash) {
-        erroutf("[ERROR] File with name '%s' already exists\n", name);
-    } else {
-        file->hash = name_hash;
-        file->name = arena_alloc_str(&filesystem.arena, name);
-    }
-    return file;
-}
-
-const char *get_file_name(FileID id) {
-    const char *result = 0;
-    FilesystemFile *file = get_file_hash(id.value);
-    if (file) {
-        assert(file->name);
-        result = file->name;
-    }
-    return result;
-}
-
-const FileData *get_file_data(FileID id) {
-    FileData *result = 0;
-    FilesystemFile *file = get_file_hash(id.value);
-    if (file && file->is_data_initialized) {
-        result = &file->data;
-    }
-    return result;
-}
-
-FileID get_file_id_for_buffer(const char *buf, uptr buf_sz, const char *name) {
+FileID create_file(const char *filename, u32 mode) {
+    int posix_mode = 0;
+    if (mode == FILE_MODE_READ) {
+        posix_mode |= O_RDONLY;
+    } else if (mode == FILE_MODE_WRTIE) {
+        posix_mode |= O_WRONLY;
+    } 
+    int posix_handle = open(filename, posix_mode);
     FileID id = {0};
-    FilesystemFile *file = create_file(name);
-    if (file) {
-        file->is_data_initialized = TRUE;
-        file->data.data = arena_copy(&filesystem.arena, buf, buf_sz);
-        file->data.size = buf_sz;
-        
-        id.value = file->hash;
+    if (posix_handle > 0) {
+        id.value = posix_handle;
     }
     return id;
 }
-
-FileID get_file_id_for_str(const char *str, const char *name) {
-    return get_file_id_for_buffer(str, str_len(str), name);
+FileID get_stdout_file(void) {
+    FileID id;
+    id.value = 1;
+    return id;
+}
+FileID get_stderr_file(void) {
+    FileID id;
+    id.value = 2;
+    return id;
+}
+b32 write_file(FileID file, uptr offset, const void *bf, uptr bf_sz) {
+    b32 result = 0;
+    if (is_file_valid(file)) {
+        int posix_handle = file.value;
+        lseek(posix_handle, offset, SEEK_SET);
+        ssize_t written = write(posix_handle, bf, bf_sz);
+        if (bf_sz == written) {
+            result = 1;
+        }
+    }
+    return result;
+}
+b32 read_file(FileID file, uptr offset, void *bf, uptr bf_sz) {
+    b32 result = 0;
+    if (is_file_valid(file)) {
+        int posix_handle = file.value;
+        lseek(posix_handle, offset, SEEK_SET);
+        ssize_t nread = read(posix_handle, bf, bf_sz);
+        if (nread == bf_sz) {
+            result = 1;
+        }
+    }
+    return result;
+}
+uptr get_file_size(FileID id) {
+    uptr result = 0;
+    if (is_file_valid(id)) {
+        int posix_handle = id.value;
+        result = lseek(posix_handle, 0, SEEK_END);
+    }      
+    return result;
+}
+b32 is_file_valid(FileID id) {
+    return id.value != 0;
 }
 
-FileID get_file_id_for_filename(const char *filename) {
-    FileID id = {0};
-    FilesystemFile *file = create_file(filename);
-    // @TODO all loading is done in advance for now
-    if (file) {
-        file->is_data_initialized = TRUE;
-        FILE *file_obj = fopen(filename, "rb");
-        fseek(file_obj, 0, SEEK_END);
-        uptr len = ftell(file_obj);
-        fseek(file_obj, 0, SEEK_SET);
-        file->data.size = len;
-        file->data.data = arena_alloc(&filesystem.arena, len);
-        fread(file->data.data, 1, len, file_obj);
-        
-        id.value = file->hash;
+// @SPEED it may be benefitial to use hash table for storing filenames,
+// because latency of os calls is unpredictible
+uptr fmt_filename(char *bf, uptr bf_sz, FileID id) {
+    uptr result = 0;
+    if (is_file_valid(id)) {
+        int posix_fd = id.value;
+        char internal_bf[PATH_MAX];
+        if (fcntl(posix_fd, F_GETPATH, internal_bf) != -1) {
+            str_cp(bf, bf_sz, internal_bf);
+        }
     }
-    return id;
+    return result;
 }

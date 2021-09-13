@@ -1,3 +1,6 @@
+// hashing.h
+// 
+// Provides different APIs that are conncected with hashing.
 #pragma once
 #include "general.h"
 

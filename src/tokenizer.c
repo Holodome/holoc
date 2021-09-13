@@ -49,44 +49,28 @@ b32 is_token_assign(u32 tok) {
         tok == TOKEN_IXOR || tok == TOKEN_ILSHIFT || tok == TOKEN_IRSHIFT; 
 }
 
-Tokenizer *create_tokenizer(FileID id) {
-    const FileData *file_data = get_file_data(id);
-    
+Tokenizer *create_tokenizer(InStream *st) {
     Tokenizer *tokenizer = arena_bootstrap(Tokenizer, arena);
-    tokenizer->file_id = id;
-    tokenizer->buffer = arena_copy(&tokenizer->arena, file_data->data, file_data->size);
-    tokenizer->buffer_size = file_data->size;
+    tokenizer->in_stream = st;
     tokenizer->line_number = 1;
-    tokenizer->cursor = tokenizer->buffer;
-    if (file_data->size) {
-        tokenizer->symb = *tokenizer->buffer;
-    }
+    u8 first_byte = 0;
+    in_stream_consume_byte(st, &first_byte);
+    tokenizer->symb = first_byte; 
     return tokenizer;
 }
 
-void delete_tokenizer(Tokenizer *tokenizer) {
+void destroy_tokenizer(Tokenizer *tokenizer) {
     arena_clear(&tokenizer->arena);
-}
-
-// Returns current index in tokenizer.
-// Same can be achieved using separate variable for counting,
-// which is less preferable due to increased complexity and neglible perfomace change (single instruction)
-static uptr get_buffer_idx(Tokenizer *tokenizer) {
-    return tokenizer->cursor - tokenizer->buffer;
-}
-
-static b32 has_space_for(Tokenizer *tokenizer, u32 count) {
-    return get_buffer_idx(tokenizer) + count <= tokenizer->buffer_size;
 }
 
 // Safely advance cursor. If end of buffer is reached, 0 is set to tokenizer->symb and  
 // false is returned
 static b32 advance(Tokenizer *tokenizer) {
     b32 result = TRUE;
-    if (has_space_for(tokenizer, 1)) {
+    u8 byte = 0;
+    if (in_stream_consume_byte(tokenizer->in_stream, &byte)) {
         ++tokenizer->symb_number;
-        ++tokenizer->cursor;
-        tokenizer->symb = *tokenizer->cursor;
+        tokenizer->symb = byte;
     } else {
         tokenizer->symb = 0;
         result = FALSE;
@@ -97,8 +81,10 @@ static b32 advance(Tokenizer *tokenizer) {
 static b32 next_eq(Tokenizer *tokenizer, const char *str, uptr *out_len) {
     b32 result = FALSE;
     uptr len = str_len(str);
-    if (has_space_for(tokenizer, len)) {
-        result = str_eqn((const char *)tokenizer->cursor, str, len);
+    char buffer[128];
+    assert(len <= sizeof(buffer));
+    if (in_stream_peek(tokenizer->in_stream, buffer, len)) {
+        result = str_eqn(buffer, str, len);
     }
     if (out_len) {
         *out_len = len;
@@ -110,10 +96,7 @@ static b32 parse(Tokenizer *tokenizer, const char *str) {
     b32 result = FALSE;
     uptr len = 0;
     if (next_eq(tokenizer, str, &len)) {
-        while (len--) {
-            b32 temp = advance(tokenizer);
-            assert(temp);
-        }
+        in_stream_advance_n(tokenizer->in_stream, len);
         result = TRUE;
     }
     return result;

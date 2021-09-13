@@ -1,3 +1,6 @@
+// general.h
+//
+// Provides data types and macros that are widely used throughout the program
 #pragma once 
 #include <stdint.h>
 typedef uint8_t u8;

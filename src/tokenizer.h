@@ -3,6 +3,7 @@
 #include "general.h"
 #include "memory.h"
 
+#include "stream.h" // InStream
 #include "filesystem.h" // SourceLocation
 
 #define TOKEN_GENERAL 0x100
@@ -82,15 +83,9 @@ typedef struct Token {
 // Tokenizer does not do error handling in inselft, instead it provides error tokens (TOKEN_NONE) that usage code can decide what to do with.
 // This way error handling can be centralized, because errors can happen in several places, not only in tokenizing.
 typedef struct Tokenizer {
-    // Stores copy of given buffer and all tokens.
+    // Stores all tokens.
     MemoryArena arena;
-    // Buffer is copied on tokenizer arena and deleted with tokenizer
-    // Tag string set by usage code. It is set into source_location in tokens and can be used elsewhere
-    FileID file_id;
-    u8 *buffer;
-    uptr buffer_size;
-    // Internal indicator used to navigate buffer
-    u8 *cursor;
+    InStream *in_stream;
     // Current symbol. Besides that, used for indicating end of buffer (0)
     u32 symb;
     u32 line_number;
@@ -99,9 +94,9 @@ typedef struct Tokenizer {
     Token *active_token;
 } Tokenizer;
 
-Tokenizer *create_tokenizer(FileID id);
+Tokenizer *create_tokenizer(InStream *st);
 // Deletes all tokens
-void delete_tokenizer(Tokenizer *tokenizer);
+void destroy_tokenizer(Tokenizer *tokenizer);
 // Returns current token. Stores token until it's eaten
 Token *peek_tok(Tokenizer *tokenizer);
 // Tell tokenizer to return next token on next peek_tok call

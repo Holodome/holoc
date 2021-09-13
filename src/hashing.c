@@ -96,7 +96,7 @@ static u64 *hash64_get_internal(Hash64 *hash, u64 key) {
         u64 hash_idx = (hash_value + offset) & hash_mask;
         u64 test_key = hash->keys[hash_idx];
         if (test_key == key || key == 0) {
-            result = hash->values[hash_idx];
+            result = &hash->values[hash_idx];
             break;
         }
     }

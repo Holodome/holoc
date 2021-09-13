@@ -1,4 +1,5 @@
 // memory.h
+//
 // Defines memory-related functions, as well as block and arena allocator.
 // Note that behaviour of allocator and idea behind it is different from standard libary
 // All allocated memory is always implicitly set 0, (Zero Is Initialization - unlike RAII)
@@ -9,12 +10,15 @@
 // Idea behind ZII is to provide general way of allocating objects. Thus it can be said 
 // that any (besides things that don't) object can be created by setting it to zero.
 // ex. MemoryArena arena = {0}; // Arena can be used from now, without explicit initializtion (arena = create_arena(...))
+//
+// @NOTE MemoryArena is not a replacement for general purpose allocator.
+// It is just simplification for many cases in programming compilers, where lifetime of a lot
+// of small object can be assigned to a liftime of one greater. This is what rust has better explicity doing with 'a
 #pragma once 
 #include "general.h"
 
 // standard library-like functions
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory
-// using mem_alloc instead of arena allocators is not advised in general use-cases
 // malloc
 void *mem_alloc(uptr size);
 // strdup
@@ -96,3 +100,11 @@ void end_temp_memory(TemporaryMemory temp);
 // But in later future, it may be benefitial to have some kind of allocator object - such that usage code
 // may not specify allocation technique (like call arena_alloc - specific function). This is substaintilly better 
 // for prototyping
+
+// Temporary allocation. The way it works is by having allocator designated for 
+// temporary allocations. This is common idiom in games, where temporary allocator can free all memory within frames
+// Here it should be used primarily for prototyping, as its execution time is not constant (due to need to zero memory) 
+// When clear is set to true, all allocations overwrite previous ones.
+// When clear is not zero, allocations pile up 
+void tmp_alloc_set_clear(b32 clear);
+void *tmp_alloc(uptr size);

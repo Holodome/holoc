@@ -1,3 +1,6 @@
+// strings.h
+//
+// Defines series of functions that are frequently used when oprating with strings.
 #pragma once
 #include "general.h"
 
@@ -16,8 +19,14 @@ b32 is_punct(u32 symb);
 f64 str_to_f64(const char *str, uptr len);
 i64 str_to_i64(const char *str, uptr len);
 
+// Copies string str to bf. Number of written bytes is min(bf_sz, strlen(str) + 1)
+// Return number of copied bytes
+uptr str_cp(char *bf, uptr bf_sz, const char *str);
+// Returns true if two given strings are equal, false otherwise
 b32 str_eq(const char *a, const char *b);
+// Returns true if first n characters of both strings are equal or strings are equal
 b32 str_eqn(const char *a, const char *b, uptr n);
+// Returns string length
 uptr str_len(const char *str);
 
 // Returns length of utf8-encoded symbol. 
@@ -44,18 +53,3 @@ typedef struct TextUTF8 {
     u8 *data;
     uptr len;
 } TextUTF8;
-
-// Structure to help writing complex formatters, when a lot of pointer arithmetic is involved
-// With it series of formatting functions can be written in chain without additional work
-// Futher we would want to expand this allowing dynamically growing pages is size/count
-// Basically this is what is known a stream
-typedef struct FmtBuffer {
-    char *start;
-    char *current;
-    uptr size_total;
-    uptr size_remaining;
-} FmtBuffer;
-
-FmtBuffer create_fmt_buf(char *buf, uptr sz);
-uptr vfmt_buf(FmtBuffer *buf, char *fmt, va_list args);
-uptr fmt_buf(FmtBuffer *buf, char *fmt, ...);

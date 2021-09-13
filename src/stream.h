@@ -1,0 +1,112 @@
+// stream.h
+// 
+// Defines series of data types that represent differnt types of input and output streams
+// Stream is an object that provides API to continoiusly access data from different sources
+// In particular, streams can be used to access 3 different type of data sources:
+// 1: Files. Input and output streams support delayed writing, improving perfomance over calling os
+// write call every time
+// 2: Standard streams. These are stdin, stdout, stderr
+// 3: Buffers. User-defned buffers
+// 
+// Use of streams allows writing all input and output code in same manner, generally improving code
+// reuse.
+// Streams are similar to FILE * objects from c standard library.
+//
+// @NOTE Input and output streams are split into two different data structures.
+// This is done to preserve clarity in code for reading - because single use case can never mix 
+// reading and writing to same locaiton
+#pragma once
+#include "general.h"
+#include "strings.h"
+#include "filesystem.h"
+
+#define OUT_STREAM_DEFAULT_BUFFER_SIZE KB(16)
+// This is similar to stdlib's one, which is also usually 4kb
+#define OUT_STREAM_DEFAULT_MAX_PRINTF_LEN KB(4)
+#define OUT_STREAM_DEFAULT_THRESHOLD (OUT_STREAM_DEFAULT_BUFFER_SIZE - OUT_STREAM_DEFAULT_MAX_PRINTF_LEN)
+#define IN_STREAM_DEFAULT_BUFFER_SIZE KB(8)
+#define IN_STREAM_DEFAULT_MAX_CONSUMPTION_SIZE KB(1)
+#define IN_STREAM_DEFAULT_THRESHLOD (IN_STREAM_DEFAULT_BUFFER_SIZE - IN_STREAM_DEFAULT_MAX_CONSUMPTION_SIZE)
+
+enum {
+    STREAM_BUFFER,
+    STREAM_FILE,
+};
+// Stream is an object that supports continously writing to while having
+// relatively stable write time perfomance.
+// Streams are used to write to output files, but OS write calls are quite expnesive.
+// That is why stream contains buffer that is written to until threshold is hit (to allow writes of arbitrary sizes)
+// When threshold is hit a flush happens - buffer is written to output file and ready to recieve new input
+// buffer_size - buffer_threshold define maximum size of single write 
+// 
+// @TODO behaviour of stream can be expanded to allow other types of commits besides writing to file 
+typedef struct OutStream {
+    u32 mode;
+    FileID out_file;
+    uptr out_file_idx;
+    u8 *bf;
+    uptr bf_sz;
+    uptr threshold;
+    // Current write index
+    uptr bf_idx;
+} OutStream;
+
+// Create stream for writing to buffer directly
+OutStream create_out_stream(void *bf, uptr bf_sz);
+// Create stream for writing to file.
+// bf_sz - what size of buffer to allocate 
+// threshold >= bf_sz
+#define create_out_streamf_default(_file) \
+create_out_streamf(_file, OUT_STREAM_DEFAULT_BUFFER_SIZE, OUT_STREAM_DEFAULT_THRESHOLD)
+OutStream create_out_streamf(FileID file, uptr bf_sz, uptr threshold);
+void destroy_out_stream(OutStream *st);
+// Printfs to stream
+uptr out_streamf(OutStream *st, const char *fmt, ...);
+uptr out_streamv(OutStream *st, const char *fmt, va_list args);
+// Write binary data to stream
+void out_streamb(OutStream *st, const void *b, uptr c);
+void out_stream_flush(OutStream *st);
+
+// Threshold defines how much of additonal data is read between flushes.
+// For example, buffer may be 6 kb and threshold 4kb. Then 
+// each time additional 2 kb is read. This way stream can always read at least 2kb bytes
+// This is useful in parsing text files, when, for example, single line have to be read.
+// We can safely say that line is no longer than 2048 symbols (hopefully...).
+// Then whole line can be read and parsed correclty, but in other cases only part
+// of line will be read and then it is not clear what behavour of program should be.
+// When threshold is reached, new bf_sz bytes are read, and bytes located afther threshold are moved
+// at buffer start. So, the bigger the bf_sz - thrreshold, the more stream can read at once, 
+// but the more time it spends on copying and moving around memory
+// Way around this can be allowing buffer of growing size 
+// @NOTE no flusing happens when in stream uses buffer to read from
+typedef struct InStream {
+    u32 mode;
+    FileID file;
+    uptr file_idx;
+    
+    u8 *bf;
+    uptr bf_sz;
+    uptr bf_idx;
+    uptr threshold;
+} InStream;
+
+// Create input stream from buffer - to unify API for reading from file and buffer in some systems
+InStream create_in_stream(void *bf, uptr bf_sz);
+#define create_in_streamf_default(_file) \
+create_in_streamf(_file, IN_STREAM_DEFAULT_BUFFER_SIZE, IN_STREAM_DEFAULT_THRESHLOD)
+InStream create_in_streamf(FileID file, uptr bf_sz, uptr threshold);
+void destroy_in_stream(InStream *in_stream);
+// Read next byte. Used in tokenizer
+b32 in_stream_consume_byte(InStream *st, u8 *out_byte);
+// Peek next n bytes without advancing the cursor
+b32 in_stream_peek(InStream *st, void *out, uptr n);
+// Advance stream by n bytes. 
+b32 in_stream_advance_n(InStream *st, uptr n);
+void in_stream_flush(InStream *st);
+
+// Should be called at program startup
+// Analogous to crt startup function standard library inserts before main() assembly
+void init_console_streams(void);
+extern InStream *stdin_stream;
+extern OutStream *stdout_stream;
+extern OutStream *stderr_stream;

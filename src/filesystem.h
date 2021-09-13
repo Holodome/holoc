@@ -1,8 +1,15 @@
+// filesystem.h
+//
+// Defines os-agnostic API to access files on disk.
+//
+// @NOTE API here is different from c standard library, which uses streams for same operations
+// Input and utput functions in this API also take offset parmeter, which defines cursor in file
 #pragma once
 #include "general.h"
 
+// Handle to file object. User has no way of understanding data stored in value
 typedef struct FileID {
-    u32 value;
+    u64 value;
 } FileID;
 
 typedef struct SourceLocation {
@@ -10,17 +17,26 @@ typedef struct SourceLocation {
     int symb;  
 } SourceLocation;
 
-typedef struct FileData {
-    union {
-        u8 *data;
-        char *str;
-    };
-    uptr size;
-} FileData;
+enum {
+    FILE_MODE_READ,
+    FILE_MODE_WRTIE
+};
 
-const char *get_file_name(FileID id);
-const FileData *get_file_data(FileID id);
-// @TODO limit on name length
-FileID get_file_id_for_buffer(const char *buf, uptr buf_sz, const char *name);
-FileID get_file_id_for_str(const char *str, const char *name);
-FileID get_file_id_for_filename(const char *filename);
+// Get handle for file
+FileID create_file(const char *filename, u32 mode);
+// Get console out handle
+// @NOTE in most OSs writing to file and console is the same.
+// This API makes use of same paradigm
+FileID get_stdout_file(void);
+FileID get_stderr_file(void);
+// Write bf_sz bytes to file with offset.
+// Unlike stdio fwrite, offset is explicitly specified.
+b32 write_file(FileID file, uptr offset, const void *bf, uptr bf_sz);
+// Same as write file, but read
+b32 read_file(FileID file, uptr offset, void *bf, uptr bf_sz);
+
+uptr get_file_size(FileID);
+// Is handle valid.
+b32 is_file_valid(FileID);
+// Return filename for given id
+uptr fmt_filename(char *bf, uptr bf_sz, FileID id);

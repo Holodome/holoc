@@ -1,12 +1,20 @@
 //
 // ast.h
 //
-// description of abstract syntax trees. Parser turns tokenized input into AST, that is later executed
+// Description of abstract syntax trees
+// 
+// @NOTE in current implementation (13.09.21) AST uses single structure to repsent all differnt asts 
+// using what is known as tagged union.
+// However, in provides little to none benefits in case of asts, so switching to 'inheritance' model
+// could be made.
+// In ISO C17, there is still no way to accomplish this.
+// However, ms-extensions can be used
 #pragma once
 #include "general.h"
 
 #include "filesystem.h"
 #include "strings.h"
+#include "stream.h"
 
 enum {
     AST_NONE,
@@ -152,4 +160,4 @@ struct AST {
     };
 };
 
-void fmt_ast_tree_recursive(FmtBuffer *buf, AST *ast, u32 depth);
+void fmt_ast_tree_recursive(OutStream *stream, AST *ast, u32 depth);
