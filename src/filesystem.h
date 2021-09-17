@@ -21,11 +21,12 @@ typedef struct SourceLocation {
 
 enum {
     FILE_MODE_READ,
-    FILE_MODE_WRTIE
+    FILE_MODE_WRITE
 };
 
 // Get handle for file
 FileID create_file(const char *filename, u32 mode);
+b32 destroy_file(FileID id);
 // Get console out handle
 // @NOTE in most OSs writing to file and console is the same.
 // This API makes use of same paradigm
@@ -35,9 +36,9 @@ FileID get_stdin_file(void);
 // Write bf_sz bytes to file with offset.
 // Unlike stdio fwrite, offset is explicitly specified.
 // If offset = UINT32_MAX, no offset is done (used in standard streams)
-b32 write_file(FileID file, uptr offset, const void *bf, uptr bf_sz);
+uptr write_file(FileID file, uptr offset, const void *bf, uptr bf_sz);
 // Same as write file, but read
-b32 read_file(FileID file, uptr offset, void *bf, uptr bf_sz);
+uptr read_file(FileID file, uptr offset, void *bf, uptr bf_sz);
 
 uptr get_file_size(FileID);
 // Is handle valid.

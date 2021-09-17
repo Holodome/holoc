@@ -1,7 +1,8 @@
 #include "strings.h"
 
-#include <stdio.h> // vprintf
+// #include <stdio.h> // vprintf
 #include <memory.h>
+#include <stream.h>
 
 #define IEEE754_CONVERT_IMPLEMENTATION 
 #include "ieee754_convert.h"
@@ -171,7 +172,9 @@ uptr outf(const char *msg, ...) {
 }
 
 uptr voutf(const char *msg, va_list args) {
-    return vprintf(msg, args);
+    uptr result = out_streamv(get_stdout_stream(), msg, args);
+    out_stream_flush(get_stdout_stream());
+    return result;
 }
 
 uptr erroutf(const char *msg, ...) {
@@ -183,5 +186,7 @@ uptr erroutf(const char *msg, ...) {
 }
 
 uptr verroutf(const char *msg, va_list args) {
-    return vfprintf(stderr, msg, args);
+    uptr result = out_streamv(get_stderr_stream(), msg, args);
+    out_stream_flush(get_stderr_stream());
+    return result;
 }

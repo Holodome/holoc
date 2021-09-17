@@ -13,6 +13,10 @@ typedef int32_t i32;
 typedef int64_t i64;
 typedef u32 b32;
 typedef u8 b8;
+// @NOTE C has strange notion of size_t and uintptr_t being different types. 
+// Not to compilcate code until we need to, single type was introduced.
+// @NOTE currently code assumes platform being 64 bit, but it can be changed in future
+// in places where we use this type
 typedef uintptr_t uptr;
 typedef float f32;
 typedef double f64;

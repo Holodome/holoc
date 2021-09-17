@@ -10,21 +10,32 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 FileID create_file(const char *filename, u32 mode) {
     int posix_mode = 0;
     if (mode == FILE_MODE_READ) {
         posix_mode |= O_RDONLY;
-    } else if (mode == FILE_MODE_WRTIE) {
-        posix_mode |= O_WRONLY;
+    } else if (mode == FILE_MODE_WRITE) {
+        posix_mode |= O_WRONLY | O_TRUNC | O_CREAT;
     } 
-    int posix_handle = open(filename, posix_mode);
+    int permissions = 0777;
+    int posix_handle = open(filename, posix_mode, permissions);
     FileID id = {0};
     if (posix_handle > 0) {
         id.value = posix_handle;
+    } else {
+        outf("ERRNO: %d\n", errno);
+        DBG_BREAKPOINT;
     }
     return id;
 }
+
+b32 destroy_file(FileID id) {
+    b32 result = close(id.value) == 0;
+    return result;
+}
+
 FileID get_stdout_file(void) {
     FileID id;
     id.value = 1;
@@ -41,31 +52,38 @@ FileID get_stdin_file(void) {
     return id;
 }
 
-b32 write_file(FileID file, uptr offset, const void *bf, uptr bf_sz) {
-    b32 result = 0;
+uptr write_file(FileID file, uptr offset, const void *bf, uptr bf_sz) {
+    uptr result = 0;
     if (is_file_valid(file)) {
         int posix_handle = file.value;
-        if (offset != UINT32_MAX) {
+        if (offset != 0xFFFFFFFF) {
             lseek(posix_handle, offset, SEEK_SET);
         }
         ssize_t written = write(posix_handle, bf, bf_sz);
-        if (bf_sz == written) {
-            result = 1;
+        if (written == -1) {
+            DBG_BREAKPOINT;
         }
+        result = written;
+    } else {
+        DBG_BREAKPOINT;
     }
     return result;
 }
-b32 read_file(FileID file, uptr offset, void *bf, uptr bf_sz) {
-    b32 result = 0;
+
+uptr read_file(FileID file, uptr offset, void *bf, uptr bf_sz) {
+    uptr result = 0;
     if (is_file_valid(file)) {
         int posix_handle = file.value;
-        if (offset != UINT32_MAX) {
+        if (offset != 0xFFFFFFFF) {
             lseek(posix_handle, offset, SEEK_SET);
         }
         ssize_t nread = read(posix_handle, bf, bf_sz);
-        if (nread == bf_sz) {
-            result = 1;
+        if (nread == -1) {
+            DBG_BREAKPOINT;
         }
+        result = nread;
+    } else {
+        DBG_BREAKPOINT;
     }
     return result;
 }

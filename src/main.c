@@ -96,7 +96,22 @@ static void token_view(Tokenizer *tokenizer) {
     outf("\n");
 }
 
+void stream_test(void) {
+    OutStream *out = get_stdout_stream();
+    out_streamf(out, "Hello world!\n");
+    out_stream_flush(out);
+    
+    FileID test_out = create_file("out.txt", FILE_MODE_WRITE);
+    OutStream file_out = create_out_streamf_default(test_out);
+    out_streamf(&file_out, "Hello World!\n");
+    out_streamf(&file_out, "Hello Again!\n");
+    destroy_out_stream(&file_out);
+    destroy_file(test_out);
+}
+
 int main(int argc, char **argv) {
+    stream_test();
+    return 0;
     ProgramSettings settings = parse_command_line_args(argc, argv);
     if (settings.print_help) {
         // @TODO

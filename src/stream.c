@@ -7,9 +7,8 @@
 // threshold, data should be written directly
 static void out_stream_write_direct(OutStream *st, const void *data, uptr data_sz) {
     if (st->mode == STREAM_FILE) {
-        b32 written = write_file(st->out_file, st->out_file_idx, data, data_sz);
-        assert(written);
-        st->out_file_idx += data_sz;
+        uptr written = write_file(st->out_file, st->out_file_idx, data, data_sz);
+        st->out_file_idx += written;
     }
 }
 
@@ -22,8 +21,9 @@ OutStream create_out_stream(void *bf, uptr bf_sz) {
 }
 
 OutStream create_out_streamf(FileID file, uptr bf_sz, uptr threshold, b32 is_std) {
-    assert(threshold >= bf_sz);
+    assert(threshold < bf_sz);
     OutStream stream = {0};
+    stream.out_file = file;
     if (is_std) {
         stream.mode = STREAM_ST;
     } else {
@@ -78,9 +78,13 @@ void out_streamb(OutStream *st, const void *b, uptr c) {
 }
 
 void out_stream_flush(OutStream *st) {
-    if (st->mode == STREAM_FILE) {
-        assert(is_file_valid(st->out_file));
+    if (st->mode == STREAM_BUFFER) {
+        // nop  
+    } else if (st->mode == STREAM_FILE) {
         out_stream_write_direct(st, st->bf, st->bf_idx);
+        st->bf_idx = 0;
+    } else if (st->mode == STREAM_ST) {
+        write_file(st->out_file, 0xFFFFFFFF, st->bf, st->bf_idx);
         st->bf_idx = 0;
     }
 }
