@@ -4,6 +4,8 @@
 //
 // @NOTE API here is different from c standard library, which uses streams for same operations
 // Input and utput functions in this API also take offset parmeter, which defines cursor in file
+// This is because this API should just provide the minimal functionality to access system files, 
+// while C libary provides multi-purpose API
 #pragma once
 #include "general.h"
 
@@ -29,8 +31,10 @@ FileID create_file(const char *filename, u32 mode);
 // This API makes use of same paradigm
 FileID get_stdout_file(void);
 FileID get_stderr_file(void);
+FileID get_stdin_file(void);
 // Write bf_sz bytes to file with offset.
 // Unlike stdio fwrite, offset is explicitly specified.
+// If offset = UINT32_MAX, no offset is done (used in standard streams)
 b32 write_file(FileID file, uptr offset, const void *bf, uptr bf_sz);
 // Same as write file, but read
 b32 read_file(FileID file, uptr offset, void *bf, uptr bf_sz);

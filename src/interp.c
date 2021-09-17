@@ -784,7 +784,7 @@ void do_interp(Interp *interp) {
             break;
         }
         
-        fmt_ast_tree_recursive(stdout_stream, toplevel, 0);
+        fmt_ast_tree_recursive(get_stdout_stream(), toplevel, 0);
     }
 }
 

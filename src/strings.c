@@ -1,6 +1,7 @@
 #include "strings.h"
 
 #include <stdio.h> // vprintf
+#include <memory.h>
 
 #define IEEE754_CONVERT_IMPLEMENTATION 
 #include "ieee754_convert.h"
@@ -71,6 +72,16 @@ i64 str_to_i64(const char *str, uptr len) {
         }
     }
     return result;
+}
+
+uptr str_cp(char *bf, uptr bf_sz, const char *str) {
+    uptr bytes_to_copy = bf_sz;
+    uptr len = str_len(str) + 1;
+    if (len < bytes_to_copy) {
+        bytes_to_copy = len;
+    }
+    mem_copy(bf, str, bytes_to_copy);
+    return bytes_to_copy;
 }
 
 b32 str_eq(const char *a, const char *b) {

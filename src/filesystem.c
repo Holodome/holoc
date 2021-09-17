@@ -35,11 +35,19 @@ FileID get_stderr_file(void) {
     id.value = 2;
     return id;
 }
+FileID get_stdin_file(void) {
+    FileID id;
+    id.value = 3;
+    return id;
+}
+
 b32 write_file(FileID file, uptr offset, const void *bf, uptr bf_sz) {
     b32 result = 0;
     if (is_file_valid(file)) {
         int posix_handle = file.value;
-        lseek(posix_handle, offset, SEEK_SET);
+        if (offset != UINT32_MAX) {
+            lseek(posix_handle, offset, SEEK_SET);
+        }
         ssize_t written = write(posix_handle, bf, bf_sz);
         if (bf_sz == written) {
             result = 1;
@@ -51,7 +59,9 @@ b32 read_file(FileID file, uptr offset, void *bf, uptr bf_sz) {
     b32 result = 0;
     if (is_file_valid(file)) {
         int posix_handle = file.value;
-        lseek(posix_handle, offset, SEEK_SET);
+        if (offset != UINT32_MAX) {
+            lseek(posix_handle, offset, SEEK_SET);
+        }
         ssize_t nread = read(posix_handle, bf, bf_sz);
         if (nread == bf_sz) {
             result = 1;

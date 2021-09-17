@@ -27,10 +27,15 @@
 #define IN_STREAM_DEFAULT_BUFFER_SIZE KB(8)
 #define IN_STREAM_DEFAULT_MAX_CONSUMPTION_SIZE KB(1)
 #define IN_STREAM_DEFAULT_THRESHLOD (IN_STREAM_DEFAULT_BUFFER_SIZE - IN_STREAM_DEFAULT_MAX_CONSUMPTION_SIZE)
+#define STDIN_STREAM_BF_SZ KB(16)
+#define STDIN_STREAM_THRESHOLD KB(12)
+#define STDOUT_STREAM_BF_SZ KB(16)
+#define STDOUT_STREAM_THRESHOLD KB(12)
 
 enum {
     STREAM_BUFFER,
     STREAM_FILE,
+    STREAM_ST, // stdin, stdout, stderr
 };
 // Stream is an object that supports continously writing to while having
 // relatively stable write time perfomance.
@@ -57,8 +62,8 @@ OutStream create_out_stream(void *bf, uptr bf_sz);
 // bf_sz - what size of buffer to allocate 
 // threshold >= bf_sz
 #define create_out_streamf_default(_file) \
-create_out_streamf(_file, OUT_STREAM_DEFAULT_BUFFER_SIZE, OUT_STREAM_DEFAULT_THRESHOLD)
-OutStream create_out_streamf(FileID file, uptr bf_sz, uptr threshold);
+create_out_streamf(_file, OUT_STREAM_DEFAULT_BUFFER_SIZE, OUT_STREAM_DEFAULT_THRESHOLD, FALSE)
+OutStream create_out_streamf(FileID file, uptr bf_sz, uptr threshold, b32 is_std);
 void destroy_out_stream(OutStream *st);
 // Printfs to stream
 uptr out_streamf(OutStream *st, const char *fmt, ...);
@@ -82,31 +87,40 @@ void out_stream_flush(OutStream *st);
 typedef struct InStream {
     u32 mode;
     FileID file;
+    uptr file_size;
     uptr file_idx;
-    
+    // Buffer in stream is used for caching read results
     u8 *bf;
+    // Total size of buffer
     uptr bf_sz;
+    // Current read index in buffer
     uptr bf_idx;
+    // How many bytes the buffer has data of. Not equals to bf_sz only in cases where
+    // chunk contained in bf is last in file
+    uptr bf_used;
+    // After what number bf_idx should be reset and buffer refilled
     uptr threshold;
 } InStream;
 
 // Create input stream from buffer - to unify API for reading from file and buffer in some systems
 InStream create_in_stream(void *bf, uptr bf_sz);
 #define create_in_streamf_default(_file) \
-create_in_streamf(_file, IN_STREAM_DEFAULT_BUFFER_SIZE, IN_STREAM_DEFAULT_THRESHLOD)
-InStream create_in_streamf(FileID file, uptr bf_sz, uptr threshold);
+create_in_streamf(_file, IN_STREAM_DEFAULT_BUFFER_SIZE, IN_STREAM_DEFAULT_THRESHLOD, FALSE)
+InStream create_in_streamf(FileID file, uptr bf_sz, uptr threshold, b32 is_std);
 void destroy_in_stream(InStream *in_stream);
-// Read next byte. Used in tokenizer
-b32 in_stream_consume_byte(InStream *st, u8 *out_byte);
 // Peek next n bytes without advancing the cursor
-b32 in_stream_peek(InStream *st, void *out, uptr n);
+// Returns number of bytes peeked
+uptr in_stream_peek(InStream *st, void *out, uptr n);
 // Advance stream by n bytes. 
-b32 in_stream_advance_n(InStream *st, uptr n);
+// Return numbef of bytes advanced by
+uptr in_stream_advance_n(InStream *st, uptr n);
+// If stream is bufferized, read next file chunk to fill the buffer as much as possible
 void in_stream_flush(InStream *st);
 
 // Should be called at program startup
 // Analogous to crt startup function standard library inserts before main() assembly
-void init_console_streams(void);
-extern InStream *stdin_stream;
-extern OutStream *stdout_stream;
-extern OutStream *stderr_stream;
+// @NOTE just not to compilcate things with explicit initialization
+// void init_console_streams(void);
+InStream *get_stdin_stream(void);
+OutStream *get_stdout_stream(void);
+OutStream *get_stderr_stream(void);
