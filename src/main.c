@@ -1,7 +1,5 @@
 #include "general.h"
 
-#include <stdlib.h>
-#include <stdio.h>
 #include "strings.h"
 #include "tokenizer.h"
 #include "parser.h"
@@ -119,8 +117,6 @@ void stream_test(void) {
 }
 
 int main(int argc, char **argv) {
-    stream_test();
-    return 0;
     ProgramSettings settings = parse_command_line_args(argc, argv);
     if (settings.print_help) {
         // @TODO
@@ -134,6 +130,8 @@ int main(int argc, char **argv) {
     Interp interp = create_interp(settings.filename);
     do_interp(&interp);
     
-    printf("Exited without errors\n");
+    outf("Exited without errors\n");
+    out_stream_flush(get_stdout_stream());
+    out_stream_flush(get_stderr_stream());
     return 0;
 }

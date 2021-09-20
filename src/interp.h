@@ -9,6 +9,7 @@ typedef struct Interp {
     Tokenizer *tokenizer;
     
     FileHandle file_id;
+    InStream file_in_st;
     
     b32 reported_error;
 } Interp;

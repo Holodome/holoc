@@ -43,10 +43,10 @@ const char *AST_BINARY_STRS[] = {
 };
 
 void ast_list_add(ASTList *list, AST *ast) {
-    if (!list->first) {
-        list->first = ast;
+    LLIST_ADD(list->first, ast);
+    if (!list->last) {
+        list->last = ast;
     }
-    LLIST_ADD(list->last, ast);
 }
 
 void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {

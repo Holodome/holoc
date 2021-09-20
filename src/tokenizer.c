@@ -55,9 +55,9 @@ Tokenizer *create_tokenizer(InStream *st) {
     tr->line_number = 1;
     u8 first_byte = 0;
     if (in_stream_peek(st, &first_byte, 1) == 1) {
-        in_stream_advance_n(st, 1);
+        //in_stream_advance_n(st, 1);
     }
-    tr->symb = first_byte; 
+    // tr->symb = first_byte; 
     return tr;
 }
 
@@ -73,9 +73,9 @@ static b32 advance(Tokenizer *tr) {
     if (in_stream_peek(tr->st, &byte, 1)) {
         in_stream_advance_n(tr->st, 1);
         ++tr->symb_number;
-        tr->symb = byte;
+        // tr->symb = byte;
     } else {
-        tr->symb = 0;
+        // tr->symb = 0;
         result = FALSE;
     }
     return result;
@@ -84,9 +84,9 @@ static b32 advance(Tokenizer *tr) {
 static b32 next_eq(Tokenizer *tr, const char *str, uptr *out_len) {
     b32 result = FALSE;
     uptr len = str_len(str);
-    char buffer[128];
+    char buffer[128] = {};
     assert(len <= sizeof(buffer));
-    if (in_stream_peek(tr->st, buffer, len)) {
+    if (in_stream_peek(tr->st, buffer, len) == len) {
         result = str_eqn(buffer, str, len);
     }
     if (out_len) {
@@ -100,6 +100,7 @@ static b32 parse(Tokenizer *tr, const char *str) {
     uptr len = 0;
     if (next_eq(tr, str, &len)) {
         in_stream_advance_n(tr->st, len);
+        // tr->symb = in_stream_peek_b_or_zero(tr->st);
         result = TRUE;
     }
     return result;
@@ -112,7 +113,8 @@ Token *peek_tok(Tokenizer *tr) {
         tr->active_token = token;
 
         for (;;) {
-            if (!tr->symb) {
+            u8 symb = in_stream_peek_b_or_zero(tr->st);
+            if (!symb) {
                 token->kind = TOKEN_EOS;
                 break;
             }
@@ -121,11 +123,11 @@ Token *peek_tok(Tokenizer *tr) {
                 ++tr->line_number;
                 tr->symb_number = 0;
                 continue;
-            } else if (is_space(tr->symb)) {
+            } else if (is_space(symb)) {
                 advance(tr);
                 continue;
             } else if (parse(tr, "//")) {
-                while (tr->symb != '\n') {
+                while (symb != '\n') {
                     advance(tr);
                 }
                 continue;
@@ -133,7 +135,7 @@ Token *peek_tok(Tokenizer *tr) {
                 for (;;) {
                     do {
                         advance(tr);
-                    } while (tr->symb != '*');
+                    } while (in_stream_peek_b_or_zero(tr->st) != '*');
                     if (parse(tr, "*/")) {
                         break;
                     }
@@ -145,7 +147,7 @@ Token *peek_tok(Tokenizer *tr) {
             source_loc.line = tr->line_number;
             source_loc.symb = tr->symb_number;
             token->source_loc = source_loc;
-            if (is_digit(tr->symb)) {
+            if (is_digit(symb)) {
                 // @TODO warn on large ident lengths
                 char lit[128];
                 u32 lit_len = 0;
@@ -179,7 +181,7 @@ Token *peek_tok(Tokenizer *tr) {
                     token->kind = TOKEN_INT;
                 }
                 break;
-            } else if (is_alpha(tr->symb)) {
+            } else if (is_alpha(symb)) {
                 char lit[128];
                 u32 lit_len = 0;
                 b32 is_real = FALSE;
@@ -214,7 +216,7 @@ Token *peek_tok(Tokenizer *tr) {
                     token->value_str = str;
                 }
                 break;
-            } else if (tr->symb == '\"') {
+            } else if (symb == '\"') {
                 advance(tr);
                 char lit[128];
                 u32 lit_len = 0;
@@ -240,10 +242,10 @@ Token *peek_tok(Tokenizer *tr) {
                 token->kind = TOKEN_STR;
                 token->value_str = str;
                 break;
-            } else if (is_punct(tr->symb)) {
+            } else if (is_punct(symb)) {
                 // Because muttiple operators can be put together (+=-2),
                 // check by descending length
-                for (u32 i = TOKEN_ILSHIFT, local_i = 0; i <= TOKEN_IMUL; ++i, ++local_i) {
+                for (u32 i = TOKEN_ILSHIFT, local_i = 0; IS_TOKEN_MULTISYMB(i); ++i, ++local_i) {
                     if (parse(tr, MULTISYMB_STRS[local_i])) {
                         token->kind = i;
                         break;
@@ -252,7 +254,7 @@ Token *peek_tok(Tokenizer *tr) {
                 
                 // All unhandled cases before - single character 
                 if (!token->kind) {
-                    token->kind = tr->symb;
+                    token->kind = symb;
                     advance(tr);
                 }
                 break;

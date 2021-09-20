@@ -87,9 +87,10 @@ typedef struct Tokenizer {
     MemoryArena arena;
     InStream *st;
     // Current symbol. Besides that, used for indicating end of buffer (0)
-    u32 symb;
+    // u32 symb;
     u32 line_number;
     u32 symb_number;
+    //u32 symb;
 
     Token *active_token;
 } Tokenizer;

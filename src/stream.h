@@ -100,6 +100,7 @@ typedef struct InStream {
     uptr bf_used;
     // After what number bf_idx should be reset and buffer refilled
     uptr threshold;
+    b32 is_finished;
 } InStream;
 
 // Create input stream from buffer - to unify API for reading from file and buffer in some systems
@@ -116,6 +117,7 @@ uptr in_stream_peek(InStream *st, void *out, uptr n);
 uptr in_stream_advance_n(InStream *st, uptr n);
 // If stream is bufferized, read next file chunk to fill the buffer as much as possible
 void in_stream_flush(InStream *st);
+u8 in_stream_peek_b_or_zero(InStream *st);
 
 // Should be called at program startup
 // Analogous to crt startup function standard library inserts before main() assembly

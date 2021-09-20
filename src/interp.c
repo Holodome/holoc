@@ -767,9 +767,8 @@ AST *parse_toplevel_item(Interp *interp) {
 Interp create_interp(const char *filename) {
     Interp interp = {0};
     interp.file_id = open_file(filename, FILE_MODE_READ);
-    InStream file_in = create_in_streamf_default(&interp.file_id);
-    interp.tokenizer = create_tokenizer(&file_in);
-    destroy_in_stream(&file_in);
+    interp.file_in_st = create_in_streamf_default(&interp.file_id);
+    interp.tokenizer = create_tokenizer(&interp.file_in_st);
     return interp;
 }
 

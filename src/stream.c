@@ -121,34 +121,38 @@ void destroy_in_stream(InStream *st) {
 
 uptr in_stream_peek(InStream *st, void *out, uptr n) {
     uptr result = 0;
-    if (st->bf_idx + n > st->bf_used) {
-        in_stream_flush(st);
-    }
-    
-    if (st->bf_idx + n <= st->bf_used) {
-        mem_copy(out, st->bf + st->bf_idx, n);
-        result = n;
-    } else {
-        NOT_IMPLEMENTED;
-    }
+    if (!st->is_finished) {
+        if (st->bf_idx + n > st->bf_used) {
+            in_stream_flush(st);
+        }
+        
+        if (st->bf_idx + n <= st->bf_used) {
+            mem_copy(out, st->bf + st->bf_idx, n);
+            result = n;
+        } else {
+            NOT_IMPLEMENTED;
+        }
+    }      
     return result;
 }
 
 uptr in_stream_advance_n(InStream *st, uptr n) {
     uptr result = 0;
-    if (st->bf_idx + n > st->bf_used) {
-        in_stream_flush(st);
-    }
-    
-    if (st->bf_idx + n <= st->bf_used) {
-        st->bf_idx += n;
-        result += n;
-        
-        if (st->bf_idx > st->threshold) {
+    if (!st->is_finished) {
+        if (st->bf_idx + n > st->bf_used) {
             in_stream_flush(st);
         }
-    } else {
-        NOT_IMPLEMENTED;
+        
+        if (st->bf_idx + n <= st->bf_used) {
+            st->bf_idx += n;
+            result += n;
+            
+            if (st->bf_idx > st->threshold) {
+                in_stream_flush(st);
+            }
+        } else {
+            NOT_IMPLEMENTED;
+        }
     }
     return result;
 }
@@ -171,6 +175,10 @@ void in_stream_flush(InStream *st) {
         uptr bytes_read = read_file(st->file, st->file_idx, st->bf + st->bf_used, read_data_size);
         st->bf_used += bytes_read;
         st->file_idx += bytes_read;
+        if (bytes_read == 0) {
+            // @TODO buggy
+            st->is_finished = TRUE;
+        }
     } else if (st->mode == STREAM_ST) {
         // Move chunk of file that is not processed to buffer start
         assert(st->bf_idx < st->bf_sz);
@@ -186,6 +194,12 @@ void in_stream_flush(InStream *st) {
         uptr bytes_read = read_file(st->file, 0xFFFFFFFF, st->bf + st->bf_used, read_data_size);
         st->bf_used += bytes_read;
     }
+}
+
+u8 in_stream_peek_b_or_zero(InStream *st) {
+    u8 result = 0;
+    in_stream_peek(st, &result, 1);
+    return result;    
 }
 
 static InStream stdin_stream_storage;
