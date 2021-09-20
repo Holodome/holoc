@@ -32,6 +32,7 @@ enum {
     AST_DECL,
     AST_RETURN,
     AST_IF,
+    AST_WHILE,
     
     AST_FUNC_SIGNATURE,
     AST_FUNC_DECL,
@@ -130,9 +131,6 @@ struct AST {
             AST *right;
         } binary;
         struct {
-            AST *expr;
-        } print;
-        struct {
             AST *ident;
             AST *expr;
         } decl;
@@ -154,9 +152,16 @@ struct AST {
             AST *else_block;
         } if_st;
         struct {
+            AST *cond;
+            AST *block;
+        } while_st;
+        struct {
             AST *callable;
             ASTList arguments;
         } func_call;
+        struct {
+            ASTList arguments;
+        } print_st;
     };
 };
 

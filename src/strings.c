@@ -41,6 +41,10 @@ b32 is_alpha(u32 symb) {
     return ('a' <= symb && symb <= 'z') || ('A' <= symb && symb <= 'Z');
 }
 
+b32 is_ident_start(u32 symb) {
+    return is_alpha(symb) || symb == '_';
+}
+
 b32 is_ident(u32 symb) {
     return is_alpha(symb) || is_digit(symb) || symb == '_';
 }

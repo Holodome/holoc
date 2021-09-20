@@ -1,3 +1,16 @@
+//
+// interp.h
+// 
+// Up to this point it is unclear how program is going to be structured further,
+// but there should be interpeter for AST, that compiles from text format to 
+// some other.
+//
+// @NOTE There has been made a decision that error handling should not be done with expections 
+// (no setjmp/longjmp). Error codes are used instead.
+// This way we can safely continue program execution after some kind of unexpected behaviour.
+// If this behaviour is code-related, we could even skip the problematic part until interpeter finds
+// something it can understand and continue form there. This way program could e able to provide user 
+// with multiple error messages, instead of one at a time.
 #pragma once 
 #include "general.h"
 #include "filesystem.h"

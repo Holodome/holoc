@@ -127,7 +127,7 @@ Token *peek_tok(Tokenizer *tr) {
                 advance(tr);
                 continue;
             } else if (parse(tr, "//")) {
-                while (symb != '\n') {
+                while (in_stream_peek_b_or_zero(tr->st) != '\n') {
                     advance(tr);
                 }
                 continue;
@@ -181,7 +181,7 @@ Token *peek_tok(Tokenizer *tr) {
                     token->kind = TOKEN_INT;
                 }
                 break;
-            } else if (is_alpha(symb)) {
+            } else if (is_ident_start(symb)) {
                 char lit[128];
                 u32 lit_len = 0;
                 b32 is_real = FALSE;
@@ -190,7 +190,7 @@ Token *peek_tok(Tokenizer *tr) {
                     if (!in_stream_peek(tr->st, &peeked, 1)) {
                         break;
                     }
-                    if (!is_alpha(peeked)) {
+                    if (!is_ident(peeked)) {
                         break;
                     }
                     assert(lit_len < sizeof(lit));

@@ -103,7 +103,12 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
             fmt_ast_tree_recursive(st, ast->assign.expr, depth + 1);
         } break;
         case AST_PRINT: {
-            
+            out_streamf(st, "%*cPRINT: EXPRS:\n", depth, ' ');
+            for (AST *statement = ast->print_st.arguments.first;
+                 statement;
+                 statement = statement->next) {
+                fmt_ast_tree_recursive(st, statement, depth + 1);
+            }
         } break;
         case AST_DECL: {
             out_streamf(st, "%*cDECL: IDENT:\n", depth, ' ');
@@ -151,8 +156,19 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
             out_streamf(st, "%*cBODY:\n", depth, ' ');
             fmt_ast_tree_recursive(st, ast->func_decl.block, depth + 1);
         } break;
+        case AST_FUNC_CALL: {
+            out_streamf(st, "%*cFUNC CALL: NAME:\n", depth, ' ');
+            fmt_ast_tree_recursive(st, ast->func_call.callable, depth + 1);
+            out_streamf(st, "%*cARGUMENTS:\n", depth, ' ');
+            for (AST *arg = ast->func_call.arguments.first;
+                 arg;
+                 arg = arg->next) {
+                fmt_ast_tree_recursive(st, arg, depth + 1);        
+            }
+        } break;
         default: {
             out_streamf(st, "%*cUNKNOWN %u\n", depth, ' ', ast->kind);
+            DBG_BREAKPOINT;
         } break;
     }    
 }

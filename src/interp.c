@@ -155,6 +155,19 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
                     eat_tok(interp->tokenizer);
                     AST *ident = create_ident(interp, tok->value_str);
                     expr = ident;
+                    tok = peek_tok(interp->tokenizer);
+                    // @TODO What if some mangling done to function name???
+                    // finder better place for function call
+                    if (tok->kind == '(') {
+                        eat_tok(interp->tokenizer);
+                        AST *function_call = ast_new(interp, AST_FUNC_CALL);
+                        function_call->func_call.callable = ident;
+                        ASTList arguments = parse_comma_separated_idents(interp);
+                        if (expect_tok(interp, peek_tok(interp->tokenizer), ')')) {
+                            eat_tok(interp->tokenizer);
+                            expr = function_call;
+                        }
+                    }
                 } break;
                 case TOKEN_INT: {
                     eat_tok(interp->tokenizer);
@@ -578,7 +591,29 @@ AST *parse_statement(Interp *interp) {
         AST *if_st = parse_if_compound(interp);
         statement = if_st;
     } else if (tok->kind == TOKEN_KW_WHILE) {
+        eat_tok(interp->tokenizer);
+        AST *condition = parse_expr(interp);
+        if (condition) {
+            AST *block = parse_block(interp);
+            if (block) {
+                AST *while_st = ast_new(interp, AST_WHILE);
+                while_st->while_st.cond = condition;
+                while_st->while_st.block = block;
+                
+                statement = while_st;
+            }
+        }
     } else if (tok->kind == TOKEN_KW_PRINT) {
+        eat_tok(interp->tokenizer);
+        AST *expr = parse_expr(interp);
+        ASTList exprs = {0};
+        ast_list_add(&exprs, expr);
+        tok = peek_tok(interp->tokenizer);
+        if (parse_end_of_statement(interp, tok)) {
+            AST *print_st = ast_new(interp, AST_PRINT);
+            print_st->print_st.arguments = exprs;
+            statement = print_st;
+        }
     } else {
         statement = parse_decl_ident(interp, ident);
     }
@@ -737,8 +772,6 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
         } break;
     }
     
-    
-    
     return decl;
 }
 
@@ -784,6 +817,7 @@ void do_interp(Interp *interp) {
         }
         
         fmt_ast_tree_recursive(get_stdout_stream(), toplevel, 0);
+        out_stream_flush(get_stdout_stream());
     }
 }
 
