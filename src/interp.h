@@ -8,7 +8,7 @@ typedef struct Interp {
     MemoryArena arena;
     Tokenizer *tokenizer;
     
-    FileID file_id;
+    FileHandle file_id;
     
     b32 reported_error;
 } Interp;

@@ -47,7 +47,7 @@ enum {
 // @TODO behaviour of stream can be expanded to allow other types of commits besides writing to file 
 typedef struct OutStream {
     u32 mode;
-    FileID out_file;
+    FileHandle *out_file;
     uptr out_file_idx;
     u8 *bf;
     uptr bf_sz;
@@ -63,7 +63,7 @@ OutStream create_out_stream(void *bf, uptr bf_sz);
 // threshold >= bf_sz
 #define create_out_streamf_default(_file) \
 create_out_streamf(_file, OUT_STREAM_DEFAULT_BUFFER_SIZE, OUT_STREAM_DEFAULT_THRESHOLD, FALSE)
-OutStream create_out_streamf(FileID file, uptr bf_sz, uptr threshold, b32 is_std);
+OutStream create_out_streamf(FileHandle *file, uptr bf_sz, uptr threshold, b32 is_std);
 void destroy_out_stream(OutStream *st);
 // Printfs to stream
 uptr out_streamf(OutStream *st, const char *fmt, ...);
@@ -86,7 +86,7 @@ void out_stream_flush(OutStream *st);
 // @NOTE no flusing happens when in stream uses buffer to read from
 typedef struct InStream {
     u32 mode;
-    FileID file;
+    FileHandle *file;
     uptr file_size;
     uptr file_idx;
     // Buffer in stream is used for caching read results
@@ -106,7 +106,7 @@ typedef struct InStream {
 InStream create_in_stream(void *bf, uptr bf_sz);
 #define create_in_streamf_default(_file) \
 create_in_streamf(_file, IN_STREAM_DEFAULT_BUFFER_SIZE, IN_STREAM_DEFAULT_THRESHLOD, FALSE)
-InStream create_in_streamf(FileID file, uptr bf_sz, uptr threshold, b32 is_std);
+InStream create_in_streamf(FileHandle *file, uptr bf_sz, uptr threshold, b32 is_std);
 void destroy_in_stream(InStream *in_stream);
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked

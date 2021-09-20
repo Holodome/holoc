@@ -101,12 +101,21 @@ void stream_test(void) {
     out_streamf(out, "Hello world!\n");
     out_stream_flush(out);
     
-    FileID test_out = create_file("out.txt", FILE_MODE_WRITE);
-    OutStream file_out = create_out_streamf_default(test_out);
+    FileHandle test_out = open_file("out.txt", FILE_MODE_WRITE);
+    OutStream file_out = create_out_streamf_default(&test_out);
     out_streamf(&file_out, "Hello World!\n");
     out_streamf(&file_out, "Hello Again!\n");
     destroy_out_stream(&file_out);
-    destroy_file(test_out);
+    close_file(&test_out);
+    
+    FileHandle test_in = open_file("out.txt", FILE_MODE_READ);
+    InStream stream_in = create_in_streamf_default(&test_in);
+    u32 file_size = get_file_size(&test_in);
+    char bytes[1024] = {0};
+    in_stream_peek(&stream_in, bytes, file_size);
+    outf("%s", bytes);
+    destroy_in_stream(&stream_in);
+    close_file(&test_in);
 }
 
 int main(int argc, char **argv) {

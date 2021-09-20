@@ -16,9 +16,9 @@ void report_error(Interp *interp, const char *msg, ...) {
 void report_error_at_internal(Interp *interp, SourceLocation source_loc, const char *msg, va_list args) {
     // const FileData *file_data = get_file_data(interp->file_id);
     // @TODO capture source index and read only n first bytes instead of whole file
-    uptr file_size = get_file_size(interp->file_id);
+    uptr file_size = get_file_size(&interp->file_id);
     char *file_contents = mem_alloc(file_size);
-    read_file(interp->file_id, 0, file_contents, file_size);
+    read_file(&interp->file_id, 0, file_contents, file_size);
     // @TODO more robust algorithm
     u32 current_line_idx = 1;
     const char *line_start = file_contents;
@@ -766,8 +766,8 @@ AST *parse_toplevel_item(Interp *interp) {
 
 Interp create_interp(const char *filename) {
     Interp interp = {0};
-    interp.file_id = create_file(filename, FILE_MODE_READ);
-    InStream file_in = create_in_streamf_default(interp.file_id);
+    interp.file_id = open_file(filename, FILE_MODE_READ);
+    InStream file_in = create_in_streamf_default(&interp.file_id);
     interp.tokenizer = create_tokenizer(&file_in);
     destroy_in_stream(&file_in);
     return interp;

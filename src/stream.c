@@ -20,7 +20,7 @@ OutStream create_out_stream(void *bf, uptr bf_sz) {
     return stream;
 }
 
-OutStream create_out_streamf(FileID file, uptr bf_sz, uptr threshold, b32 is_std) {
+OutStream create_out_streamf(FileHandle *file, uptr bf_sz, uptr threshold, b32 is_std) {
     assert(threshold < bf_sz);
     OutStream stream = {0};
     stream.out_file = file;
@@ -97,9 +97,10 @@ InStream create_in_stream(void *bf, uptr bf_sz) {
     return st;
 }
 
-InStream create_in_streamf(FileID file, uptr bf_sz, uptr threshold, b32 is_std) {
+InStream create_in_streamf(FileHandle *file, uptr bf_sz, uptr threshold, b32 is_std) {
     assert(bf_sz > threshold);
     InStream st = {0};
+    st.file = file;
     st.file_size = get_file_size(file);
     if (is_std) {
         st.mode = STREAM_ST;
@@ -120,11 +121,14 @@ void destroy_in_stream(InStream *st) {
 
 uptr in_stream_peek(InStream *st, void *out, uptr n) {
     uptr result = 0;
-    if (st->bf_idx + n < st->bf_used) {
+    if (st->bf_idx + n > st->bf_used) {
+        in_stream_flush(st);
+    }
+    
+    if (st->bf_idx + n <= st->bf_used) {
         mem_copy(out, st->bf + st->bf_idx, n);
         result = n;
     } else {
-        // @TODO
         NOT_IMPLEMENTED;
     }
     return result;
@@ -132,7 +136,11 @@ uptr in_stream_peek(InStream *st, void *out, uptr n) {
 
 uptr in_stream_advance_n(InStream *st, uptr n) {
     uptr result = 0;
-    if (st->bf_idx + n < st->bf_used) {
+    if (st->bf_idx + n > st->bf_used) {
+        in_stream_flush(st);
+    }
+    
+    if (st->bf_idx + n <= st->bf_used) {
         st->bf_idx += n;
         result += n;
         
@@ -140,7 +148,6 @@ uptr in_stream_advance_n(InStream *st, uptr n) {
             in_stream_flush(st);
         }
     } else {
-        // @TODO 
         NOT_IMPLEMENTED;
     }
     return result;
