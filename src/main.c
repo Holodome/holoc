@@ -6,7 +6,6 @@
 #include "interp.h"
 
 enum {
-    PROGRAM_INTERP,
     PROGRAM_TOKEN_VIEW,
     PROGRAM_AST_VIEW,
     PROGRAM_BYTECODE_GEN,
@@ -14,7 +13,6 @@ enum {
 };
 
 const char *program_mode_strs[] = {
-    "interp",
     "token_view",
     "ast_view",
     "bytecode_gen",
@@ -92,28 +90,6 @@ static void token_view(Tokenizer *tokenizer) {
         token = peek_next_tok(tokenizer);
     }
     outf("\n");
-}
-
-void stream_test(void) {
-    OutStream *out = get_stdout_stream();
-    out_streamf(out, "Hello world!\n");
-    out_stream_flush(out);
-    
-    FileHandle test_out = open_file("out.txt", FILE_MODE_WRITE);
-    OutStream file_out = create_out_streamf_default(&test_out);
-    out_streamf(&file_out, "Hello World!\n");
-    out_streamf(&file_out, "Hello Again!\n");
-    destroy_out_stream(&file_out);
-    close_file(&test_out);
-    
-    FileHandle test_in = open_file("out.txt", FILE_MODE_READ);
-    InStream stream_in = create_in_streamf_default(&test_in);
-    u32 file_size = get_file_size(&test_in);
-    char bytes[1024] = {0};
-    in_stream_peek(&stream_in, bytes, file_size);
-    outf("%s", bytes);
-    destroy_in_stream(&stream_in);
-    close_file(&test_in);
 }
 
 int main(int argc, char **argv) {

@@ -20,6 +20,7 @@ Each of program steps tries to be written in a modular manner that is suitable f
 * Metaprogramming features (ability to to separate compilation step result of which is used in actual program)
 * Ability to link to C libraries
 * Compiler does not use c standard library, but it is possible to link to 
+* Garbage collection
 
 ## Inspiration
 

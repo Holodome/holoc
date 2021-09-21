@@ -49,3 +49,9 @@ do { \
 #define STRUCT_OFFSET(_struct, _field) ((uptr)((u8 *)(&STRUCT_FIELD(_struct, _field))))
 #define NOT_IMPLEMENTED assert(!"NotImplemented")
 #define INVALID_DEFAULT_CASE assert(!"InvalidDefaultCase")
+// this is defined to separate developer assertions that are used by optimizer and for
+// code sanity validation, and assertion calls that should be replaced with proper error handling
+// so in proper code there should be no lazy asserts
+#define lazy_assert assert
+// Macro that should be used in unit testing system.
+#define TEST_CASE(_name)

@@ -32,9 +32,9 @@ enum {
 // Because this is not a id but handle, API makes use of static lifetime mechanic builtin in c.
 // Everywhere it is used, pointer is passed, because the object itself is strored somewhere
 typedef struct FileHandle {
-    // Value is not guaranteed to have some meaning besides 0 - 
+    // Handle is not guaranteed to have some meaning besides 0 - 
     // that is special value for invalid file handle
-    u64 value;
+    u64 handle;
     u32 flags;
 } FileHandle;
 
@@ -48,10 +48,7 @@ enum {
     FILE_MODE_WRITE
 };
 
-// Get handle for file
-FileHandle open_file(const char *filename, u32 mode);
-// Destroy handle
-// @NAME is it ambiguous?
+void open_file(FileHandle *handle, const char *filename, u32 mode);
 b32 close_file(FileHandle *id);
 // Get console out handle
 // @NOTE in most OSs writing to file and console is the same.

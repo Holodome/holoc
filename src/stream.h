@@ -57,14 +57,12 @@ typedef struct OutStream {
 } OutStream;
 
 // Create stream for writing to buffer directly
-OutStream create_out_stream(void *bf, uptr bf_sz);
+void init_out_stream(OutStream *st, void *bf, uptr bf_sz);
 // Create stream for writing to file.
 // bf_sz - what size of buffer to allocate 
 // threshold >= bf_sz
-#define create_out_streamf_default(_file) \
-create_out_streamf(_file, OUT_STREAM_DEFAULT_BUFFER_SIZE, OUT_STREAM_DEFAULT_THRESHOLD, FALSE)
-OutStream create_out_streamf(FileHandle *file, uptr bf_sz, uptr threshold, b32 is_std);
-void destroy_out_stream(OutStream *st);
+// bf - storage for stream buffer
+void init_out_streamf(OutStream *st, FileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
 // Printfs to stream
 uptr out_streamf(OutStream *st, const char *fmt, ...);
 uptr out_streamv(OutStream *st, const char *fmt, va_list args);
@@ -104,11 +102,8 @@ typedef struct InStream {
 } InStream;
 
 // Create input stream from buffer - to unify API for reading from file and buffer in some systems
-InStream create_in_stream(void *bf, uptr bf_sz);
-#define create_in_streamf_default(_file) \
-create_in_streamf(_file, IN_STREAM_DEFAULT_BUFFER_SIZE, IN_STREAM_DEFAULT_THRESHLOD, FALSE)
-InStream create_in_streamf(FileHandle *file, uptr bf_sz, uptr threshold, b32 is_std);
-void destroy_in_stream(InStream *in_stream);
+void init_in_stream(InStream *st, void *bf, uptr bf_sz);
+void init_in_streamf(InStream *st, FileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked
 uptr in_stream_peek(InStream *st, void *out, uptr n);
@@ -117,12 +112,9 @@ uptr in_stream_peek(InStream *st, void *out, uptr n);
 uptr in_stream_advance_n(InStream *st, uptr n);
 // If stream is bufferized, read next file chunk to fill the buffer as much as possible
 void in_stream_flush(InStream *st);
+// Helper function. Used in parsin text, where only next one byte needs to be peeked to be checked
 u8 in_stream_peek_b_or_zero(InStream *st);
 
-// Should be called at program startup
-// Analogous to crt startup function standard library inserts before main() assembly
-// @NOTE just not to compilcate things with explicit initialization
-// void init_console_streams(void);
 InStream *get_stdin_stream(void);
 OutStream *get_stdout_stream(void);
 OutStream *get_stderr_stream(void);

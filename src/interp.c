@@ -402,6 +402,45 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
     return expr;
 }
 
+static u32 assign_token_to_binary_kind(u32 tok) {
+    u32 result = 0;
+    // @TODO This can be optimized if we structure the ast binary enum 
+    // to have kinds in the same order as corresponding token kinds
+    switch (tok) {
+        case TOKEN_IADD: {
+            result = AST_BINARY_ADD;
+        } break;
+        case TOKEN_ISUB: {
+            result = AST_BINARY_SUB;
+        } break;
+        case TOKEN_IMUL: {
+            result = AST_BINARY_MUL;
+        } break;
+        case TOKEN_IDIV: {
+            result = AST_BINARY_DIV;
+        } break;
+        case TOKEN_IMOD: {
+            result = AST_BINARY_MOD;
+        } break;
+        case TOKEN_IAND: {
+            result = AST_BINARY_AND;
+        } break;
+        case TOKEN_IOR: {
+            result = AST_BINARY_OR;
+        } break;
+        case TOKEN_IXOR: {
+            result = AST_BINARY_XOR;
+        } break;
+        case TOKEN_ILSHIFT: {
+            result = AST_BINARY_LSHIFT;
+        } break;
+        case TOKEN_IRSHIFT: {
+            result = AST_BINARY_RSHIFT;
+        } break;
+    }
+    return result;
+}
+
 AST *parse_assign_ident(Interp *interp, AST *ident) {
     AST *assign = 0;
     Token *tok = peek_tok(interp->tokenizer);
@@ -419,96 +458,16 @@ AST *parse_assign_ident(Interp *interp, AST *ident) {
         assign = ast_new(interp, AST_ASSIGN);
         assign->assign.ident = ident;
         assign->assign.expr = expr;
-    } else if (tok->kind == TOKEN_IADD) { 
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_ADD;
-        add->binary.left = ident;
-        add->binary.right = expr;
+    } else {
+        u32 binary_kind = assign_token_to_binary_kind(tok->kind);
+        assert(binary_kind);
+        AST *binary = ast_new(interp, AST_BINARY);
+        binary->binary.kind = binary_kind;
+        binary->binary.left = ident;
+        binary->binary.right = parse_expr(interp);
         assign = ast_new(interp, AST_ASSIGN);
         assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_ISUB) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_SUB;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_IMUL) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_MUL;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_IDIV) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_DIV;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_IMOD) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_MOD;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_IAND) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_AND;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_IOR) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_OR;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_IXOR) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_XOR;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_ILSHIFT) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_LSHIFT;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
-    } else if (tok->kind == TOKEN_IRSHIFT) {
-        AST *expr = parse_expr(interp);
-        AST *add = ast_new(interp, AST_BINARY);
-        add->binary.kind = AST_BINARY_RSHIFT;
-        add->binary.left = ident;
-        add->binary.right = expr;
-        assign = ast_new(interp, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = add;
+        assign->assign.expr = binary;
     }
     
     tok = peek_tok(interp->tokenizer);
@@ -799,8 +758,10 @@ AST *parse_toplevel_item(Interp *interp) {
 
 Interp create_interp(const char *filename) {
     Interp interp = {0};
-    interp.file_id = open_file(filename, FILE_MODE_READ);
-    interp.file_in_st = create_in_streamf_default(&interp.file_id);
+    open_file(&interp.file_id, filename, FILE_MODE_READ);
+    init_in_streamf(&interp.file_in_st, &interp.file_id, 
+        arena_alloc(&interp.arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        IN_STREAM_DEFAULT_THRESHLOD, FALSE);
     interp.tokenizer = create_tokenizer(&interp.file_in_st);
     return interp;
 }

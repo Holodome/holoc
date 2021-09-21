@@ -16,10 +16,12 @@
 #include "filesystem.h"
 #include "tokenizer.h"
 #include "ast.h"
+#include "bytecode.h"
 
 typedef struct Interp {
     MemoryArena arena;
     Tokenizer *tokenizer;
+    BytecodeBuilder *bytecode_builder;
     
     FileHandle file_id;
     InStream file_in_st;
