@@ -17,8 +17,8 @@ b32 is_ident(u32 symb);
 b32 is_ident_start(u32 symb);
 b32 is_punct(u32 symb);
 
-f64 str_to_f64(const char *str, uptr len);
-i64 str_to_i64(const char *str, uptr len);
+f64 str_to_f64(const char *str);
+i64 str_to_i64(const char *str);
 
 // Copies string str to bf. Number of written bytes is min(bf_sz, strlen(str) + 1)
 // Return number of copied bytes

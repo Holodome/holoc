@@ -4,8 +4,7 @@
 #include <memory.h>
 #include <stream.h>
 
-#define IEEE754_CONVERT_IMPLEMENTATION 
-#include "ieee754_convert.h"
+#include <stdlib.h>
 #define STB_SPRINTF_IMPLEMENTATION
 #include "stb_sprintf.h"
 
@@ -58,25 +57,12 @@ b32 is_punct(u32 symb) {
         || symb == '}' || symb == '~';
 }
 
-f64 str_to_f64(const char *str, uptr len) {
-    return ieee754_convert_f64(str, len);
+f64 str_to_f64(const char *str) {
+    return atof(str);
 }
 
-i64 str_to_i64(const char *str, uptr len) {
-    i64 result = 0;
-    b32 is_negative = FALSE;
-    while (len--) {
-        char symb = *str++;
-        if (symb == '-') {
-            is_negative = TRUE;
-        } else if (symb == '+') {
-        } else if ('0' <= symb && symb <= '9') {
-            result = result * 10 + (symb - '0');
-        } else {
-            break;
-        }
-    }
-    return result;
+i64 str_to_i64(const char *str) {
+    return atoll(str);
 }
 
 uptr str_cp(char *bf, uptr bf_sz, const char *str) {

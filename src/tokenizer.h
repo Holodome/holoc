@@ -6,6 +6,7 @@
 #include "stream.h" // InStream
 #include "filesystem.h" // SourceLocation
 
+#define TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE KB(1)
 #define TOKEN_GENERAL 0x100
 #define TOKEN_KEYWORD 0x120
 #define TOKEN_MULTISYMB 0x160
@@ -83,18 +84,24 @@ typedef struct Token {
 // Tokenizer does not do error handling in inselft, instead it provides error tokens (TOKEN_NONE) that usage code can decide what to do with.
 // This way error handling can be centralized, because errors can happen in several places, not only in tokenizing.
 typedef struct Tokenizer {
-    // Stores all tokens.
     MemoryArena arena;
     InStream *st;
-    // Current symbol. Besides that, used for indicating end of buffer (0)
-    // u32 symb;
+    
     u32 line_number;
     u32 symb_number;
-    //u32 symb;
-
+    // Buffer for internal use. When parsing multiline symbols, 
+    // this buffer is used for it. Basically size of scratch buffer defines maximum length 
+    // of identifier.
+    // @TODO There is special case for big strings - we need to think how we would handle that
+    u32 scratch_buffer_size;
+    u8 *scratch_buffer;
+    
     Token *active_token;
 } Tokenizer;
 
+// @NOTE Tokenizer is an object that has its own big lifetime, 
+// and so we return pointer here and allocate all memory using arena located inside
+// the tokenizer, making it kinda OOPy API
 Tokenizer *create_tokenizer(InStream *st);
 // Deletes all tokens
 void destroy_tokenizer(Tokenizer *tokenizer);

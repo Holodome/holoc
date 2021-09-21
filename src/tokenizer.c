@@ -53,11 +53,8 @@ Tokenizer *create_tokenizer(InStream *st) {
     Tokenizer *tr = arena_bootstrap(Tokenizer, arena);
     tr->st = st;
     tr->line_number = 1;
-    u8 first_byte = 0;
-    if (in_stream_peek(st, &first_byte, 1) == 1) {
-        //in_stream_advance_n(st, 1);
-    }
-    // tr->symb = first_byte; 
+    tr->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
+    tr->scratch_buffer = arena_alloc(&tr->arena, tr->scratch_buffer_size);
     return tr;
 }
 
@@ -149,10 +146,11 @@ Token *peek_tok(Tokenizer *tr) {
             token->source_loc = source_loc;
             if (is_digit(symb)) {
                 // @TODO warn on large ident lengths
-                char lit[128];
+                char *lit = (char *)tr->scratch_buffer;
                 u32 lit_len = 0;
                 b32 is_real = FALSE;
                 for (;;) {
+                    // @TODO Provide handling for scientific notation
                     u8 peeked = 0;
                     if (!in_stream_peek(tr->st, &peeked, 1)) {
                         break;
@@ -168,21 +166,21 @@ Token *peek_tok(Tokenizer *tr) {
                     b32 advanced = in_stream_advance_n(tr->st, 1);
                     assert(advanced);
                 }
-                assert(lit_len < sizeof(lit));
+                assert(lit_len < tr->scratch_buffer_size);
                 lit[lit_len] = 0;
                 
                 if (is_real) {
-                    f64 real = str_to_f64(lit, lit_len);
+                    f64 real = str_to_f64(lit);
                     token->value_real = real;
                     token->kind = TOKEN_REAL;
                 } else {
-                    i64 iv = str_to_i64(lit, lit_len);
+                    i64 iv = str_to_i64(lit);
                     token->value_int = iv;
                     token->kind = TOKEN_INT;
                 }
                 break;
             } else if (is_ident_start(symb)) {
-                char lit[128];
+                char *lit = (char *)tr->scratch_buffer;
                 u32 lit_len = 0;
                 b32 is_real = FALSE;
                 for (;;) {
@@ -193,12 +191,12 @@ Token *peek_tok(Tokenizer *tr) {
                     if (!is_ident(peeked)) {
                         break;
                     }
-                    assert(lit_len < sizeof(lit));
+                    assert(lit_len < tr->scratch_buffer_size);
                     lit[lit_len++] = peeked;
                     b32 advanced = in_stream_advance_n(tr->st, 1);
                     assert(advanced);
                 }
-                assert(lit_len < sizeof(lit));
+                assert(lit_len < tr->scratch_buffer_size);
                 lit[lit_len] = 0;
                 
                 char *str = arena_alloc(&tr->arena, lit_len + 1);
@@ -218,7 +216,7 @@ Token *peek_tok(Tokenizer *tr) {
                 break;
             } else if (symb == '\"') {
                 advance(tr);
-                char lit[128];
+                char *lit = (char *)tr->scratch_buffer;
                 u32 lit_len = 0;
                 b32 is_real = FALSE;
                 for (;;) {
@@ -234,7 +232,7 @@ Token *peek_tok(Tokenizer *tr) {
                     b32 advanced = in_stream_advance_n(tr->st, 1);
                     assert(advanced);
                 }
-                assert(lit_len < sizeof(lit));
+                assert(lit_len < tr->scratch_buffer_size);
                 lit[lit_len] = 0;
                 
                 char *str = arena_alloc(&tr->arena, lit_len + 1);
