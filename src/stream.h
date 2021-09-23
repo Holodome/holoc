@@ -18,7 +18,7 @@
 #pragma once
 #include "general.h"
 #include "strings.h"
-#include "filesystem.h"
+#include "files.h"
 
 #define OUT_STREAM_DEFAULT_BUFFER_SIZE KB(16)
 // This is similar to stdlib's one, which is also usually 4kb

@@ -2,71 +2,11 @@
 #include "strings.h"
 #include "interp.h"
 
-void report_error(Interp *interp, const char *msg, ...) {
-    va_list args;
-    va_start(args, msg);
-    // erroutf("[ERROR] %s:", get_file_name(interp->file_id)); TODO
-    verroutf(msg, args);
-    erroutf("\n");    
-    
-    interp->reported_error = TRUE;
-    DBG_BREAKPOINT;
-}
-
-void report_error_at_internal(Interp *interp, SourceLocation source_loc, const char *msg, va_list args) {
-    // const FileData *file_data = get_file_data(interp->file_id);
-    // @TODO capture source index and read only n first bytes instead of whole file
-    uptr file_size = get_file_size(&interp->file_id);
-    char *file_contents = mem_alloc(file_size);
-    read_file(&interp->file_id, 0, file_contents, file_size);
-    // @TODO more robust algorithm
-    u32 current_line_idx = 1;
-    const char *line_start = file_contents;
-    while (current_line_idx != source_loc.line) {
-        if (*line_start == '\n') {
-            ++current_line_idx;
-        }
-        ++line_start;
-    }
-    const char *line_end = line_start;
-    while (*line_end != '\n' && (line_end - file_contents) < file_size) {
-        ++line_end;
-    }
-    
-    // @TODO
-    // erroutf("%s:%u:%u: \033[31merror\033[0m: ", get_file_name(interp->file_id), source_loc.line, source_loc.symb);
-    verroutf(msg, args);
-    erroutf("\n%.*s\n%*c\033[33m^\033[0m\n", line_end - line_start, line_start,
-        source_loc.symb, ' ');
-        
-    interp->reported_error = TRUE;
-    DBG_BREAKPOINT;
-}
-
-void report_error_at(Interp *interp, SourceLocation source_loc, const char *msg, ...) {
-    va_list args;
-    va_start(args, msg);
-    report_error_at_internal(interp, source_loc, msg, args);
-}
-
-void report_error_tok(Interp *interp, Token *tok, const char *msg, ...) {
-    va_list args;
-    va_start(args, msg);
-    report_error_at_internal(interp, tok->source_loc, msg, args);
-}
-
-void report_error_ast(Interp *interp, AST *ast, const char *msg, ...) {
-    va_list args;
-    va_start(args, msg);
-    report_error_at_internal(interp, ast->source_loc, msg, args);
-        
-}
-
 static void report_unexpected_token(Interp *interp, Token *tok, u32 expected) {
     char expected_str[128], got_str[128];
     fmt_tok_kind(expected_str, sizeof(expected_str), expected);
     fmt_tok_kind(got_str, sizeof(got_str), tok->kind);
-    report_error_tok(interp, tok, "Token %s expected (got %s)",
+    report_error_tok(interp->error_reporter, tok, "Token %s expected (got %s)",
         expected_str, got_str);
 }
 
@@ -91,7 +31,7 @@ static AST *ast_new(Interp *interp, u32 kind) {
     AST *ast = arena_alloc_struct(&interp->arena, AST);
     ast->kind = kind;
     // @TODO more explicit way of taking source location?
-    ast->source_loc = peek_tok(interp->tokenizer)->source_loc;
+    ast->src_loc = peek_tok(interp->tokenizer)->src_loc;
     return ast;
 }
 
@@ -445,7 +385,7 @@ AST *parse_assign_ident(Interp *interp, AST *ident) {
     AST *assign = 0;
     Token *tok = peek_tok(interp->tokenizer);
     if (!is_token_assign(tok->kind)) {
-        report_error_tok(interp, tok, "Expected assign operator");
+        report_error_tok(interp->error_reporter, tok, "Expected assign operator");
         return 0;    
     }
     
@@ -531,7 +471,7 @@ AST *parse_statement(Interp *interp) {
         ASTList return_vars = {0};
         while (tok->kind != ';') {
             AST *expr = parse_expr(interp);
-            if (!expr || interp->reported_error) {
+            if (!expr || is_error_reported(interp->error_reporter)) {
                 break;
             }
             ast_list_add(&return_vars, expr);
@@ -596,7 +536,7 @@ AST *parse_block(Interp *interp) {
             break;
         }
         
-        if (interp->reported_error) {
+        if (is_error_reported(interp->error_reporter)) {
             break;
         }
         ast_list_add(&statements, statement);
@@ -643,7 +583,7 @@ AST *parse_function_signature(Interp *interp) {
         }
     }
     
-    if (interp->reported_error) {
+    if (is_error_reported(interp->error_reporter)) {
         return 0;
     }
     
@@ -671,6 +611,7 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
                 decl = ast_new(interp, AST_DECL);
                 decl->decl.ident = ident;
                 decl->decl.expr = expr;
+                decl->decl.is_immutable = FALSE;
                 
                 tok = peek_tok(interp->tokenizer);
                 if (!parse_end_of_statement(interp, tok)) {
@@ -697,6 +638,7 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
                     decl = ast_new(interp, AST_DECL);
                     decl->decl.ident = ident;
                     decl->decl.expr = expr;
+                    decl->decl.is_immutable = TRUE;
                     
                     tok = peek_tok(interp->tokenizer);
                     if (!parse_end_of_statement(interp, tok)) {
@@ -727,7 +669,7 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
             }
         } break;
         default: {
-            report_error_tok(interp, tok, "Expected := or :: or : in declaration");
+            report_error_tok(interp->error_reporter, tok, "Expected := or :: or : in declaration");
         } break;
     }
     
@@ -756,29 +698,42 @@ AST *parse_toplevel_item(Interp *interp) {
     return item;
 }
 
-Interp create_interp(const char *filename) {
-    Interp interp = {0};
-    open_file(&interp.file_id, filename, FILE_MODE_READ);
-    init_in_streamf(&interp.file_in_st, &interp.file_id, 
-        arena_alloc(&interp.arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+Interp *create_interp(const char *filename, const char *out_filename) {
+    Interp *interp = arena_bootstrap(Interp, arena);
+    interp->out_file = out_filename;
+    interp->error_reporter = create_error_reporter(filename);
+    open_file(&interp->file_id, filename, FILE_MODE_READ);
+    init_in_streamf(&interp->file_in_st, &interp->file_id, 
+        arena_alloc(&interp->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD, FALSE);
-    interp.tokenizer = create_tokenizer(&interp.file_in_st);
+    interp->tokenizer = create_tokenizer(&interp->file_in_st);
+    interp->bytecode_builder = create_bytecode_builder(interp->error_reporter);
     return interp;
 }
 
 void do_interp(Interp *interp) {
     for (;;) {
         AST *toplevel = parse_toplevel_item(interp);
-        if (!toplevel) {
+        if (!toplevel || is_error_reported(interp->error_reporter)) {
             break;
         }
         
-        if (interp->reported_error) {
-            break;
-        }
-        
+        bytecode_builder_proccess_toplevel(interp->bytecode_builder, toplevel);
         fmt_ast_tree_recursive(get_stdout_stream(), toplevel, 0);
         out_stream_flush(get_stdout_stream());
     }
+    
+    if (!is_error_reported(interp->error_reporter)) {
+        FileHandle out_file = {0};
+        open_file(&out_file, interp->out_file, FILE_MODE_WRITE);
+        bytecode_builder_emit_code(interp->bytecode_builder, &out_file);
+        close_file(&out_file);
+    }
 }
 
+void destroy_interp(Interp *interp) {
+    destroy_bytecode_builder(interp->bytecode_builder);
+    destroy_tokenizer(interp->tokenizer);
+    close_file(&interp->file_id);
+    arena_clear(&interp->arena);
+}

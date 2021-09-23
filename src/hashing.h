@@ -3,6 +3,7 @@
 // Provides different APIs that are conncected with hashing.
 #pragma once
 #include "general.h"
+#include "memory.h"
 
 u32 hash_string(const char *str);
 u32 crc32(u32 crc, const char *bf, uptr bf_sz);
@@ -27,6 +28,7 @@ typedef struct Hash64 {
     u64 *values;
 } Hash64;
 
+Hash64 create_hash64(u64 n, MemoryArena *arena);
 //  @NOTE creation and deletion is not specified - because different use cases may want to
 // ahve different allocation strategies and we don't have API for that
 b32 hash64_set(Hash64 *hash, u64 key, u64 value);

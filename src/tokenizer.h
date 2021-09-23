@@ -2,9 +2,8 @@
 
 #include "general.h"
 #include "memory.h"
-
+#include "src_loc.h"
 #include "stream.h" // InStream
-#include "filesystem.h" // SourceLocation
 
 #define TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE KB(1)
 #define TOKEN_GENERAL 0x100
@@ -34,6 +33,8 @@ enum {
     TOKEN_KW_RETURN, // return 
     TOKEN_KW_IF, // if 
     TOKEN_KW_ELSE, // else
+    TOKEN_KW_INT,
+    TOKEN_KW_FLOAT,
     TOKEN_KW__END,
     
     // Digraphs and trigraphs
@@ -72,7 +73,7 @@ typedef struct Token {
         i64 value_int;
         f64 value_real;
     };
-    SourceLocation source_loc;
+    SrcLoc src_loc;
 } Token;
 
 // Structure storing state of parsing some buffer 
@@ -87,8 +88,7 @@ typedef struct Tokenizer {
     MemoryArena arena;
     InStream *st;
     
-    u32 line_number;
-    u32 symb_number;
+    SrcLoc curr_loc;
     // Buffer for internal use. When parsing multiline symbols, 
     // this buffer is used for it. Basically size of scratch buffer defines maximum length 
     // of identifier.

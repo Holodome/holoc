@@ -75,14 +75,14 @@ static void ast_view(AST *ast, int depth) {
 }
 
 static void token_view(Tokenizer *tokenizer) {
-    SourceLocation *last_source_location = 0;
+    SrcLoc *last_src_location = 0;
     
     Token *token = peek_tok(tokenizer);
     while (token->kind != TOKEN_EOS) {
-        if (last_source_location && token->source_loc.line != last_source_location->line) {
+        if (last_src_location && token->src_loc.line != last_src_location->line) {
             outf("\n");
         }
-        last_source_location = &token->source_loc;
+        last_src_location = &token->src_loc;
         
         char buffer[128];
         fmt_tok(buffer, sizeof(buffer), token);
@@ -103,8 +103,9 @@ int main(int argc, char **argv) {
         return 1;
     }
     
-    Interp interp = create_interp(settings.filename);
-    do_interp(&interp);
+    Interp *interp = create_interp(settings.filename, "out.kbex");
+    do_interp(interp);
+    destroy_interp(interp);
     
     outf("Exited without errors\n");
     out_stream_flush(get_stdout_stream());

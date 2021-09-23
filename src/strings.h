@@ -38,9 +38,9 @@ u32 utf8_encode(u32 utf32, u8 *dst);
 u32 utf8_decode(const u8 *src,u32 *len_out);
 // Printf wrappers
 uptr outf(const char *msg, ...);
-uptr voutf(const char *msg, va_list args);
+uptr outv(const char *msg, va_list args);
 uptr erroutf(const char *msg, ...);
-uptr verroutf(const char *msg, va_list args);
+uptr erroutv(const char *msg, va_list args);
 
 // What is known a string usually. In some systems terminology between these terms differs,
 // but here Text is synonymous to string.

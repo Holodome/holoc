@@ -1,114 +1,138 @@
 #include "filesystem.h"
-
-#include <stdio.h>
-
-#include "strings.h"
 #include "memory.h"
 #include "hashing.h"
+#include "error_reporter.h"
 
-#include <sys/syslimits.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
+#define FS_HASH_SIZE 128
 
-void open_file(FileHandle *file, const char *filename, u32 mode) {
-    file->flags = 0;
-    file->handle = 0;
+typedef struct FSFileSlot {
+    u64 hash;
+    char *name; // @TODO Filepath should be here
+    FileHandle handle;
+} FSFileSlot;
+
+typedef struct FSFilepathSlot {
+    u64 hash;
+    Filepath filepath;
+} FSFilepathSlot;
+
+typedef struct {
+    MemoryArena arena;
     
-    int posix_mode = 0;
-    if (mode == FILE_MODE_READ) {
-        posix_mode |= O_RDONLY;
-    } else if (mode == FILE_MODE_WRITE) {
-        posix_mode |= O_WRONLY | O_TRUNC | O_CREAT;
-    } 
-    int permissions = 0777;
-    int posix_handle = open(filename, posix_mode, permissions);
-    if (posix_handle > 0) {
-        file->handle = posix_handle;
-    } else if (posix_handle == -1) {
-        file->flags |= FILE_FLAG_HAS_ERRORS;
-    }
+    Hash64 file_hash;
+    u64 nfile_slots;
+    u64 nfile_slots_used;
+    FSFileSlot *file_hash_slots;
+    // @TODO Free list for 
+    
+    Hash64 filepath_hash;
+    u64 nfilepath_slots;
+    u64 nfilepath_slots_used;
+    FSFilepathSlot *filepath_hash_slots;
+} FS;
+
+static FS *fs;
+
+void init_filesystem(void) {
+    fs = arena_bootstrap(FS, arena);
+    fs->nfile_slots = FS_HASH_SIZE;
+    fs->file_hash = create_hash64(fs->nfile_slots, &fs->arena);
+    fs->file_hash_slots = arena_alloc_array(&fs->arena, fs->nfile_slots, FSFileSlot);
+    fs->nfilepath_slots = FS_HASH_SIZE;
+    fs->filepath_hash = create_hash64(fs->nfilepath_slots, &fs->arena);
+    fs->filepath_hash_slots = arena_alloc_array(&fs->arena, fs->nfilepath_slots, FSFilepathSlot);
 }
 
-b32 close_file(FileHandle *id) {
-    b32 result = close(id->handle) == 0;
-    if (result) {
-        id->flags |= FILE_FLAG_IS_CLOSED;
+b32 is_file_id_valid(FileID id) {
+    return id.value != 0;
+}
+
+static FSFileSlot *get_slot(u64 hash) {
+    FSFileSlot *slot = 0;
+    u64 default_value = (u64)-1;
+    u64 idx = hash64_get(&fs->file_hash, hash, default_value);
+    if (idx != default_value) {
+        assert(idx < FS_HASH_SIZE);
+        slot = fs->file_hash_slots + idx;
+    }
+    return slot;
+}
+
+static u64 get_hash_for_filename(const char *filename) {
+    // @TOOD Use filepaths
+    return hash_string(filename);
+}
+
+static u64 get_new_file_slot_idx(void) {
+    assert(fs->nfile_slots_used < fs->nfile_slots);
+    return fs->nfile_slots++;
+}
+
+FileID fs_get_id_for_filename(const char *filename) {
+    FileID result = {0};
+    // @TODO Construct filepath
+    u64 filename_hash = get_hash_for_filename(filename);
+    FSFileSlot *slot = get_slot(filename_hash);
+    if (slot && slot->hash) {
+        result.value = slot->hash;
     }
     return result;
 }
 
-FileHandle *get_stdout_file(void) {
-    static FileHandle id = { 1, FILE_FLAG_IS_ST };
-    return &id;
-}
-FileHandle *get_stderr_file(void) {
-    static FileHandle id = { 2, FILE_FLAG_IS_ST };
-    return &id;
-}
-FileHandle *get_stdin_file(void) {
-    static FileHandle id = { 3, FILE_FLAG_IS_ST };
-    return &id;
+FileHandle *fs_get_handle(FileID id) {
+    FileHandle *handle = 0;
+    // @TODO Construct filepath
+    FSFileSlot *slot = get_slot(id.value);
+    if (slot && slot->hash) {
+        handle = &slot->handle;
+    }
+    return handle;
 }
 
-uptr write_file(FileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
-    uptr result = 0;
-    if (is_file_valid(file)) {
-        int posix_handle = file->handle;
-        if (offset != 0xFFFFFFFF) {
-            lseek(posix_handle, offset, SEEK_SET);
-        }
-        ssize_t written = write(posix_handle, bf, bf_sz);
-        if (written == -1) {
-            DBG_BREAKPOINT;
-        }
-        result = written;
+FileID fs_open_file(const char *name, u32 mode) {
+    FileID result = {0};
+    // Check if it already open
+    u64 hash = get_hash_for_filename(name);
+    FSFileSlot *slot = get_slot(hash);
+    if (slot) {
+        report_error_general("File is already open: '%s'", name);
     } else {
-        DBG_BREAKPOINT;
+        u64 new_slot_idx = get_new_file_slot_idx();
+        if (new_slot_idx) {
+            hash64_set(&fs->file_hash, hash, new_slot_idx);
+            slot = fs->file_hash_slots + new_slot_idx;
+            slot->hash = hash;
+            // @LEAK
+            slot->name = arena_alloc_str(&fs->arena, name);
+            open_file(&slot->handle, name, mode);
+            result.value = hash;
+        }
     }
-    return result;
+    
+    return result;    
 }
 
-uptr read_file(FileHandle *file, uptr offset, void *bf, uptr bf_sz) {
-    uptr result = 0;
-    if (is_file_valid(file)) {
-        int posix_handle = file->handle;
-        if (offset != 0xFFFFFFFF) {
-            lseek(posix_handle, offset, SEEK_SET);
-        }
-        ssize_t nread = read(posix_handle, bf, bf_sz);
-        if (nread == -1) {
-            DBG_BREAKPOINT;
-        }
-        result = nread;
+b32 fs_close_file(FileID id) {
+    b32 result = FALSE;
+    FSFileSlot *slot = get_slot(id.value);
+    if (!slot) {
+        char bf[1024];
+        fs_fmt_filename(bf, sizeof(bf), id);
+        report_error_general("No file open for file id %llu (%s)", id.value, bf);
     } else {
-        DBG_BREAKPOINT;
+        close_file(&slot->handle);
+        // @TODO Add slot index to free list
+        hash64_set(&fs->file_hash, slot->hash, 0);
+        slot->hash = 0; // This clears slot
     }
     return result;
 }
-uptr get_file_size(FileHandle *id) {
-    uptr result = 0;
-    if (is_file_valid(id)) {
-        int posix_handle = id->handle;
-        result = lseek(posix_handle, 0, SEEK_END);
-    }      
-    return result;
-}
-b32 is_file_valid(FileHandle *id) {
-    return id->handle != 0 && !(id->flags & FILE_FLAG_NOT_OPERATABLE);
-}
 
-// @SPEED it may be benefitial to use hash table for storing filenames,
-// because latency of os calls is unpredictible
-uptr fmt_filename(char *bf, uptr bf_sz, FileHandle *id) {
+uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
     uptr result = 0;
-    if (is_file_valid(id)) {
-        int posix_fd = id->handle;
-        char internal_bf[PATH_MAX];
-        if (fcntl(posix_fd, F_GETPATH, internal_bf) != -1) {
-            str_cp(bf, bf_sz, internal_bf);
-        }
+    FSFileSlot *slot = get_slot(id.value);
+    if (slot) {
+        result = str_cp(bf, bf_sz, slot->name);
     }
     return result;
 }

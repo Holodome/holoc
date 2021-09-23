@@ -1,8 +1,5 @@
 #pragma once
 #include "general.h"
-#include "stream.h"
-#include "hashing.h"
-#include "memory.h"
 
 typedef u8 bytecode_op;
 enum {
@@ -50,31 +47,21 @@ enum {
     BYTECODE_FLT_CMP = 0x50,
 };
 
-typedef struct {
-    OutStream *out;
-} BytecodeBuilder;
+#define PACK_4U8_TO_U32_(_a, _b, _c, _d) (((_a) << 0) | ((_b) << 8) | ((_c) << 16) | ((_d) << 24))
+#define PACK_4U8_TO_U32(_a, _b, _c, _d) PACK_4U8_TO_U32_((u32)(_a), (u32)(_b), (u32)(_c), (u32)(_d))
+#define BYTECODE_MAGIC_VALUE PACK_4U8_TO_U32('P', 'K', 'B', 'E')
+#define BYTECODE_VERSION_MAJOR 0x0
+#define BYTECODE_VERSION_MINOR 0x0
+#define COMPILER_VERSION_MAJOR 0x0
+#define COMPILER_VERSION_MINOR 0x0
 
-typedef struct {
-    u64 storage;
-} BytecodeInterpVariable;
-
-typedef struct BytecodeInterpStack {
-    u64 num_variables;
-    Hash64 variable_hash;
-    BytecodeInterpVariable *variables;
-    
-    struct BytecodeInterpStack *parent;
-} BytecodeInterpStack;
-
-typedef struct {
-    MemoryArena arena;
-    InStream *in;
-    
-    BytecodeInterpStack *curr_stack;
-    u64 var0;
-    u64 var1;
-    u64 var2;
-    u64 var3;
-} BytecodeInterp;
-
-void init_bytecode_interp(BytecodeInterp *interp, InStream *in);
+typedef struct __attribute__((packed)) {
+    // General header 32 bytes
+    u32 magic_value;
+    u8 version_major;
+    u8 version_minor;
+    u8 compiler_version_major;
+    u8 compiler_version_minor;
+    u64 compile_epoch;
+    u8 __reserved[16];
+} BytecodeExecutableHeader;

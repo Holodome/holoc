@@ -12,9 +12,9 @@
 #pragma once
 #include "general.h"
 
-#include "filesystem.h"
 #include "strings.h"
 #include "stream.h"
+#include "src_loc.h"
 
 enum {
     AST_NONE,
@@ -81,6 +81,13 @@ enum {
     AST_BINARY_COUNT,  
 };
 
+enum {
+    AST_TYPE_NONE = 0x0,
+    AST_TYPE_INT,
+    AST_TYPE_FLOAT,
+    AST_TYPE_COUNT
+};
+
 typedef struct AST AST;
 
 // Because in C there is no templates, lists types have to be chosen carefully.
@@ -100,7 +107,7 @@ void ast_list_add(ASTList *list, AST *ast);
 
 struct AST {
     u32 kind;
-    SourceLocation source_loc;
+    SrcLoc src_loc;
     // for use in linked lists
     AST *next;
     union  {
@@ -133,6 +140,9 @@ struct AST {
         struct {
             AST *ident;
             AST *expr;
+            
+            u32 type;
+            b32 is_immutable;
         } decl;
         struct {
             ASTList arguments;

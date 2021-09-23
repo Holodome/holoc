@@ -156,27 +156,29 @@ u32 utf8_decode(const u8 *src, u32 *len_out) {
 uptr outf(const char *msg, ...) {
     va_list args;
     va_start(args, msg);
-    uptr result = voutf(msg, args);
+    uptr result = outv(msg, args);
     va_end(args);
     return result;
 }
 
-uptr voutf(const char *msg, va_list args) {
-    uptr result = out_streamv(get_stdout_stream(), msg, args);
-    out_stream_flush(get_stdout_stream());
+uptr outv(const char *msg, va_list args) {
+    OutStream *st = get_stdout_stream();
+    uptr result = out_streamv(st, msg, args);
+    out_stream_flush(st);
     return result;
 }
 
 uptr erroutf(const char *msg, ...) {
     va_list args;
     va_start(args, msg);
-    uptr result = verroutf(msg, args);
+    uptr result = erroutv(msg, args);
     va_end(args);
     return result;
 }
 
-uptr verroutf(const char *msg, va_list args) {
-    uptr result = out_streamv(get_stderr_stream(), msg, args);
-    out_stream_flush(get_stderr_stream());
+uptr erroutv(const char *msg, va_list args) {
+    OutStream *st = get_stderr_stream();
+    uptr result = out_streamv(st, msg, args);
+    out_stream_flush(st);
     return result;
 }

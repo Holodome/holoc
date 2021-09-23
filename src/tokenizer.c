@@ -15,7 +15,9 @@ static const char *KEYWORD_STRS[] = {
     "while",
     "return",
     "if",
-    "else"
+    "else",
+    "int",
+    "float"
 };
 
 static const char *MULTISYMB_STRS[] = {
@@ -52,7 +54,7 @@ b32 is_token_assign(u32 tok) {
 Tokenizer *create_tokenizer(InStream *st) {
     Tokenizer *tr = arena_bootstrap(Tokenizer, arena);
     tr->st = st;
-    tr->line_number = 1;
+    tr->curr_loc.symb = 1;
     tr->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
     tr->scratch_buffer = arena_alloc(&tr->arena, tr->scratch_buffer_size);
     return tr;
@@ -69,10 +71,8 @@ static b32 advance(Tokenizer *tr) {
     u8 byte = 0;
     if (in_stream_peek(tr->st, &byte, 1)) {
         in_stream_advance_n(tr->st, 1);
-        ++tr->symb_number;
-        // tr->symb = byte;
+        ++tr->curr_loc.symb;
     } else {
-        // tr->symb = 0;
         result = FALSE;
     }
     return result;
@@ -117,8 +117,8 @@ Token *peek_tok(Tokenizer *tr) {
             }
             
             if (parse(tr, "\n\r") || parse(tr, "\n")) {
-                ++tr->line_number;
-                tr->symb_number = 0;
+                ++tr->curr_loc.line;
+                tr->curr_loc.symb = 0;
                 continue;
             } else if (is_space(symb)) {
                 advance(tr);
@@ -140,10 +140,7 @@ Token *peek_tok(Tokenizer *tr) {
                 continue;
             }
             
-            SourceLocation source_loc;
-            source_loc.line = tr->line_number;
-            source_loc.symb = tr->symb_number;
-            token->source_loc = source_loc;
+            token->src_loc = tr->curr_loc;
             if (is_digit(symb)) {
                 // @TODO warn on large ident lengths
                 char *lit = (char *)tr->scratch_buffer;

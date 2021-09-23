@@ -1,4 +1,5 @@
 #include "hashing.h"
+#include "memory.h"
 
 u32 hash_string(const char *str) {
     u32 result = 5381;
@@ -95,12 +96,20 @@ static u64 *hash64_get_internal(Hash64 *hash, u64 key) {
     for (u64 offset = 0; offset < hash->num_buckets; ++offset) {
         u64 hash_idx = (hash_value + offset) & hash_mask;
         u64 test_key = hash->keys[hash_idx];
-        if (test_key == key || key == 0) {
+        if (test_key == key || test_key == 0) {
             result = &hash->values[hash_idx];
             break;
         }
     }
     return result;
+}
+
+Hash64 create_hash64(u64 n, struct MemoryArena *arena) {
+    Hash64 hash = {0};
+    hash.num_buckets = n;
+    hash.keys = arena_alloc_array(arena, n, u64);
+    hash.values = arena_alloc_array(arena, n, u64);
+    return hash;
 }
 
 b32 hash64_set(Hash64 *hash, u64 key, u64 value) {
@@ -116,7 +125,7 @@ b32 hash64_set(Hash64 *hash, u64 key, u64 value) {
 u64 hash64_get(Hash64 *hash, u64 key, u64 default_value) {
     u64 result = default_value;
     u64 *value_ptr = hash64_get_internal(hash, key);
-    if (value_ptr) {
+    if (value_ptr && *value_ptr) {
         result = *value_ptr;
     }
     return result;
