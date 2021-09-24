@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 21.08.2021 
 // File: pkby/src/tokenizer.h
-// Revisions: 0
+// Version: 0
 //
 // Defines functions used in parsing text files via splitting them into tokens.
 #pragma once 

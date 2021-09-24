@@ -741,8 +741,8 @@ void do_interp(Interp *interp) {
         }
         
         bytecode_builder_proccess_toplevel(interp->bytecode_builder, toplevel);
-        fmt_ast_tree_recursive(get_stdout_stream(), toplevel, 0);
-        out_stream_flush(get_stdout_stream());
+        // fmt_ast_tree_recursive(get_stdout_stream(), toplevel, 0);
+        // out_stream_flush(get_stdout_stream());
     }
     
     if (!is_error_reported(&interp->er)) {

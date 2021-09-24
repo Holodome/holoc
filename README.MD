@@ -10,6 +10,8 @@ Idea behind this project as whole is to learn how to write compilers for program
 
 Each of program steps tries to be written in a modular manner that is suitable for later usage in futher projects. That invloves spending some time on designing the API - thing that learning project could as well leave overboard.
 
+This project does a lot of what could be named by some as reinventing the wheel - all of that is done in educational purposes, to see how things from the standard library work under the hood.
+
 ## Features
 
 > List may change

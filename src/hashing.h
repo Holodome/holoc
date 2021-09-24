@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 25.08.2021 
 // File: pkby/src/hashing.h
-// Revisions: 0
+// Version: 0
 // 
 // Provides different APIs that are conncected with hashing.
 #pragma once

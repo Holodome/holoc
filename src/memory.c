@@ -13,6 +13,13 @@ void *mem_alloc(uptr size) {
     return result;
 }
 
+void *mem_realloc(void *ptr, uptr old_size, uptr size) {
+    void *new_ptr = mem_alloc(size);
+    mem_copy(new_ptr, ptr, old_size);
+    mem_free(ptr, old_size);
+    return new_ptr;
+}
+
 char *mem_alloc_str(char *str) {
     uptr len = str_len(str) + 1;
     char *result = mem_alloc(len);
@@ -20,7 +27,7 @@ char *mem_alloc_str(char *str) {
     return result;    
 }
 
-void mem_free(void *ptr) {
+void mem_free(void *ptr, uptr size) {
     free(ptr);
 }
 

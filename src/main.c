@@ -2,7 +2,6 @@
 
 #include "strings.h"
 #include "tokenizer.h"
-#include "parser.h"
 #include "interp.h"
 
 enum {

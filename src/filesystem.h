@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 24.08.2021 
 // File: pkby/src/filesystem.h
-// Revisions: 0
+// Version: 0
 // 
 // Defines abstraction level over files.h file API.
 // All files go through double inderection - first is the OSFileHandle, which stores

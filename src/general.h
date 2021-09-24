@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 21.08.2021 
 // File: pkby/src/general.h
-// Revisions: 0
+// Version: 0
 //
 // Provides data types and macros that are widely used throughout the program
 #pragma once 

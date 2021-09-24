@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 23.09.2021 
 // File: pkby/src/bytecode_interp.h
-// Revisions: 0
+// Version: 0
 #pragma once 
 #include "bytecode.h"
 #include "stream.h"

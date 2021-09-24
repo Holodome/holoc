@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 24.08.2021 
 // File: pkby/src/interp.h
-// Revisions: 0
+// Version: 0
 //
 // Up to this point it is unclear how program is going to be structured further,
 // but there should be interpeter for AST, that compiles from text format to 

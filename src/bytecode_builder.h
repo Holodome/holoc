@@ -1,26 +1,44 @@
 // Author: Holodome
 // Date: 23.08.2021 
 // File: pkby/src/bytecode_builder.h
-// Revisions: 0
+// Version: 0
 #pragma once 
 #include "bytecode.h"
 #include "memory.h"
 #include "ast.h"
 #include "error_reporter.h"
 
+#define BYTECODE_BUILDER_CODE_PAGE_SIZE KB(4)
+
 typedef struct BytecodeBuilderVar {
     const char *ident;
     u64 storage; // can be zero
     u32 type;
-    b32 is_immutable;
     struct BytecodeBuilderVar *next;
 } BytecodeBuilderVar;
+
+typedef struct BytecodeBuilderCodePage {
+    u8 buffer[BYTECODE_BUILDER_CODE_PAGE_SIZE];
+    u16 buffer_used;
+    
+    struct BytecodeBuilderCodePage *next;
+} BytecodeBuilderCodePage;
+
+typedef struct BytecodeBuilderFunction {
+    u64 name_hash;
+    BytecodeBuilderVar *first_argument;
+    BytecodeBuilderCodePage *first_code_page;
+    u32 nreturn_values;
+    u32 return_values[MAXIMUM_RETURN_VALUES];
+    struct BytecodeBuilderFunction *next;
+} BytecodeBuilderFunction;
 
 typedef struct {
     MemoryArena arena;
     ErrorReporter *er;
     
     BytecodeBuilderVar *static_vars;
+    BytecodeBuilderFunction *functions;
 } BytecodeBuilder;
 
 BytecodeBuilder *create_bytecode_builder(ErrorReporter *reporter);

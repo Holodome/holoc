@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 21.08.2021 
 // File: pkby/src/memory.h
-// Revisions: 0
+// Version: 0
 //
 // Defines memory-related functions, as well as block and arena allocator.
 // Note that behaviour of allocator and idea behind it is different from standard libary
@@ -24,10 +24,12 @@
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory
 // malloc
 void *mem_alloc(uptr size);
+// realloc
+void *mem_realloc(void *ptr, uptr old_size, uptr size);
 // strdup
 char *mem_alloc_str(char *str);
 // free
-void mem_free(void *ptr);
+void mem_free(void *ptr, uptr size);
 // memcpy
 void mem_copy(void *dst, const void *src, uptr size);
 // memmove

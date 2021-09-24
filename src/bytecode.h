@@ -1,13 +1,14 @@
 // Author: Holodome
 // Date: 5.09.2021 
 // File: pkby/src/bytecode.h
-// Revisions: 0
+// Version: 0
 //
 //
 #pragma once
 #include "general.h"
 
-typedef u8 bytecode_op;
+#define MAXIMUM_RETURN_VALUES 16
+
 enum {
     // General-purpose ops
     BYTECODE_NOP = 0x0,
@@ -52,6 +53,11 @@ enum {
     
     BYTECODE_FLT_CMP = 0x50,
 };
+
+// Bbytecode format:
+// u16 number in block
+// u8 opcode
+// per-opcode data
 
 #define PACK_4U8_TO_U32_(_a, _b, _c, _d) (((_a) << 0) | ((_b) << 8) | ((_c) << 16) | ((_d) << 24))
 #define PACK_4U8_TO_U32(_a, _b, _c, _d) PACK_4U8_TO_U32_((u32)(_a), (u32)(_b), (u32)(_c), (u32)(_d))

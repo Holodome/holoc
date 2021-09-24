@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 24.08.2021 
 // File: pkby/src/ast.h
-// Revisions: 0
+// Version: 0
 // ast.h
 //
 // Description of abstract syntax trees
@@ -25,11 +25,11 @@ enum {
     AST_BLOCK,
     AST_LITERAL,
     AST_IDENT,
+    AST_TYPE,
 
-    // Expressions:
     AST_UNARY,
     AST_BINARY,
-    // Statements:    
+    
     AST_ASSIGN,
     AST_PRINT,
     AST_DECL,
@@ -106,6 +106,7 @@ typedef struct ASTList {
     AST *last;
 } ASTList;
 
+#define AST_LIST_ITER(_list, _it) for (AST *_it = (_list)->first; _it; _it = _it->next) 
 void ast_list_add(ASTList *list, AST *ast);
 
 struct AST {
@@ -175,7 +176,15 @@ struct AST {
         struct {
             ASTList arguments;
         } print_st;
+        struct {
+            u32 kind;
+        } type;
     };
 };
 
-void fmt_ast_tree_recursive(OutStream *stream, AST *ast, u32 depth);
+// Prints ast tree as text tree-like structure.
+void fmt_ast_tree(OutStream *stream, AST *ast, u32 depth);
+// Prints ast expression as code, trying to reverse get the input
+// Used in debugging expression parsing 
+// @NOTE Can be modified to format whole ast tree as source code
+void fmt_ast_expr(OutStream *stream, AST *ast);

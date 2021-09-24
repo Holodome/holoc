@@ -16,6 +16,14 @@ const char *AST_UNARY_STRS[] = {
     "Not"
 };
 
+const char *AST_UNARY_SYMBS[] = {
+    "None",
+    "-",
+    "+",
+    "!",
+    "~"  
+};
+
 const char *AST_BINARY_STRS[] = {
     "None",
     "Add",
@@ -42,6 +50,28 @@ const char *AST_BINARY_STRS[] = {
     "IRShift"
 };
 
+const char *AST_BINARY_SYMBS[] = {
+    "None"
+    "+",
+    "-",
+    "*",
+    "/",    
+    "%",    
+    "<=",    
+    "<",    
+    ">=",    
+    ">",    
+    "==",    
+    "!=",    
+    "&",    
+    "|",    
+    "^",    
+    "<<",    
+    ">>",    
+    "&&",    
+    "||",    
+};
+
 void ast_list_add(ASTList *list, AST *ast) {
     LLIST_ADD(list->first, ast);
     if (!list->last) {
@@ -58,9 +88,7 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
     switch (ast->kind) {
         case AST_BLOCK: {
             out_streamf(st, "%*cBLOCK:\n", depth, ' ');
-            for (AST *statement = ast->block.statements.first;
-                 statement;
-                 statement = statement->next) {
+            AST_LIST_ITER(&ast->block.statements, statement) {
                 fmt_ast_tree_recursive(st, statement, depth + 1);        
             }
         } break;
@@ -104,9 +132,7 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
         } break;
         case AST_PRINT: {
             out_streamf(st, "%*cPRINT: EXPRS:\n", depth, ' ');
-            for (AST *statement = ast->print_st.arguments.first;
-                 statement;
-                 statement = statement->next) {
+            AST_LIST_ITER(&ast->print_st.arguments, statement) {
                 fmt_ast_tree_recursive(st, statement, depth + 1);
             }
         } break;
@@ -118,9 +144,7 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
         } break;
         case AST_RETURN: {
             out_streamf(st, "%*cRETURN:\n", depth, ' ');
-            for (AST *var = ast->return_st.vars.first;
-                 var;
-                 var = var->next) {
+            AST_LIST_ITER(&ast->return_st.vars, var) {
                 fmt_ast_tree_recursive(st, var, depth + 1);
             }
         } break;
@@ -136,15 +160,11 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
         } break;
         case AST_FUNC_SIGNATURE: {
             out_streamf(st, "%*cFUNC SIGN: ARGS:\n", depth, ' ');
-            for (AST *arg = ast->func_sign.arguments.first;
-                 arg;
-                 arg = arg->next) {
+            AST_LIST_ITER(&ast->func_sign.arguments, arg) {
                 fmt_ast_tree_recursive(st, arg, depth + 1);        
             }
             out_streamf(st, "%*cOUTS:\n", depth, ' ');
-            for (AST *arg = ast->func_sign.return_types.first;
-                 arg;
-                 arg = arg->next) {
+            AST_LIST_ITER(&ast->func_sign.return_types, arg) {
                 fmt_ast_tree_recursive(st, arg, depth + 1);        
             }
         } break;
@@ -160,9 +180,7 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
             out_streamf(st, "%*cFUNC CALL: NAME:\n", depth, ' ');
             fmt_ast_tree_recursive(st, ast->func_call.callable, depth + 1);
             out_streamf(st, "%*cARGUMENTS:\n", depth, ' ');
-            for (AST *arg = ast->func_call.arguments.first;
-                 arg;
-                 arg = arg->next) {
+            AST_LIST_ITER(&ast->func_call.arguments, arg) {
                 fmt_ast_tree_recursive(st, arg, depth + 1);        
             }
         } break;
@@ -171,4 +189,43 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
             DBG_BREAKPOINT;
         } break;
     }    
+}
+
+void fmt_ast_expr(OutStream *st, AST *ast) {
+    if (!ast) {
+        out_streamf(st, "%*cNULL\n");
+        return;
+    }
+    
+    switch (ast->kind) {
+        case AST_LITERAL: {
+            switch (ast->literal.kind) {
+                case AST_LITERAL_INT: {
+                    out_streamf(st, "%lld", ast->literal.value_int);
+                } break;
+                case AST_LITERAL_REAL: {
+                    out_streamf(st, "%f", ast->literal.value_real);
+                } break;
+                INVALID_DEFAULT_CASE;
+            }
+        } break;
+        case AST_BINARY: {
+            out_streamf(st, "(");
+            fmt_ast_expr(st, ast->binary.left);
+            const char *op_str = AST_BINARY_SYMBS[ast->binary.kind];
+            out_streamf(st, "%s", op_str);
+            fmt_ast_expr(st, ast->binary.right);
+            out_streamf(st, ")");
+        } break;
+        case AST_UNARY: {
+            const char *op_str = AST_UNARY_SYMBS[ast->unary.kind];
+            out_streamf(st, "(");
+            fmt_ast_expr(st, ast->unary.expr);
+            out_streamf(st, ")");
+        } break;
+        case AST_IDENT: {
+            out_streamf(st, "%s", ast->ident.name);
+        } break;
+        INVALID_DEFAULT_CASE;
+    }
 }

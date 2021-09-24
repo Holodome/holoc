@@ -1,5 +1,6 @@
 #include "bytecode_builder.h"
 #include <time.h>
+#include "hashing.h"
 
 BytecodeBuilder *create_bytecode_builder(ErrorReporter *reporter) {
     BytecodeBuilder *builder = arena_bootstrap(BytecodeBuilder, arena);
@@ -60,7 +61,12 @@ static u32 infer_type(BytecodeBuilder *builder, AST *expr) {
 
 static u64 compile_time_expr_evaluate(BytecodeBuilder *builder, AST *expr, u32 type) {
     u64 result = 0;
-    
+    assert(expr->kind == AST_LITERAL);
+    if (expr->literal.kind == AST_LITERAL_INT && type == AST_TYPE_INT) {
+        result = expr->literal.value_int;
+    } else {
+        assert(FALSE);
+    }
     return result;
 }
 
@@ -87,17 +93,43 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
         INVALID_DEFAULT_CASE;
     }
     storage = compile_time_expr_evaluate(builder, decl->decl.expr, decl_type);
+    fmt_ast_expr(get_stdout_stream(), decl->decl.expr);
+    out_streamf(get_stdout_stream(), "\n");
+    out_stream_flush(get_stdout_stream());
     
     BytecodeBuilderVar *var = arena_alloc_struct(&builder->arena, BytecodeBuilderVar);
     LLIST_ADD(builder->static_vars, var);
     var->ident = ident_str;
     var->storage = storage;
     var->type = decl_type;
-    var->is_immutable = decl->decl.is_immutable;
+    // var->is_immutable = decl->decl.is_immutable;
 }
 
 static void add_func_def(BytecodeBuilder *builder, AST *decl) {
     assert(decl->kind == AST_FUNC_DECL);
+    BytecodeBuilderFunction *function = arena_alloc_struct(&builder->arena, BytecodeBuilderFunction);
+    LLIST_ADD(builder->functions, function);
+    // Parse function name
+    AST *func_name = decl->func_decl.name;
+    assert(func_name->kind == AST_IDENT);
+    u64 name_hash = hash_string(func_name->ident.name);
+    function->name_hash = name_hash;
+    // Parse function signature
+    AST *func_sign = decl->func_decl.sign;
+    assert(func_sign->kind == AST_FUNC_SIGNATURE);
+    u32 nreturn_values = 0;
+    AST_LIST_ITER(&func_sign->func_sign.return_types, value) {
+        assert(nreturn_values < MAXIMUM_RETURN_VALUES);
+        assert(value->kind == AST_TYPE);
+        function->return_values[nreturn_values] = value->type.kind;
+        ++nreturn_values;        
+    }
+    function->nreturn_values = nreturn_values;
+    //@TODO Arguments
+    
+    // Parse function block
+    AST *block = decl->func_decl.block;
+    
 }
 
 void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel) {
