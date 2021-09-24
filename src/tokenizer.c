@@ -55,6 +55,7 @@ Tokenizer *create_tokenizer(InStream *st, FileID file_id) {
     Tokenizer *tr = arena_bootstrap(Tokenizer, arena);
     tr->st = st;
     tr->curr_loc.symb = 1;
+    tr->curr_loc.line = 1;
     tr->curr_loc.file = file_id;
     tr->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
     tr->scratch_buffer = arena_alloc(&tr->arena, tr->scratch_buffer_size);
@@ -67,15 +68,9 @@ void destroy_tokenizer(Tokenizer *tr) {
 
 // Safely advance cursor. If end of buffer is reached, 0 is set to tr->symb and  
 // false is returned
-static b32 advance(Tokenizer *tr) {
-    b32 result = TRUE;
-    u8 byte = 0;
-    if (in_stream_peek(tr->st, &byte, 1)) {
-        in_stream_advance_n(tr->st, 1);
-        ++tr->curr_loc.symb;
-    } else {
-        result = FALSE;
-    }
+static b32 advance(Tokenizer *tr, u32 n) {
+    b32 result = in_stream_advance_n(tr->st, n);
+    tr->curr_loc.symb += n;
     return result;
 }
 
@@ -97,8 +92,7 @@ static b32 parse(Tokenizer *tr, const char *str) {
     b32 result = FALSE;
     uptr len = 0;
     if (next_eq(tr, str, &len)) {
-        in_stream_advance_n(tr->st, len);
-        // tr->symb = in_stream_peek_b_or_zero(tr->st);
+        advance(tr, len);
         result = TRUE;
     }
     return result;
@@ -119,20 +113,20 @@ Token *peek_tok(Tokenizer *tr) {
             
             if (parse(tr, "\n\r") || parse(tr, "\n")) {
                 ++tr->curr_loc.line;
-                tr->curr_loc.symb = 0;
+                tr->curr_loc.symb = 1;
                 continue;
             } else if (is_space(symb)) {
-                advance(tr);
+                advance(tr, 1);
                 continue;
             } else if (parse(tr, "//")) {
                 while (in_stream_peek_b_or_zero(tr->st) != '\n') {
-                    advance(tr);
+                    advance(tr, 1);
                 }
                 continue;
             } else if (parse(tr, "/*")) {
                 for (;;) {
                     do {
-                        advance(tr);
+                        advance(tr, 1);
                     } while (in_stream_peek_b_or_zero(tr->st) != '*');
                     if (parse(tr, "*/")) {
                         break;
@@ -161,7 +155,8 @@ Token *peek_tok(Tokenizer *tr) {
                     }
                     assert(lit_len < sizeof(lit));
                     lit[lit_len++] = peeked;
-                    b32 advanced = in_stream_advance_n(tr->st, 1);
+                    
+                    b32 advanced = advance(tr, 1);
                     assert(advanced);
                 }
                 assert(lit_len < tr->scratch_buffer_size);
@@ -191,7 +186,7 @@ Token *peek_tok(Tokenizer *tr) {
                     }
                     assert(lit_len < tr->scratch_buffer_size);
                     lit[lit_len++] = peeked;
-                    b32 advanced = in_stream_advance_n(tr->st, 1);
+                    b32 advanced = advance(tr, 1);
                     assert(advanced);
                 }
                 assert(lit_len < tr->scratch_buffer_size);
@@ -213,7 +208,7 @@ Token *peek_tok(Tokenizer *tr) {
                 }
                 break;
             } else if (symb == '\"') {
-                advance(tr);
+                advance(tr, 1);
                 char *lit = (char *)tr->scratch_buffer;
                 u32 lit_len = 0;
                 b32 is_real = FALSE;
@@ -227,7 +222,7 @@ Token *peek_tok(Tokenizer *tr) {
                     }
                     assert(lit_len < sizeof(lit));
                     lit[lit_len++] = peeked;
-                    b32 advanced = in_stream_advance_n(tr->st, 1);
+                    b32 advanced = advance(tr, 1);
                     assert(advanced);
                 }
                 assert(lit_len < tr->scratch_buffer_size);
@@ -251,13 +246,13 @@ Token *peek_tok(Tokenizer *tr) {
                 // All unhandled cases before - single character 
                 if (!token->kind) {
                     token->kind = symb;
-                    advance(tr);
+                    advance(tr, 1);
                 }
                 break;
             } else {
                 DBG_BREAKPOINT;
                 token->kind = TOKEN_ERROR;
-                advance(tr);
+                advance(tr, 1);
                 break;
             }
         }

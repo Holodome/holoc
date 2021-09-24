@@ -158,3 +158,12 @@ uptr fs_get_file_size(FileID id) {
     }
     return result;    
 }
+
+uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
+    uptr result = 0;
+    FSFileSlot *slot = get_slot(id.value);
+    if (slot) {
+        result = str_cp(bf, bf_sz, slot->name);
+    }
+    return result;    
+}

@@ -81,6 +81,23 @@ AST *parse_block(Interp *interp);
 12: ||
 */
 #define MAX_OPEARTOR_PRECEDENCE 12
+
+AST *parse_expr_precedence(Interp *interp, u32 precedence);
+static AST *parse_binary_subxepr(Interp *interp, u32 prec, u32 bin_kind, AST *left) {
+    AST *result = 0;
+    AST *right = parse_expr_precedence(interp, prec - 1);
+    if (right) {
+        AST *bin = ast_new(interp, AST_BINARY);
+        bin->binary.kind = bin_kind;
+        bin->binary.left = left;
+        bin->binary.right = right; 
+        result = bin;
+    } else {
+        report_error_tok(&interp->er, peek_tok(interp->tokenizer), "Expected expression");
+    }
+    return result; 
+}
+
 // Parse expression with ascending precedence - lower ones are parsed earlier
 // Currently this is made by making 
 // @TODO remove recursion for precedence iteration
@@ -179,166 +196,172 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
         } break;
         case 3: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == '*' || tok->kind == '/' || tok->kind == '%') {
-                AST *bin = ast_new(interp, AST_BINARY);
+                u32 bin_kind = 0;
                 switch (tok->kind) {
                     case '*': {
-                        bin->binary.kind = AST_BINARY_MUL;
+                        bin_kind = AST_BINARY_MUL;
                     } break;
                     case '/': {
-                        bin->binary.kind = AST_BINARY_DIV;
+                        bin_kind = AST_BINARY_DIV;
                     } break;
                     case '%': {
-                        bin->binary.kind = AST_BINARY_MOD;
+                        bin_kind = AST_BINARY_MOD;
                     } break;
                 }
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 4: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == '+' || tok->kind == '-') {
-                AST *bin = ast_new(interp, AST_BINARY);
+                u32 bin_kind = 0;
                 if (tok->kind == '+') {
-                    bin->binary.kind = AST_BINARY_ADD;
+                    bin_kind = AST_BINARY_ADD;
                 } else if (tok->kind == '-') {
-                    bin->binary.kind = AST_BINARY_SUB;
+                    bin_kind = AST_BINARY_SUB;
                 }
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 5: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == TOKEN_LSHIFT || tok->kind == TOKEN_RSHIFT) {
-                AST *bin = ast_new(interp, AST_BINARY);
+                u32 bin_kind = 0;
                 if (tok->kind == TOKEN_RSHIFT) {
-                    bin->binary.kind = AST_BINARY_RSHIFT;
+                    bin_kind = AST_BINARY_RSHIFT;
                 } else if (tok->kind == TOKEN_LSHIFT) {
-                    bin->binary.kind = AST_BINARY_SUB;
+                    bin_kind = AST_BINARY_SUB;
                 }
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 6: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == '<' || tok->kind == '>' || tok->kind == TOKEN_LE || tok->kind == TOKEN_GE) {
-                AST *bin = ast_new(interp, AST_BINARY);
+                u32 bin_kind = 0;
                 if (tok->kind == TOKEN_LE) {
-                    bin->binary.kind = AST_BINARY_LE;
+                    bin_kind = AST_BINARY_LE;
                 } else if (tok->kind == TOKEN_GE) {
-                    bin->binary.kind = AST_BINARY_GE;
+                    bin_kind = AST_BINARY_GE;
                 } else if (tok->kind == '<') {
-                    bin->binary.kind = AST_BINARY_L;
+                    bin_kind = AST_BINARY_L;
                 } else if (tok->kind == '>') {
-                    bin->binary.kind = AST_BINARY_G;
+                    bin_kind = AST_BINARY_G;
                 }
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 7: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == TOKEN_EQ || tok->kind == TOKEN_NEQ) {
-                AST *bin = ast_new(interp, AST_BINARY);
+                u32 bin_kind = 0;
                 if (tok->kind == TOKEN_EQ) {
-                    bin->binary.kind = AST_BINARY_EQ;
+                    bin_kind = AST_BINARY_EQ;
                 } else if (tok->kind == TOKEN_NEQ) {
-                    bin->binary.kind = AST_BINARY_NEQ;
+                    bin_kind = AST_BINARY_NEQ;
                 }
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 8: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == '&') {
-                AST *bin = ast_new(interp, AST_BINARY);
-                bin->binary.kind = AST_BINARY_AND;
+                u32 bin_kind = AST_BINARY_AND;
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 9: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == '&') {
-                AST *bin = ast_new(interp, AST_BINARY);
-                bin->binary.kind = AST_BINARY_XOR;
+                u32 bin_kind = AST_BINARY_XOR;
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 10: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == '&') {
-                AST *bin = ast_new(interp, AST_BINARY);
-                bin->binary.kind = AST_BINARY_OR;
+                u32 bin_kind = AST_BINARY_OR;
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 11: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == TOKEN_LOGICAL_AND) {
-                AST *bin = ast_new(interp, AST_BINARY);
-                bin->binary.kind = AST_BINARY_LOGICAL_AND;
+                u32 bin_kind = AST_BINARY_LOGICAL_AND;
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         case 12: {
             expr = parse_expr_precedence(interp, precedence - 1);
+            if (!expr) {
+                goto end;
+            }
             Token *tok = peek_tok(interp->tokenizer);
             while (tok->kind == TOKEN_LOGICAL_OR) {
-                AST *bin = ast_new(interp, AST_BINARY);
-                bin->binary.kind = AST_BINARY_LOGICAL_OR;
+                u32 bin_kind = AST_BINARY_LOGICAL_OR;
                 eat_tok(interp->tokenizer);
-                bin->binary.left = expr;
-                bin->binary.right = parse_expr_precedence(interp, precedence - 1);
-                expr = bin;
+                expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
                 tok = peek_tok(interp->tokenizer);
             }
         } break;
         default: assert(FALSE);
     }
+end:
     return expr;
 }
 
