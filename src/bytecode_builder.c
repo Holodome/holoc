@@ -1,9 +1,9 @@
 #include "bytecode_builder.h"
 #include <time.h>
 
-BytecodeBuilder *create_bytecode_builder() {
+BytecodeBuilder *create_bytecode_builder(ErrorReporter *reporter) {
     BytecodeBuilder *builder = arena_bootstrap(BytecodeBuilder, arena);
-
+    builder->er = reporter;
     return builder;
 }
 
@@ -49,7 +49,7 @@ static u32 infer_type(BytecodeBuilder *builder, AST *expr) {
             if (var) {
                 type = var->type;
             } else {
-                report_error_ast(builder->error_reporter, expr, "Use of undeclared identifier '%s'",
+                report_error_ast(builder->er, expr, "Use of undeclared identifier '%s'",
                     expr->ident.name);
             }
         } break;
@@ -116,8 +116,8 @@ void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel)
     }
 }
 
-void bytecode_builder_emit_code(BytecodeBuilder *builder, FileHandle *out) {
-    assert(is_file_valid(out));
+void bytecode_builder_emit_code(BytecodeBuilder *builder, OSFileHandle *out) {
+    assert(os_is_file_valid(out));
     
     BytecodeExecutableHeader header = {0};
     header.magic_value = BYTECODE_MAGIC_VALUE;

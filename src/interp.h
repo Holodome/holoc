@@ -23,11 +23,13 @@ typedef struct {
     MemoryArena arena;
     Tokenizer *tokenizer;
     BytecodeBuilder *bytecode_builder;
-    ErrorReporter *error_reporter;
+    ErrorReporter er;
     
-    const char *out_file;
-    FileHandle file_id;
+    FileID in_file_id;
     InStream file_in_st;
+    
+    const char *out_filename;
+
 } Interp;
 
 Interp *create_interp(const char *filename, const char *out_filename);

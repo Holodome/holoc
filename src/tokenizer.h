@@ -2,8 +2,8 @@
 
 #include "general.h"
 #include "memory.h"
-#include "src_loc.h"
 #include "stream.h" // InStream
+#include "error_reporter.h"
 
 #define TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE KB(1)
 #define TOKEN_GENERAL 0x100
@@ -102,7 +102,7 @@ typedef struct Tokenizer {
 // @NOTE Tokenizer is an object that has its own big lifetime, 
 // and so we return pointer here and allocate all memory using arena located inside
 // the tokenizer, making it kinda OOPy API
-Tokenizer *create_tokenizer(InStream *st);
+Tokenizer *create_tokenizer(InStream *st, FileID file_id);
 // Deletes all tokens
 void destroy_tokenizer(Tokenizer *tokenizer);
 // Returns current token. Stores token until it's eaten

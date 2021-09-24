@@ -31,26 +31,28 @@ enum {
 // Handle to file object. User has no way of understanding data stored in value
 // Because this is not a id but handle, API makes use of static lifetime mechanic builtin in c.
 // Everywhere it is used, pointer is passed, because the object itself is strored somewhere
-typedef struct FileHandle {
+typedef struct {
     // Handle is not guaranteed to have some meaning besides 0 - 
     // that is special value for invalid file handle
     u64 handle;
     u32 flags;
-} FileHandle;
+} OSFileHandle;
 
 enum {
     FILE_MODE_READ,
-    FILE_MODE_WRITE
+    FILE_MODE_WRITE,
+    FILE_MODE_READ_APPEND,
+    FILE_MODE_WRITE_APPEND,
 };
 
-void open_file(FileHandle *handle, const char *filename, u32 mode);
-b32 close_file(FileHandle *id);
+void os_open_file(OSFileHandle *handle, const char *filename, u32 mode);
+b32 os_close_file(OSFileHandle *id);
 // Get console out handle
 // @NOTE in most OSs writing to file and console is the same.
 // This API makes use of same paradigm
-FileHandle *get_stdout_file(void);
-FileHandle *get_stderr_file(void);
-FileHandle *get_stdin_file(void);
+OSFileHandle *os_get_stdout_file(void);
+OSFileHandle *os_get_stderr_file(void);
+OSFileHandle *os_get_stdin_file(void);
 // Write bf_sz bytes to file with offset.
 // Unlike stdio fwrite, offset is explicitly specified.
 // If offset = UINT32_MAX, no offset is done (used in standard streams)
@@ -61,17 +63,15 @@ FileHandle *get_stdin_file(void);
 // Solution could be to create special function for accessing file end, and, for example, 
 // have flag in file structure that indicates what mode it is used so user could be warned on
 // incorrect usage
-uptr write_file(FileHandle *file, uptr offset, const void *bf, uptr bf_sz);
+uptr os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz);
 // Same as write file, but read
-uptr read_file(FileHandle *file, uptr offset, void *bf, uptr bf_sz);
+uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz);
 // read_file with advancing cursor
-uptr append_file(FileHandle *id, const void *bf, uptr bf_sz);
-// read_file with advancing cursor
-uptr pop_file(FileHandle *id, void *bf, uptr bf_sz);
-uptr get_file_size(FileHandle *);
+uptr os_get_file_size(OSFileHandle *);
 // Is handle valid.
-b32 is_file_valid(FileHandle *);
+b32 os_is_file_valid(OSFileHandle *);
 // Prefixed with fs to avoid collisions (fs for filesystems)
-b32 fs_mkdir(const char *name);
-b32 fs_rmdir(const char *name, b32 is_recursive);
-b32 fs_rm(const char *name);
+b32 os_mkdir(const char *name);
+b32 os_rmdir(const char *name, b32 is_recursive);
+b32 os_rm(const char *name);
+uptr os_fmt_cwd(char *bf, uptr bf_sz);

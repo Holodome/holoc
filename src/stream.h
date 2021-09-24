@@ -47,7 +47,7 @@ enum {
 // @TODO behaviour of stream can be expanded to allow other types of commits besides writing to file 
 typedef struct OutStream {
     u32 mode;
-    FileHandle *out_file;
+    OSFileHandle *out_file;
     uptr out_file_idx;
     u8 *bf;
     uptr bf_sz;
@@ -62,7 +62,7 @@ void init_out_stream(OutStream *st, void *bf, uptr bf_sz);
 // bf_sz - what size of buffer to allocate 
 // threshold >= bf_sz
 // bf - storage for stream buffer
-void init_out_streamf(OutStream *st, FileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
+void init_out_streamf(OutStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
 // Printfs to stream
 uptr out_streamf(OutStream *st, const char *fmt, ...);
 uptr out_streamv(OutStream *st, const char *fmt, va_list args);
@@ -84,7 +84,7 @@ void out_stream_flush(OutStream *st);
 // @NOTE no flusing happens when in stream uses buffer to read from
 typedef struct InStream {
     u32 mode;
-    FileHandle *file;
+    OSFileHandle *file;
     uptr file_size;
     uptr file_idx;
     // Buffer in stream is used for caching read results
@@ -103,7 +103,7 @@ typedef struct InStream {
 
 // Create input stream from buffer - to unify API for reading from file and buffer in some systems
 void init_in_stream(InStream *st, void *bf, uptr bf_sz);
-void init_in_streamf(InStream *st, FileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
+void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked
 uptr in_stream_peek(InStream *st, void *out, uptr n);

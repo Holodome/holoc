@@ -93,6 +93,7 @@ static void token_view(Tokenizer *tokenizer) {
 }
 
 int main(int argc, char **argv) {
+    init_filesystem();
     ProgramSettings settings = parse_command_line_args(argc, argv);
     if (settings.print_help) {
         // @TODO

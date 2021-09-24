@@ -7,7 +7,7 @@
 // threshold, data should be written directly
 static void out_stream_write_direct(OutStream *st, const void *data, uptr data_sz) {
     if (st->mode == STREAM_FILE) {
-        uptr written = write_file(st->out_file, st->out_file_idx, data, data_sz);
+        uptr written = os_write_file(st->out_file, st->out_file_idx, data, data_sz);
         st->out_file_idx += written;
     }
 }
@@ -18,7 +18,7 @@ void init_out_stream(OutStream *st, void *bf, uptr bf_sz) {
     st->bf_sz = bf_sz;
 }
 
-void init_out_streamf(OutStream *st, FileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std) {
+void init_out_streamf(OutStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std) {
     assert(threshold < bf_sz);
     st->out_file = file;
     if (is_std) {
@@ -73,7 +73,7 @@ void out_stream_flush(OutStream *st) {
         out_stream_write_direct(st, st->bf, st->bf_idx);
         st->bf_idx = 0;
     } else if (st->mode == STREAM_ST) {
-        write_file(st->out_file, 0xFFFFFFFF, st->bf, st->bf_idx);
+        os_write_file(st->out_file, 0xFFFFFFFF, st->bf, st->bf_idx);
         st->bf_idx = 0;
     }
 }
@@ -84,10 +84,10 @@ void init_in_stream(InStream *st, void *bf, uptr bf_sz) {
     st->bf_sz = bf_sz;
 }
 
-void init_in_streamf(InStream *st, FileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std) {
+void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std) {
     assert(bf_sz > threshold);
     st->file = file;
-    st->file_size = get_file_size(file);
+    st->file_size = os_get_file_size(file);
     if (is_std) {
         st->mode = STREAM_ST;
     } else {
@@ -151,7 +151,7 @@ void in_stream_flush(InStream *st) {
         if (read_data_size > buffer_size_aviable) {
             read_data_size = buffer_size_aviable;
         }
-        uptr bytes_read = read_file(st->file, st->file_idx, st->bf + st->bf_used, read_data_size);
+        uptr bytes_read = os_read_file(st->file, st->file_idx, st->bf + st->bf_used, read_data_size);
         st->bf_used += bytes_read;
         st->file_idx += bytes_read;
         if (bytes_read == 0) {
@@ -170,7 +170,7 @@ void in_stream_flush(InStream *st) {
         if (read_data_size > buffer_size_aviable) {
             read_data_size = buffer_size_aviable;
         }
-        uptr bytes_read = read_file(st->file, 0xFFFFFFFF, st->bf + st->bf_used, read_data_size);
+        uptr bytes_read = os_read_file(st->file, 0xFFFFFFFF, st->bf + st->bf_used, read_data_size);
         st->bf_used += bytes_read;
     }
 }
@@ -191,7 +191,7 @@ static OutStream *stderr_stream;
 
 InStream *get_stdin_stream(void) {
     if (stdin_stream == 0) {
-        init_in_streamf(&stdin_stream_storage, get_stdin_file(), 
+        init_in_streamf(&stdin_stream_storage, os_get_stdin_file(), 
             mem_alloc(STDIN_STREAM_BF_SZ), STDIN_STREAM_BF_SZ,
             STDIN_STREAM_THRESHOLD, TRUE);
         stdin_stream = &stdin_stream_storage;
@@ -201,7 +201,7 @@ InStream *get_stdin_stream(void) {
 
 OutStream *get_stdout_stream(void) {
     if (stdout_stream == 0) {
-        init_out_streamf(&stdout_stream_storage, get_stdout_file(), 
+        init_out_streamf(&stdout_stream_storage, os_get_stdout_file(), 
             mem_alloc(STDIN_STREAM_BF_SZ), STDIN_STREAM_BF_SZ,
             STDIN_STREAM_THRESHOLD, TRUE);
         stdout_stream = &stdout_stream_storage;
@@ -211,7 +211,7 @@ OutStream *get_stdout_stream(void) {
 
 OutStream *get_stderr_stream(void) {
     if (stderr_stream == 0) {
-        init_out_streamf(&stderr_stream_storage, get_stderr_file(), 
+        init_out_streamf(&stderr_stream_storage, os_get_stderr_file(), 
             mem_alloc(STDOUT_STREAM_BF_SZ), STDOUT_STREAM_BF_SZ,
             STDOUT_STREAM_THRESHOLD, TRUE);
         stderr_stream = &stderr_stream_storage;

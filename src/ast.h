@@ -14,7 +14,7 @@
 
 #include "strings.h"
 #include "stream.h"
-#include "src_loc.h"
+#include "error_reporter.h"
 
 enum {
     AST_NONE,

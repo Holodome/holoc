@@ -1,14 +1,6 @@
 #include "error_reporter.h"
-
-ErrorReporter *create_error_reporter(const char *filename) {
-    ErrorReporter *reporter = arena_bootstrap(ErrorReporter, arena);
-    reporter->filename = arena_alloc_str(&reporter->arena, filename);
-    return reporter;
-}
-
-void destroy_error_reporter(ErrorReporter *reporter) {
-    arena_clear(&reporter->arena);
-}
+#include "tokenizer.h"
+#include "ast.h"
 
 b32 is_error_reported(ErrorReporter *reporter) {
     return reporter->error_count != 0;
@@ -17,11 +9,12 @@ b32 is_error_reported(ErrorReporter *reporter) {
 void report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list args) {
     // const FileData *file_data = get_file_data(reporter->file_id);
     // @TODO capture source index and read only n first bytes instead of whole file
-    FileHandle file_handle = {0};
-    open_file(&file_handle, reporter->filename, FILE_MODE_READ);
-    uptr file_size = get_file_size(&file_handle);
-    char *file_contents = arena_alloc(&reporter->arena, file_size);
-    read_file(&file_handle, 0, file_contents, file_size);
+    FileID id = src_loc.file;
+    OSFileHandle *handle = fs_get_handle(id);
+    assert(handle);
+    uptr file_size = os_get_file_size(handle);
+    char *file_contents = mem_alloc(file_size);
+    os_read_file(handle, 0, file_contents, file_size);
     // @TODO more robust algorithm
     u32 current_line_idx = 1;
     const char *line_start = file_contents;
@@ -61,7 +54,6 @@ void report_error_ast(ErrorReporter *reporter, AST *ast, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_errorv(reporter, ast->src_loc, msg, args);
-        
 }
 
 void report_error_generalv(const char *msg, va_list args) {
@@ -69,6 +61,7 @@ void report_error_generalv(const char *msg, va_list args) {
     out_streamf(st, "\033[31merror\033[0m: ");
     out_streamv(st, msg, args);
     out_streamf(st, "\n");
+    out_stream_flush(st);
 }
 
 void report_error_general(const char *msg, ...) {

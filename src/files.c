@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-void open_file(FileHandle *file, const char *filename, u32 mode) {
+void os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
     file->flags = 0;
     file->handle = 0;
     
@@ -31,7 +31,7 @@ void open_file(FileHandle *file, const char *filename, u32 mode) {
     }
 }
 
-b32 close_file(FileHandle *id) {
+b32 os_close_file(OSFileHandle *id) {
     b32 result = close(id->handle) == 0;
     if (result) {
         id->flags |= FILE_FLAG_IS_CLOSED;
@@ -39,22 +39,22 @@ b32 close_file(FileHandle *id) {
     return result;
 }
 
-FileHandle *get_stdout_file(void) {
-    static FileHandle id = { 1, FILE_FLAG_IS_ST };
+OSFileHandle *os_get_stdout_file(void) {
+    static OSFileHandle id = { 1, FILE_FLAG_IS_ST };
     return &id;
 }
-FileHandle *get_stderr_file(void) {
-    static FileHandle id = { 2, FILE_FLAG_IS_ST };
+OSFileHandle *os_get_stderr_file(void) {
+    static OSFileHandle id = { 2, FILE_FLAG_IS_ST };
     return &id;
 }
-FileHandle *get_stdin_file(void) {
-    static FileHandle id = { 3, FILE_FLAG_IS_ST };
+OSFileHandle *os_get_stdin_file(void) {
+    static OSFileHandle id = { 3, FILE_FLAG_IS_ST };
     return &id;
 }
 
-uptr write_file(FileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
+uptr os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
     uptr result = 0;
-    if (is_file_valid(file)) {
+    if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
         if (offset != 0xFFFFFFFF) {
             lseek(posix_handle, offset, SEEK_SET);
@@ -70,9 +70,9 @@ uptr write_file(FileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
     return result;
 }
 
-uptr read_file(FileHandle *file, uptr offset, void *bf, uptr bf_sz) {
+uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz) {
     uptr result = 0;
-    if (is_file_valid(file)) {
+    if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
         if (offset != 0xFFFFFFFF) {
             lseek(posix_handle, offset, SEEK_SET);
@@ -87,28 +87,14 @@ uptr read_file(FileHandle *file, uptr offset, void *bf, uptr bf_sz) {
     }
     return result;
 }
-uptr get_file_size(FileHandle *id) {
+uptr os_get_file_size(OSFileHandle *id) {
     uptr result = 0;
-    if (is_file_valid(id)) {
+    if (os_is_file_valid(id)) {
         int posix_handle = id->handle;
         result = lseek(posix_handle, 0, SEEK_END);
     }      
     return result;
 }
-b32 is_file_valid(FileHandle *id) {
+b32 os_is_file_valid(OSFileHandle *id) {
     return id->handle != 0 && !(id->flags & FILE_FLAG_NOT_OPERATABLE);
-}
-
-// @SPEED it may be benefitial to use hash table for storing filenames,
-// because latency of os calls is unpredictible
-uptr fmt_filename(char *bf, uptr bf_sz, FileHandle *id) {
-    uptr result = 0;
-    if (is_file_valid(id)) {
-        int posix_fd = id->handle;
-        char internal_bf[PATH_MAX];
-        if (fcntl(posix_fd, F_GETPATH, internal_bf) != -1) {
-            str_cp(bf, bf_sz, internal_bf);
-        }
-    }
-    return result;
 }

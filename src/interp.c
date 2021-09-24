@@ -6,7 +6,7 @@ static void report_unexpected_token(Interp *interp, Token *tok, u32 expected) {
     char expected_str[128], got_str[128];
     fmt_tok_kind(expected_str, sizeof(expected_str), expected);
     fmt_tok_kind(got_str, sizeof(got_str), tok->kind);
-    report_error_tok(interp->error_reporter, tok, "Token %s expected (got %s)",
+    report_error_tok(&interp->er, tok, "Token %s expected (got %s)",
         expected_str, got_str);
 }
 
@@ -385,7 +385,7 @@ AST *parse_assign_ident(Interp *interp, AST *ident) {
     AST *assign = 0;
     Token *tok = peek_tok(interp->tokenizer);
     if (!is_token_assign(tok->kind)) {
-        report_error_tok(interp->error_reporter, tok, "Expected assign operator");
+        report_error_tok(&interp->er, tok, "Expected assign operator");
         return 0;    
     }
     
@@ -471,7 +471,7 @@ AST *parse_statement(Interp *interp) {
         ASTList return_vars = {0};
         while (tok->kind != ';') {
             AST *expr = parse_expr(interp);
-            if (!expr || is_error_reported(interp->error_reporter)) {
+            if (!expr || is_error_reported(&interp->er)) {
                 break;
             }
             ast_list_add(&return_vars, expr);
@@ -536,7 +536,7 @@ AST *parse_block(Interp *interp) {
             break;
         }
         
-        if (is_error_reported(interp->error_reporter)) {
+        if (is_error_reported(&interp->er)) {
             break;
         }
         ast_list_add(&statements, statement);
@@ -583,7 +583,7 @@ AST *parse_function_signature(Interp *interp) {
         }
     }
     
-    if (is_error_reported(interp->error_reporter)) {
+    if (is_error_reported(&interp->er)) {
         return 0;
     }
     
@@ -669,7 +669,7 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
             }
         } break;
         default: {
-            report_error_tok(interp->error_reporter, tok, "Expected := or :: or : in declaration");
+            report_error_tok(&interp->er, tok, "Expected := or :: or : in declaration");
         } break;
     }
     
@@ -700,21 +700,20 @@ AST *parse_toplevel_item(Interp *interp) {
 
 Interp *create_interp(const char *filename, const char *out_filename) {
     Interp *interp = arena_bootstrap(Interp, arena);
-    interp->out_file = out_filename;
-    interp->error_reporter = create_error_reporter(filename);
-    open_file(&interp->file_id, filename, FILE_MODE_READ);
-    init_in_streamf(&interp->file_in_st, &interp->file_id, 
+    interp->out_filename = out_filename;
+    interp->in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    init_in_streamf(&interp->file_in_st, fs_get_handle(interp->in_file_id), 
         arena_alloc(&interp->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD, FALSE);
-    interp->tokenizer = create_tokenizer(&interp->file_in_st);
-    interp->bytecode_builder = create_bytecode_builder(interp->error_reporter);
+    interp->tokenizer = create_tokenizer(&interp->file_in_st, interp->in_file_id);
+    interp->bytecode_builder = create_bytecode_builder(&interp->er);
     return interp;
 }
 
 void do_interp(Interp *interp) {
     for (;;) {
         AST *toplevel = parse_toplevel_item(interp);
-        if (!toplevel || is_error_reported(interp->error_reporter)) {
+        if (!toplevel || is_error_reported(&interp->er)) {
             break;
         }
         
@@ -723,17 +722,16 @@ void do_interp(Interp *interp) {
         out_stream_flush(get_stdout_stream());
     }
     
-    if (!is_error_reported(interp->error_reporter)) {
-        FileHandle out_file = {0};
-        open_file(&out_file, interp->out_file, FILE_MODE_WRITE);
-        bytecode_builder_emit_code(interp->bytecode_builder, &out_file);
-        close_file(&out_file);
+    if (!is_error_reported(&interp->er)) {
+        FileID out_file = fs_open_file(interp->out_filename, FILE_MODE_WRITE);
+        bytecode_builder_emit_code(interp->bytecode_builder, fs_get_handle(out_file));
+        fs_close_file(out_file);
     }
 }
 
 void destroy_interp(Interp *interp) {
     destroy_bytecode_builder(interp->bytecode_builder);
     destroy_tokenizer(interp->tokenizer);
-    close_file(&interp->file_id);
+    fs_close_file(interp->in_file_id);
     arena_clear(&interp->arena);
 }

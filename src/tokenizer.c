@@ -51,10 +51,11 @@ b32 is_token_assign(u32 tok) {
         tok == TOKEN_IXOR || tok == TOKEN_ILSHIFT || tok == TOKEN_IRSHIFT; 
 }
 
-Tokenizer *create_tokenizer(InStream *st) {
+Tokenizer *create_tokenizer(InStream *st, FileID file_id) {
     Tokenizer *tr = arena_bootstrap(Tokenizer, arena);
     tr->st = st;
     tr->curr_loc.symb = 1;
+    tr->curr_loc.file = file_id;
     tr->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
     tr->scratch_buffer = arena_alloc(&tr->arena, tr->scratch_buffer_size);
     return tr;
