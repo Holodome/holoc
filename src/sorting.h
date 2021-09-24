@@ -1,4 +1,7 @@
-// sorting.h
+// Author: Holodome
+// Date: 24.08.2021 
+// File: pkby/src/sorting.h
+// Revisions: 0
 //
 // Provides different soring algorithms
 #pragma once

@@ -1,4 +1,7 @@
-// stream.h
+// Author: Holodome
+// Date: 13.09.2021 
+// File: pkby/src/stream.h
+// Revisions: 0
 // 
 // Defines series of data types that represent differnt types of input and output streams
 // Stream is an object that provides API to continoiusly access data from different sources

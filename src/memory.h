@@ -1,4 +1,7 @@
-// memory.h
+// Author: Holodome
+// Date: 21.08.2021 
+// File: pkby/src/memory.h
+// Revisions: 0
 //
 // Defines memory-related functions, as well as block and arena allocator.
 // Note that behaviour of allocator and idea behind it is different from standard libary

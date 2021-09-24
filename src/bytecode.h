@@ -1,3 +1,9 @@
+// Author: Holodome
+// Date: 5.09.2021 
+// File: pkby/src/bytecode.h
+// Revisions: 0
+//
+//
 #pragma once
 #include "general.h"
 

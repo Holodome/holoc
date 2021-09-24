@@ -1,4 +1,7 @@
-//
+// Author: Holodome
+// Date: 24.08.2021 
+// File: pkby/src/ast.h
+// Revisions: 0
 // ast.h
 //
 // Description of abstract syntax trees

@@ -1,5 +1,7 @@
-//
-// error_reporter.h
+// Author: Holodome
+// Date: 23.09.2021 
+// File: pkby/src/error_reporter.h
+// Revisions: 0
 //
 // Provides tools for reporting errors in whole program. Can be used to report errors 
 // both inside text processing parts of the program and in the general way. 

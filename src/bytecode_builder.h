@@ -1,3 +1,7 @@
+// Author: Holodome
+// Date: 23.08.2021 
+// File: pkby/src/bytecode_builder.h
+// Revisions: 0
 #pragma once 
 #include "bytecode.h"
 #include "memory.h"

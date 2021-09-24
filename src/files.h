@@ -1,4 +1,7 @@
-// filesystem.c
+// Author: Holodome
+// Date: 24.08.2021 
+// File: pkby/src/files.h
+// Revisions: 0
 //
 // Defines os-agnostic API to access files on disk.
 //
