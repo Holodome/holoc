@@ -117,7 +117,7 @@ char *arena_alloc_str(MemoryArena *arena, const char *src) {
 void arena_free_last_block(MemoryArena *arena) {
     MemoryBlock *block = arena->current_block;
     LLIST_POP(arena->current_block);
-    mem_free(block);
+    mem_free(block, block->size + sizeof(MemoryBlock));
 }
 // Frees all blocks
 void arena_clear(MemoryArena *arena) {

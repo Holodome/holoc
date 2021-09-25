@@ -47,7 +47,6 @@ enum {
     TOKEN_ILSHIFT = TOKEN_MULTISYMB, // <<=
     TOKEN_IRSHIFT, // >>= 
     
-    TOKEN_CONSTANT, // ::
     TOKEN_AUTO_DECL, // :=
     TOKEN_ARROW, // ->
     TOKEN_LE, // <=

@@ -20,10 +20,10 @@ typedef struct {
 #define sb_full(_a) (sb_header(_a)->size == sb_header(_a)->capacity)
 #define sb_push(_a, _it) \
     do { \
-        sb_full(_a) ? (_a) = sb_grow((_a), sizeof(*(_a))) : (void)0;
-        (_a)[sb_header(_a)->size++] = (_it);
+        sb_full(_a) ? (_a) = sb_grow((_a), sizeof(*(_a))) : (void)0; \
+        (_a)[sb_header(_a)->size++] = (_it); \
     } while(0);
-#define sb_new(_n, _type) \
+#define sb_new(_n, _type) sb_new_((_n), sizeof(_type))
 
 void *sb_grow(void *old, uptr el_size);
-void *sb_new_(void *n, uptr el_size);
+void *sb_new_(uptr n, uptr el_size);

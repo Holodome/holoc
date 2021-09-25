@@ -8,6 +8,6 @@ void *sb_grow(void *old, uptr el_size) {
     return mem_realloc(old, old_size * el_size, new_size * el_size);
 }
 
-void *sb_new_(void *n, uptr el_size) {
-    
+void *sb_new_(uptr n, uptr el_size) {
+    return 0;
 }

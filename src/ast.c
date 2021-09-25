@@ -73,6 +73,7 @@ const char *AST_BINARY_SYMBS[] = {
 };
 
 void ast_list_add(ASTList *list, AST *ast) {
+    ++list->DBG_len;
     LLIST_ADD(list->first, ast);
     if (!list->last) {
         list->last = ast;

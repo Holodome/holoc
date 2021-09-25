@@ -33,12 +33,23 @@ typedef struct BytecodeBuilderFunction {
     struct BytecodeBuilderFunction *next;
 } BytecodeBuilderFunction;
 
+typedef struct BytecodeBuilderBlockInfo {
+    BytecodeBuilderVar *variables;
+    
+    struct BytecodeBuilderBlockInfo *parent;
+} BytecodeBuilderBlockInfo;
+
 typedef struct {
     MemoryArena arena;
     ErrorReporter *er;
     
     BytecodeBuilderVar *static_vars;
     BytecodeBuilderFunction *functions;
+    
+    BytecodeBuilderBlockInfo *current_block_info;
+    
+    BytecodeBuilderVar *var_free_list;
+    BytecodeBuilderBlockInfo *block_info_free_list;
 } BytecodeBuilder;
 
 BytecodeBuilder *create_bytecode_builder(ErrorReporter *reporter);

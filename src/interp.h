@@ -23,7 +23,7 @@
 
 typedef struct {
     MemoryArena arena;
-    Tokenizer *tokenizer;
+    Tokenizer *tr;
     BytecodeBuilder *bytecode_builder;
     ErrorReporter er;
     

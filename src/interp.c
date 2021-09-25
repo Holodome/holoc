@@ -22,7 +22,7 @@ static b32 expect_tok(Interp *interp, Token *tok, u32 kind) {
 static b32 parse_end_of_statement(Interp *interp, Token *tok) {
     b32 result = expect_tok(interp, tok, ';');
     if (result) {
-        eat_tok(interp->tokenizer);
+        eat_tok(interp->tr);
     }
     return result;
 }
@@ -31,7 +31,7 @@ static AST *ast_new(Interp *interp, u32 kind) {
     AST *ast = arena_alloc_struct(&interp->arena, AST);
     ast->kind = kind;
     // @TODO more explicit way of taking source location?
-    ast->src_loc = peek_tok(interp->tokenizer)->src_loc;
+    ast->src_loc = peek_tok(interp->tr)->src_loc;
     return ast;
 }
 
@@ -50,20 +50,20 @@ static AST *create_int_lit(Interp *interp, i64 value) {
 
 ASTList parse_comma_separated_idents(Interp *interp) {
     ASTList idents = {0};
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     while (tok->kind == TOKEN_IDENT) {
         AST *ident = create_ident(interp, tok->value_str);
         ast_list_add(&idents, ident);
-        tok = peek_next_tok(interp->tokenizer);
+        tok = peek_next_tok(interp->tr);
         if (tok->kind == ',') {
-            tok = peek_next_tok(interp->tokenizer);
+            tok = peek_next_tok(interp->tr);
         }
     }
     return idents;
 }
 
 AST *parse_decl(Interp *interp);
-AST *parse_decl_ident(Interp *interp, AST *ident);
+AST *parse_decl_ident(Interp *interp, AST *ident, b32 end_of_statement);
 AST *parse_block(Interp *interp);
 
 /* 
@@ -93,7 +93,7 @@ static AST *parse_binary_subxepr(Interp *interp, u32 prec, u32 bin_kind, AST *le
         bin->binary.right = right; 
         result = bin;
     } else {
-        report_error_tok(&interp->er, peek_tok(interp->tokenizer), "Expected expression");
+        report_error_tok(&interp->er, peek_tok(interp->tr), "Expected expression");
     }
     return result; 
 }
@@ -106,28 +106,28 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
     AST *expr = 0;
     switch (precedence) {
         case 0: {
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             switch (tok->kind) {
                 case TOKEN_IDENT: {
-                    eat_tok(interp->tokenizer);
+                    eat_tok(interp->tr);
                     AST *ident = create_ident(interp, tok->value_str);
                     expr = ident;
-                    tok = peek_tok(interp->tokenizer);
+                    tok = peek_tok(interp->tr);
                     // @TODO What if some mangling done to function name???
                     // finder better place for function call
                     if (tok->kind == '(') {
-                        eat_tok(interp->tokenizer);
+                        eat_tok(interp->tr);
                         AST *function_call = ast_new(interp, AST_FUNC_CALL);
                         function_call->func_call.callable = ident;
                         ASTList arguments = parse_comma_separated_idents(interp);
-                        if (expect_tok(interp, peek_tok(interp->tokenizer), ')')) {
-                            eat_tok(interp->tokenizer);
+                        if (expect_tok(interp, peek_tok(interp->tr), ')')) {
+                            eat_tok(interp->tr);
                             expr = function_call;
                         }
                     }
                 } break;
                 case TOKEN_INT: {
-                    eat_tok(interp->tokenizer);
+                    eat_tok(interp->tr);
                     AST *lit = create_int_lit(interp, tok->value_int);
                     expr = lit;
                 } break;
@@ -138,15 +138,15 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
         } break;
         case 1: {
             expr = parse_expr_precedence(interp, precedence - 1);
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             switch (tok->kind) {
                 case '(': {
-                    eat_tok(interp->tokenizer);
+                    eat_tok(interp->tr);
                     AST *temp = parse_expr(interp);
-                    tok = peek_tok(interp->tokenizer);
+                    tok = peek_tok(interp->tr);
                     if (expect_tok(interp, tok, ')')) {
                         expr = temp;
-                        eat_tok(interp->tokenizer);
+                        eat_tok(interp->tr);
                     }
                 } break;
                 case '.': {
@@ -158,31 +158,31 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             }
         } break;
         case 2: {
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             switch (tok->kind) {
                 case '+': {
-                    eat_tok(interp->tokenizer);
+                    eat_tok(interp->tr);
                     AST *unary = ast_new(interp, AST_UNARY);
                     unary->unary.kind = AST_UNARY_PLUS;
                     unary->unary.expr = parse_expr(interp);
                     expr = unary;
                 } break;
                 case '-': {
-                    eat_tok(interp->tokenizer);
+                    eat_tok(interp->tr);
                     AST *unary = ast_new(interp, AST_UNARY);
                     unary->unary.kind = AST_UNARY_MINUS;
                     unary->unary.expr = parse_expr(interp);
                     expr = unary;
                 } break;
                 case '!': {
-                    eat_tok(interp->tokenizer);
+                    eat_tok(interp->tr);
                     AST *unary = ast_new(interp, AST_UNARY);
                     unary->unary.kind = AST_UNARY_LOGICAL_NOT;
                     unary->unary.expr = parse_expr(interp);
                     expr = unary;
                 } break;
                 case '~': {
-                    eat_tok(interp->tokenizer);
+                    eat_tok(interp->tr);
                     AST *unary = ast_new(interp, AST_UNARY);
                     unary->unary.kind = AST_UNARY_NOT;
                     unary->unary.expr = parse_expr(interp);
@@ -199,7 +199,7 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == '*' || tok->kind == '/' || tok->kind == '%') {
                 u32 bin_kind = 0;
                 switch (tok->kind) {
@@ -213,9 +213,9 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
                         bin_kind = AST_BINARY_MOD;
                     } break;
                 }
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 4: {
@@ -223,7 +223,7 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == '+' || tok->kind == '-') {
                 u32 bin_kind = 0;
                 if (tok->kind == '+') {
@@ -231,9 +231,9 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
                 } else if (tok->kind == '-') {
                     bin_kind = AST_BINARY_SUB;
                 }
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 5: {
@@ -241,7 +241,7 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == TOKEN_LSHIFT || tok->kind == TOKEN_RSHIFT) {
                 u32 bin_kind = 0;
                 if (tok->kind == TOKEN_RSHIFT) {
@@ -249,9 +249,9 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
                 } else if (tok->kind == TOKEN_LSHIFT) {
                     bin_kind = AST_BINARY_SUB;
                 }
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 6: {
@@ -259,7 +259,7 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == '<' || tok->kind == '>' || tok->kind == TOKEN_LE || tok->kind == TOKEN_GE) {
                 u32 bin_kind = 0;
                 if (tok->kind == TOKEN_LE) {
@@ -271,9 +271,9 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
                 } else if (tok->kind == '>') {
                     bin_kind = AST_BINARY_G;
                 }
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 7: {
@@ -281,7 +281,7 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == TOKEN_EQ || tok->kind == TOKEN_NEQ) {
                 u32 bin_kind = 0;
                 if (tok->kind == TOKEN_EQ) {
@@ -289,9 +289,9 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
                 } else if (tok->kind == TOKEN_NEQ) {
                     bin_kind = AST_BINARY_NEQ;
                 }
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 8: {
@@ -299,12 +299,12 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == '&') {
                 u32 bin_kind = AST_BINARY_AND;
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 9: {
@@ -312,12 +312,12 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == '&') {
                 u32 bin_kind = AST_BINARY_XOR;
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 10: {
@@ -325,12 +325,12 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == '&') {
                 u32 bin_kind = AST_BINARY_OR;
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 11: {
@@ -338,12 +338,12 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == TOKEN_LOGICAL_AND) {
                 u32 bin_kind = AST_BINARY_LOGICAL_AND;
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         case 12: {
@@ -351,18 +351,35 @@ AST *parse_expr_precedence(Interp *interp, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(interp->tokenizer);
+            Token *tok = peek_tok(interp->tr);
             while (tok->kind == TOKEN_LOGICAL_OR) {
                 u32 bin_kind = AST_BINARY_LOGICAL_OR;
-                eat_tok(interp->tokenizer);
+                eat_tok(interp->tr);
                 expr = parse_binary_subxepr(interp, precedence, bin_kind, expr);
-                tok = peek_tok(interp->tokenizer);
+                tok = peek_tok(interp->tr);
             }
         } break;
         default: assert(FALSE);
     }
 end:
     return expr;
+}
+
+static AST *parse_type(Interp *interp) {
+    AST *type = 0;
+    Token *tok = peek_tok(interp->tr);
+    if (tok->kind == TOKEN_KW_INT) {
+        type = ast_new(interp, AST_TYPE);
+        type->type.kind = AST_TYPE_INT;
+        eat_tok(interp->tr);
+    } else if (tok->kind == TOKEN_KW_FLOAT) {
+        type = ast_new(interp, AST_TYPE);
+        type->type.kind = AST_TYPE_FLOAT;
+        eat_tok(interp->tr);
+    } else {
+        
+    }
+    return type;
 }
 
 static u32 assign_token_to_binary_kind(u32 tok) {
@@ -406,14 +423,14 @@ static u32 assign_token_to_binary_kind(u32 tok) {
 
 AST *parse_assign_ident(Interp *interp, AST *ident) {
     AST *assign = 0;
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     if (!is_token_assign(tok->kind)) {
         report_error_tok(&interp->er, tok, "Expected assign operator");
         return 0;    
     }
     
     // All incorrect tokens should be handled before
-    eat_tok(interp->tokenizer);
+    eat_tok(interp->tr);
     // @TODO make this more readable...
     if (tok->kind == '=') {
         AST *expr = parse_expr(interp);
@@ -433,7 +450,7 @@ AST *parse_assign_ident(Interp *interp, AST *ident) {
         assign->assign.expr = binary;
     }
     
-    tok = peek_tok(interp->tokenizer);
+    tok = peek_tok(interp->tr);
     if (!parse_end_of_statement(interp, tok)) {
         assign = 0;
     }
@@ -441,12 +458,12 @@ AST *parse_assign_ident(Interp *interp, AST *ident) {
 }
 
 AST *parse_if_compound(Interp *interp) {
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     if (tok->kind != TOKEN_KW_IF) {
         return 0;
     }
     
-    tok = peek_next_tok(interp->tokenizer);
+    tok = peek_next_tok(interp->tr);
     AST *expr = parse_expr(interp);
     if (!expr) {
         return 0;
@@ -454,16 +471,16 @@ AST *parse_if_compound(Interp *interp) {
     
     AST *if_st = ast_new(interp, AST_IF);
     if_st->if_st.cond = expr;
-    tok = peek_tok(interp->tokenizer);
+    tok = peek_tok(interp->tr);
     if (expect_tok(interp, tok, '{')) {
         AST *block = parse_block(interp);
         if (!block) {
             return 0;
         }
         if_st->if_st.block = block;
-        tok = peek_tok(interp->tokenizer);
+        tok = peek_tok(interp->tr);
         if (tok->kind == TOKEN_KW_ELSE) {
-            tok = peek_next_tok(interp->tokenizer);
+            tok = peek_next_tok(interp->tr);
             if (tok->kind == TOKEN_KW_IF) {
                 AST *else_if_st = parse_if_compound(interp);
                 if_st->if_st.else_block = else_if_st;
@@ -478,19 +495,19 @@ AST *parse_if_compound(Interp *interp) {
 
 AST *parse_statement(Interp *interp) {
     AST *statement = 0;
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     // Common path for assign and decl
     // @TODO maybe unite assign and declaration
     AST *ident = 0;
     if (tok->kind == TOKEN_IDENT) {
         ident = create_ident(interp, tok->value_str);
-        tok = peek_next_tok(interp->tokenizer);
+        tok = peek_next_tok(interp->tr);
     } 
     
     if (is_token_assign(tok->kind)) {
         statement = parse_assign_ident(interp, ident);
     } else if (tok->kind == TOKEN_KW_RETURN) {
-        tok = peek_next_tok(interp->tokenizer);
+        tok = peek_next_tok(interp->tr);
         ASTList return_vars = {0};
         while (tok->kind != ';') {
             AST *expr = parse_expr(interp);
@@ -499,9 +516,9 @@ AST *parse_statement(Interp *interp) {
             }
             ast_list_add(&return_vars, expr);
             
-            tok = peek_tok(interp->tokenizer);
+            tok = peek_tok(interp->tr);
             if (tok->kind == ',') {
-                tok = peek_next_tok(interp->tokenizer);
+                tok = peek_next_tok(interp->tr);
             }
         }
         
@@ -513,7 +530,7 @@ AST *parse_statement(Interp *interp) {
         AST *if_st = parse_if_compound(interp);
         statement = if_st;
     } else if (tok->kind == TOKEN_KW_WHILE) {
-        eat_tok(interp->tokenizer);
+        eat_tok(interp->tr);
         AST *condition = parse_expr(interp);
         if (condition) {
             AST *block = parse_block(interp);
@@ -526,18 +543,18 @@ AST *parse_statement(Interp *interp) {
             }
         }
     } else if (tok->kind == TOKEN_KW_PRINT) {
-        eat_tok(interp->tokenizer);
+        eat_tok(interp->tr);
         AST *expr = parse_expr(interp);
         ASTList exprs = {0};
         ast_list_add(&exprs, expr);
-        tok = peek_tok(interp->tokenizer);
+        tok = peek_tok(interp->tr);
         if (parse_end_of_statement(interp, tok)) {
             AST *print_st = ast_new(interp, AST_PRINT);
             print_st->print_st.arguments = exprs;
             statement = print_st;
         }
     } else {
-        statement = parse_decl_ident(interp, ident);
+        statement = parse_decl_ident(interp, ident, TRUE);
     }
     
     return statement;
@@ -545,15 +562,15 @@ AST *parse_statement(Interp *interp) {
 
 AST *parse_block(Interp *interp) {
     AST *block = 0;
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     if (expect_tok(interp, tok, '{')) {
-        tok = peek_next_tok(interp->tokenizer);     
+        tok = peek_next_tok(interp->tr);     
     } else {
         return 0;
     }
     
     ASTList statements = {0};
-    while (peek_tok(interp->tokenizer)->kind != '}') {
+    while (peek_tok(interp->tr)->kind != '}') {
         AST *statement = parse_statement(interp);
         if (!statement) {
             break;
@@ -567,9 +584,9 @@ AST *parse_block(Interp *interp) {
     block = ast_new(interp, AST_BLOCK);
     block->block.statements = statements;
     
-    tok = peek_tok(interp->tokenizer);
+    tok = peek_tok(interp->tr);
     if (expect_tok(interp, tok, '}')) {
-        tok = peek_next_tok(interp->tokenizer);     
+        tok = peek_next_tok(interp->tr);     
     } else {
         return 0;
     }
@@ -577,73 +594,61 @@ AST *parse_block(Interp *interp) {
 }
 
 AST *parse_function_signature(Interp *interp) {
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     if (!expect_tok(interp, tok, '(')) {
         return 0;
     }
-    tok = peek_next_tok(interp->tokenizer);
+    tok = peek_next_tok(interp->tr);
     // Parse arguments
-    ASTList arguments = {0};
+    ASTList args = {0};
     while (tok->kind != ')') {
         if (expect_tok(interp, tok, TOKEN_IDENT)) {
             AST *ident = create_ident(interp, tok->value_str);
-            ast_list_add(&arguments, ident);
-            
-            tok = peek_next_tok(interp->tokenizer);
-            if (expect_tok(interp, tok, ':')) {
-                tok = peek_next_tok(interp->tokenizer);
-                if (expect_tok(interp, tok, TOKEN_IDENT)) {
-                    tok = peek_next_tok(interp->tokenizer);
-                    if (tok->kind == ',') {
-                        tok = peek_next_tok(interp->tokenizer);
-                    } 
-                }
-            } else {
-                break;
-            }
+            eat_tok(interp->tr);
+            AST *decl = parse_decl_ident(interp, ident, FALSE);
+            ast_list_add(&args, ident);
+            tok = peek_tok(interp->tr);
         } else {
             break;
         }
     }
-    
     if (is_error_reported(&interp->er)) {
         return 0;
     }
     
     AST *sign = ast_new(interp, AST_FUNC_SIGNATURE);
-    sign->func_sign.arguments = arguments;
+    sign->func_sign.arguments = args;
     
-    tok = peek_next_tok(interp->tokenizer);
+    tok = peek_next_tok(interp->tr);
     if (tok->kind == TOKEN_ARROW) {
-        tok = peek_next_tok(interp->tokenizer);
+        tok = peek_next_tok(interp->tr);
         
-        ASTList outs = parse_comma_separated_idents(interp);
-        sign->func_sign.return_types = outs;
+        ASTList return_types = {0};
+        Token *tok = peek_tok(interp->tr);
+        for (;;) {
+            AST *type = parse_type(interp);
+            if (type) {
+                ast_list_add(&return_types, type);
+                tok = peek_tok(interp->tr);
+                if (tok->kind == ',') {
+                    tok = peek_next_tok(interp->tr);
+                }
+            } else {
+                break;
+            }
+        }
+        
+        sign->func_sign.return_types = return_types;
     }
     return sign;
 }
 
-AST *parse_decl_ident(Interp *interp, AST *ident) {
+AST *parse_decl_ident(Interp *interp, AST *ident, b32 end_of_statement) {
     AST *decl = 0;
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     switch (tok->kind) {
         case TOKEN_AUTO_DECL: {
-            tok = peek_next_tok(interp->tokenizer);
-            AST *expr = parse_expr(interp);
-            if (expr) {
-                decl = ast_new(interp, AST_DECL);
-                decl->decl.ident = ident;
-                decl->decl.expr = expr;
-                decl->decl.is_immutable = FALSE;
-                
-                tok = peek_tok(interp->tokenizer);
-                if (!parse_end_of_statement(interp, tok)) {
-                    decl = 0;
-                }
-            }
-        } break;
-        case TOKEN_CONSTANT: {
-            tok = peek_next_tok(interp->tokenizer);
+            tok = peek_next_tok(interp->tr);
             if (tok->kind == '(') {
                 AST *func_sign = parse_function_signature(interp);
                 if (func_sign) {
@@ -661,33 +666,31 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
                     decl = ast_new(interp, AST_DECL);
                     decl->decl.ident = ident;
                     decl->decl.expr = expr;
-                    decl->decl.is_immutable = TRUE;
+                    decl->decl.is_immutable = FALSE;
                     
-                    tok = peek_tok(interp->tokenizer);
-                    if (!parse_end_of_statement(interp, tok)) {
+                    tok = peek_tok(interp->tr);
+                    if (end_of_statement && !parse_end_of_statement(interp, tok)) {
                         decl = 0;
                     }
                 }
             }
         } break;
         case ':': {
-            tok = peek_next_tok(interp->tokenizer);
-            // @TODO parse type 
-            AST *type = parse_expr(interp);
-            tok = peek_tok(interp->tokenizer);
+            eat_tok(interp->tr);
+            AST *type = parse_type(interp);
+            assert(type);
             decl = ast_new(interp, AST_DECL);
-            decl->decl.ident = ident;   
-            // @TODO use type
+            decl->decl.ident = ident; 
+            decl->decl.type = type;  
+            tok = peek_tok(interp->tr);
             if (tok->kind == '=') {
-                tok = peek_next_tok(interp->tokenizer);
+                tok = peek_next_tok(interp->tr);
                 AST *expr = parse_expr(interp);
-                if (expr) {
-                    decl->decl.expr = expr;
-                }
+                decl->decl.expr = expr;
             } 
             
-            tok = peek_tok(interp->tokenizer);
-            if (!parse_end_of_statement(interp, tok)) {
+            tok = peek_tok(interp->tr);
+            if (end_of_statement && !parse_end_of_statement(interp, tok)) {
                 decl = 0;
             }
         } break;
@@ -701,18 +704,18 @@ AST *parse_decl_ident(Interp *interp, AST *ident) {
 
 AST *parse_decl(Interp *interp) {
     AST *decl = 0;
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     if (expect_tok(interp, tok, TOKEN_IDENT)) {
         AST *ident = create_ident(interp, tok->value_str);
-        eat_tok(interp->tokenizer);
-        decl = parse_decl_ident(interp, ident);
+        eat_tok(interp->tr);
+        decl = parse_decl_ident(interp, ident, TRUE);
     }
     
     return decl;
 }
 
 AST *parse_toplevel_item(Interp *interp) {
-    Token *tok = peek_tok(interp->tokenizer);
+    Token *tok = peek_tok(interp->tr);
     if (tok->kind == TOKEN_EOS) {
         return 0;
     }
@@ -728,7 +731,7 @@ Interp *create_interp(const char *filename, const char *out_filename) {
     init_in_streamf(&interp->file_in_st, fs_get_handle(interp->in_file_id), 
         arena_alloc(&interp->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD, FALSE);
-    interp->tokenizer = create_tokenizer(&interp->file_in_st, interp->in_file_id);
+    interp->tr = create_tokenizer(&interp->file_in_st, interp->in_file_id);
     interp->bytecode_builder = create_bytecode_builder(&interp->er);
     return interp;
 }
@@ -754,7 +757,7 @@ void do_interp(Interp *interp) {
 
 void destroy_interp(Interp *interp) {
     destroy_bytecode_builder(interp->bytecode_builder);
-    destroy_tokenizer(interp->tokenizer);
+    destroy_tokenizer(interp->tr);
     fs_close_file(interp->in_file_id);
     arena_clear(&interp->arena);
 }

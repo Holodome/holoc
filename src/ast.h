@@ -104,6 +104,8 @@ typedef struct AST AST;
 typedef struct ASTList {
     AST *first;
     AST *last;
+    
+    u32 DBG_len;
 } ASTList;
 
 #define AST_LIST_ITER(_list, _it) for (AST *_it = (_list)->first; _it; _it = _it->next) 
@@ -144,8 +146,7 @@ struct AST {
         struct {
             AST *ident;
             AST *expr;
-            
-            u32 type;
+            AST *type;
             b32 is_immutable;
         } decl;
         struct {

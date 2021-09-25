@@ -17,7 +17,7 @@ enum {
     BYTECODE_GOTO = 0x3,
     BYTECODE_IFGOTO = 0x4,
     BYTECODE_CALL = 0x5,
-    // 4 local 8-bit variables
+    // 4 local 8-byte variables
     BYTECODE_LOAD0 = 0x10,
     BYTECODE_LOAD1 = 0x11,
     BYTECODE_LOAD2 = 0x12,

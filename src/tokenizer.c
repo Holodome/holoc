@@ -23,7 +23,6 @@ static const char *KEYWORD_STRS[] = {
 static const char *MULTISYMB_STRS[] = {
     "<<=",
     ">>=",
-    "::",
     ":=",
     "->",
     "<=",
@@ -195,7 +194,7 @@ Token *peek_tok(Tokenizer *tr) {
                 char *str = arena_alloc(&tr->arena, lit_len + 1);
                 mem_copy(str, lit, lit_len + 1);
                 
-                for (u32 i = TOKEN_KW_PRINT, local_i = 0; i <= TOKEN_KW_ELSE; ++i, ++local_i) {
+                for (u32 i = TOKEN_KEYWORD, local_i = 0; IS_TOKEN_KEYWORD(i) && local_i < ARRAY_SIZE(KEYWORD_STRS); ++i, ++local_i) {
                     if (str_eq(KEYWORD_STRS[local_i], str)) {
                         token->kind = i;
                         break;

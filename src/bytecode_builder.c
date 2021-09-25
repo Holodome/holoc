@@ -79,18 +79,16 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
     const char *ident_str = arena_alloc_str(&builder->arena, ident_ast->ident.name);
     
     u32 decl_type = AST_TYPE_NONE;
-    switch (decl->decl.type) {
-        case AST_TYPE_NONE: {
-            u32 inferred_type = infer_type(builder, decl->decl.expr);
-            decl_type = inferred_type;
-        } break;
-        case AST_TYPE_INT: {
-            decl_type = AST_TYPE_INT;
-        } break;
-        case AST_TYPE_FLOAT: {
-            decl_type = AST_TYPE_FLOAT;
-        } break;
-        INVALID_DEFAULT_CASE;
+    if (decl->decl.type) {
+        AST *type = decl->decl.type;
+        assert(type->kind == AST_TYPE);
+        decl_type = type->type.kind;
+    }
+    if (!decl_type) {
+        decl_type = infer_type(builder, decl->decl.expr);
+        if (!decl_type) {
+            report_error_ast(builder->er, decl, "Failed to infer type for declaration");
+        }
     }
     storage = compile_time_expr_evaluate(builder, decl->decl.expr, decl_type);
     fmt_ast_expr(get_stdout_stream(), decl->decl.expr);
@@ -114,22 +112,43 @@ static void add_func_def(BytecodeBuilder *builder, AST *decl) {
     assert(func_name->kind == AST_IDENT);
     u64 name_hash = hash_string(func_name->ident.name);
     function->name_hash = name_hash;
-    // Parse function signature
-    AST *func_sign = decl->func_decl.sign;
-    assert(func_sign->kind == AST_FUNC_SIGNATURE);
-    u32 nreturn_values = 0;
-    AST_LIST_ITER(&func_sign->func_sign.return_types, value) {
-        assert(nreturn_values < MAXIMUM_RETURN_VALUES);
-        assert(value->kind == AST_TYPE);
-        function->return_values[nreturn_values] = value->type.kind;
-        ++nreturn_values;        
-    }
-    function->nreturn_values = nreturn_values;
+    // @TODO Parse function signature
+    // AST *func_sign = decl->func_decl.sign;
+    // assert(func_sign->kind == AST_FUNC_SIGNATURE);
+    // u32 nreturn_values = 0;
+    // AST_LIST_ITER(&func_sign->func_sign.return_types, value) {
+    //     assert(nreturn_values < MAXIMUM_RETURN_VALUES);
+    //     assert(value->kind == AST_IDENT);
+    //     function->return_values[nreturn_values] = value->type.kind;
+    //     ++nreturn_values;        
+    // }
+    // function->nreturn_values = nreturn_values;
     //@TODO Arguments
     
     // Parse function block
     AST *block = decl->func_decl.block;
-    
+    AST_LIST_ITER(&block->block.statements, statement) {
+        switch (statement->kind) {
+            case AST_ASSIGN: {
+                
+            } break;
+            case AST_IF: {
+                
+            } break;
+            case AST_RETURN: {
+                
+            } break;
+            case AST_WHILE: {
+                
+            } break;
+            case AST_PRINT: {
+                
+            } break;
+            case AST_DECL: {
+                
+            } break;
+        }
+    }
 }
 
 void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel) {
