@@ -4,19 +4,7 @@
 // Version: 0
 //
 // Defines memory-related functions, as well as block and arena allocator.
-// Note that behaviour of allocator and idea behind it is different from standard libary
-// All allocated memory is always implicitly set 0, (Zero Is Initialization - unlike RAII)
-// Defining own memory allocation functions is useful in debugging - 
-// virtual memory-based bounds checking can be implicitly done in debugger with use of 
-// os protection functions (ex. VirtualProtect on windows)
-// 
-// Idea behind ZII is to provide general way of allocating objects. Thus it can be said 
-// that any (besides things that don't) object can be created by setting it to zero.
-// ex. MemoryArena arena = {0}; // Arena can be used from now, without explicit initializtion (arena = create_arena(...))
-//
-// @NOTE MemoryArena is not a replacement for general purpose allocator.
-// It is just simplification for many cases in programming compilers, where lifetime of a lot
-// of small object can be assigned to a liftime of one greater. This is what rust has better explicity doing with 'a
+// @NOTE All allocation functions set allocated memory to zero
 #pragma once 
 #include "general.h"
 

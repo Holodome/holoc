@@ -56,3 +56,6 @@ OSFileHandle *fs_get_handle(FileID id);
 // Preferable way of getting file size. Caches result to minimize os calls
 uptr fs_get_file_size(FileID id);
 uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id);
+
+FileID fs_get_stdout(void);
+FileID fs_get_stderr(void);

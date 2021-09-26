@@ -34,12 +34,12 @@ static u32 infer_type(BytecodeBuilder *builder, AST *expr) {
             u32 subexpr_type = infer_type(builder, expr->unary.expr);
             type = subexpr_type;
         } break;
-        case AST_LITERAL: {
-            switch (expr->literal.kind) {
-                case AST_LITERAL_INT: {
+        case AST_LIT: {
+            switch (expr->lit.kind) {
+                case AST_LIT_INT: {
                     type = AST_TYPE_INT;
                 } break;
-                case AST_LITERAL_REAL: {
+                case AST_LIT_REAL: {
                     type = AST_TYPE_FLOAT;
                 } break;
                 INVALID_DEFAULT_CASE;
@@ -61,9 +61,9 @@ static u32 infer_type(BytecodeBuilder *builder, AST *expr) {
 
 static u64 compile_time_expr_evaluate(BytecodeBuilder *builder, AST *expr, u32 type) {
     u64 result = 0;
-    assert(expr->kind == AST_LITERAL);
-    if (expr->literal.kind == AST_LITERAL_INT && type == AST_TYPE_INT) {
-        result = expr->literal.value_int;
+    assert(expr->kind == AST_LIT);
+    if (expr->lit.kind == AST_LIT_INT && type == AST_TYPE_INT) {
+        result = expr->lit.value_int;
     } else {
         assert(FALSE);
     }
@@ -91,7 +91,6 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
         }
     }
     storage = compile_time_expr_evaluate(builder, decl->decl.expr, decl_type);
-    fmt_ast_expr(get_stdout_stream(), decl->decl.expr);
     out_streamf(get_stdout_stream(), "\n");
     out_stream_flush(get_stdout_stream());
     

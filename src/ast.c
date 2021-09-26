@@ -93,16 +93,16 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
                 fmt_ast_tree_recursive(st, statement, depth + 1);        
             }
         } break;
-        case AST_LITERAL: {
-            out_streamf(st, "%*cLIT %s: ", depth, ' ', AST_LITERAL_STRS[ast->literal.kind]);
-            switch (ast->literal.kind) {
-                case AST_LITERAL_INT: {
-                    out_streamf(st, "%lld", ast->literal.value_int);
+        case AST_LIT: {
+            out_streamf(st, "%*cLIT %s: ", depth, ' ', AST_LITERAL_STRS[ast->lit.kind]);
+            switch (ast->lit.kind) {
+                case AST_LIT_INT: {
+                    out_streamf(st, "%lld", ast->lit.value_int);
                 } break;
-                case AST_LITERAL_REAL: {
-                    out_streamf(st, "%f", ast->literal.value_real);
+                case AST_LIT_REAL: {
+                    out_streamf(st, "%f", ast->lit.value_real);
                 } break;
-                case AST_LITERAL_STRING: {
+                case AST_LIT_STRING: {
                     // @TODO
                     // out_streamf(st, "%s", ast->literal.value_str);
                 } break;
@@ -133,7 +133,7 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
         } break;
         case AST_PRINT: {
             out_streamf(st, "%*cPRINT: EXPRS:\n", depth, ' ');
-            AST_LIST_ITER(&ast->print_st.arguments, statement) {
+            AST_LIST_ITER(&ast->prints.arguments, statement) {
                 fmt_ast_tree_recursive(st, statement, depth + 1);
             }
         } break;
@@ -145,18 +145,18 @@ void fmt_ast_tree_recursive(OutStream *st, AST *ast, u32 depth) {
         } break;
         case AST_RETURN: {
             out_streamf(st, "%*cRETURN:\n", depth, ' ');
-            AST_LIST_ITER(&ast->return_st.vars, var) {
+            AST_LIST_ITER(&ast->returns.vars, var) {
                 fmt_ast_tree_recursive(st, var, depth + 1);
             }
         } break;
         case AST_IF: {
             out_streamf(st, "%*cIF: COND:\n", depth, ' ');
-            fmt_ast_tree_recursive(st, ast->if_st.cond, depth + 1);
+            fmt_ast_tree_recursive(st, ast->ifs.cond, depth + 1);
             out_streamf(st, "%*cBODY:\n", depth, ' ');
-            fmt_ast_tree_recursive(st, ast->if_st.block, depth + 1);
-            if (ast->if_st.else_block) {
+            fmt_ast_tree_recursive(st, ast->ifs.block, depth + 1);
+            if (ast->ifs.else_block) {
                 out_streamf(st, "%*cELSE:\n", depth, ' ');
-                fmt_ast_tree_recursive(st, ast->if_st.else_block, depth + 1);
+                fmt_ast_tree_recursive(st, ast->ifs.else_block, depth + 1);
             }
         } break;
         case AST_FUNC_SIGNATURE: {
@@ -199,13 +199,13 @@ void fmt_ast_expr(OutStream *st, AST *ast) {
     }
     
     switch (ast->kind) {
-        case AST_LITERAL: {
-            switch (ast->literal.kind) {
-                case AST_LITERAL_INT: {
-                    out_streamf(st, "%lld", ast->literal.value_int);
+        case AST_LIT: {
+            switch (ast->lit.kind) {
+                case AST_LIT_INT: {
+                    out_streamf(st, "%lld", ast->lit.value_int);
                 } break;
-                case AST_LITERAL_REAL: {
-                    out_streamf(st, "%f", ast->literal.value_real);
+                case AST_LIT_REAL: {
+                    out_streamf(st, "%f", ast->lit.value_real);
                 } break;
                 INVALID_DEFAULT_CASE;
             }

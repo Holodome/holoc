@@ -55,7 +55,6 @@ b32 os_close_file(OSFileHandle *id);
 // This API makes use of same paradigm
 OSFileHandle *os_get_stdout_file(void);
 OSFileHandle *os_get_stderr_file(void);
-OSFileHandle *os_get_stdin_file(void);
 // Write bf_sz bytes to file with offset.
 // Unlike stdio fwrite, offset is explicitly specified.
 // If offset = UINT32_MAX, no offset is done (used in standard streams)

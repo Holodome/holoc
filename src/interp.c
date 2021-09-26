@@ -42,9 +42,9 @@ static AST *create_ident(Interp *interp, const char *name) {
 }
 
 static AST *create_int_lit(Interp *interp, i64 value) {
-    AST *literal = ast_new(interp, AST_LITERAL);
-    literal->literal.kind = AST_LITERAL_INT;
-    literal->literal.value_int = value;
+    AST *literal = ast_new(interp, AST_LIT);
+    literal->lit.kind = AST_LIT_INT;
+    literal->lit.value_int = value;
     return literal;
 }
 
@@ -470,23 +470,23 @@ AST *parse_if_compound(Interp *interp) {
     }
     
     AST *if_st = ast_new(interp, AST_IF);
-    if_st->if_st.cond = expr;
+    if_st->ifs.cond = expr;
     tok = peek_tok(interp->tr);
     if (expect_tok(interp, tok, '{')) {
         AST *block = parse_block(interp);
         if (!block) {
             return 0;
         }
-        if_st->if_st.block = block;
+        if_st->ifs.block = block;
         tok = peek_tok(interp->tr);
         if (tok->kind == TOKEN_KW_ELSE) {
             tok = peek_next_tok(interp->tr);
             if (tok->kind == TOKEN_KW_IF) {
                 AST *else_if_st = parse_if_compound(interp);
-                if_st->if_st.else_block = else_if_st;
+                if_st->ifs.else_block = else_if_st;
             } else if (tok->kind == '{') {
                 AST *else_block = parse_block(interp);
-                if_st->if_st.else_block = else_block;
+                if_st->ifs.else_block = else_block;
             }
         }
     }
@@ -524,7 +524,7 @@ AST *parse_statement(Interp *interp) {
         
         if (parse_end_of_statement(interp, tok)) {
             statement = ast_new(interp, AST_RETURN);
-            statement->return_st.vars = return_vars;
+            statement->returns.vars = return_vars;
         }
     } else if (tok->kind == TOKEN_KW_IF) {
         AST *if_st = parse_if_compound(interp);
@@ -536,8 +536,8 @@ AST *parse_statement(Interp *interp) {
             AST *block = parse_block(interp);
             if (block) {
                 AST *while_st = ast_new(interp, AST_WHILE);
-                while_st->while_st.cond = condition;
-                while_st->while_st.block = block;
+                while_st->whiles.cond = condition;
+                while_st->whiles.block = block;
                 
                 statement = while_st;
             }
@@ -550,7 +550,7 @@ AST *parse_statement(Interp *interp) {
         tok = peek_tok(interp->tr);
         if (parse_end_of_statement(interp, tok)) {
             AST *print_st = ast_new(interp, AST_PRINT);
-            print_st->print_st.arguments = exprs;
+            print_st->prints.arguments = exprs;
             statement = print_st;
         }
     } else {

@@ -21,7 +21,7 @@
 #pragma once
 #include "general.h"
 #include "strings.h"
-#include "files.h"
+#include "filesystem.h"
 
 #define OUT_STREAM_DEFAULT_BUFFER_SIZE KB(16)
 // This is similar to stdlib's one, which is also usually 4kb
@@ -40,37 +40,35 @@ enum {
     STREAM_FILE,
     STREAM_ST, // stdin, stdout, stderr
 };
+
 // Stream is an object that supports continously writing to while having
 // relatively stable write time perfomance.
 // Streams are used to write to output files, but OS write calls are quite expnesive.
 // That is why stream contains buffer that is written to until threshold is hit (to allow writes of arbitrary sizes)
 // When threshold is hit a flush happens - buffer is written to output file and ready to recieve new input
 // buffer_size - buffer_threshold define maximum size of single write 
-// 
-// @TODO behaviour of stream can be expanded to allow other types of commits besides writing to file 
-typedef struct OutStream {
+typedef struct {
     u32 mode;
-    OSFileHandle *out_file;
-    uptr out_file_idx;
+    
+    OSFileHandle *file;
+    uptr file_idx;
+    
     u8 *bf;
     uptr bf_sz;
     uptr threshold;
-    // Current write index
+    
     uptr bf_idx;
 } OutStream;
 
-// Create stream for writing to buffer directly
-void init_out_stream(OutStream *st, void *bf, uptr bf_sz);
 // Create stream for writing to file.
 // bf_sz - what size of buffer to allocate 
 // threshold >= bf_sz
 // bf - storage for stream buffer
-void init_out_streamf(OutStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
+void init_out_streamf(OutStream *st, OSFileHandle *file_handle,
+    void *bf, uptr bf_sz, uptr threshold, b32 is_std);
 // Printfs to stream
 uptr out_streamf(OutStream *st, const char *fmt, ...);
 uptr out_streamv(OutStream *st, const char *fmt, va_list args);
-// Write binary data to stream
-void out_streamb(OutStream *st, const void *b, uptr c);
 void out_stream_flush(OutStream *st);
 
 // Threshold defines how much of additonal data is read between flushes.
@@ -85,8 +83,9 @@ void out_stream_flush(OutStream *st);
 // but the more time it spends on copying and moving around memory
 // Way around this can be allowing buffer of growing size 
 // @NOTE no flusing happens when in stream uses buffer to read from
-typedef struct InStream {
+typedef struct {
     u32 mode;
+    
     OSFileHandle *file;
     uptr file_size;
     uptr file_idx;
@@ -104,20 +103,17 @@ typedef struct InStream {
     b32 is_finished;
 } InStream;
 
-// Create input stream from buffer - to unify API for reading from file and buffer in some systems
-void init_in_stream(InStream *st, void *bf, uptr bf_sz);
 void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked
 uptr in_stream_peek(InStream *st, void *out, uptr n);
 // Advance stream by n bytes. 
 // Return numbef of bytes advanced by
-uptr in_stream_advance_n(InStream *st, uptr n);
+uptr in_stream_advance(InStream *st, uptr n);
 // If stream is bufferized, read next file chunk to fill the buffer as much as possible
 void in_stream_flush(InStream *st);
 // Helper function. Used in parsin text, where only next one byte needs to be peeked to be checked
 u8 in_stream_peek_b_or_zero(InStream *st);
 
-InStream *get_stdin_stream(void);
 OutStream *get_stdout_stream(void);
 OutStream *get_stderr_stream(void);

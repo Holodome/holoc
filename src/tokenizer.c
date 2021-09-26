@@ -68,7 +68,7 @@ void destroy_tokenizer(Tokenizer *tr) {
 // Safely advance cursor. If end of buffer is reached, 0 is set to tr->symb and  
 // false is returned
 static b32 advance(Tokenizer *tr, u32 n) {
-    b32 result = in_stream_advance_n(tr->st, n);
+    b32 result = in_stream_advance(tr->st, n);
     tr->curr_loc.symb += n;
     return result;
 }
