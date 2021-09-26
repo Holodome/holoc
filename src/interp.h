@@ -7,8 +7,8 @@
 // but there should be interpeter for AST, that compiles from text format to 
 // some other.
 #pragma once 
-#include "general.h"
-#include "files.h"
+#include "lib/general.h"
+#include "lib/files.h"
 #include "tokenizer.h"
 #include "ast.h"
 #include "bytecode_builder.h"
@@ -18,6 +18,7 @@ typedef struct {
     MemoryArena arena;
     Tokenizer *tr;
     BytecodeBuilder *bytecode_builder;
+    StringStorage ss;
     ErrorReporter er;
     
     FileID in_file_id;

@@ -1,12 +1,11 @@
-#include "strings.h"
+#include "lib/strings.h"
 
-// #include <stdio.h> // vprintf
-#include <memory.h>
-#include <stream.h>
+#include "lib/memory.h"
+#include "lib/stream.h"
 
 #include <stdlib.h>
 #define STB_SPRINTF_IMPLEMENTATION
-#include "stb_sprintf.h"
+#include "thirdparty/stb_sprintf.h"
 
 uptr vfmt(char *buf, uptr buf_size, const char *format, va_list args) {
     return stbsp_vsnprintf(buf, buf_size, format, args);

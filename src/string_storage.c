@@ -1,11 +1,10 @@
 #include "string_storage.h"
-#include "strings.h"
+#include "lib/strings.h"
 
-StringStorage *create_string_storage(u32 hash_size) {
-    StringStorage *storage = arena_bootstrap(StringStorage, arena);
-    storage->hash = create_hash64(hash_size, &storage->arena);  
-    return storage;
-} 
+void init_string_storage(StringStorage *storage, u32 hash_size, MemoryArena *arena) {
+    storage->arena = arena;
+    storage->hash = create_hash64(hash_size, storage->arena);    
+}
 
 StringID string_storage_add(StringStorage *storage, const char *str) {
     StringID id = {0};
@@ -19,7 +18,7 @@ StringID string_storage_add(StringStorage *storage, const char *str) {
     } else {
         uptr len = str_len(str) + 1;
         if (!storage->first_buffer || (storage->first_buffer->used + len > STRING_STORAGE_BUFFER_SIZE )) {
-            StringStorageBuffer *new_buf = arena_alloc_struct(&storage->arena, StringStorageBuffer);
+            StringStorageBuffer *new_buf = arena_alloc_struct(storage->arena, StringStorageBuffer);
             LLIST_ADD(storage->first_buffer, new_buf);
             ++storage->buffer_count;
         }

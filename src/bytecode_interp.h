@@ -4,9 +4,9 @@
 // Version: 0
 #pragma once 
 #include "bytecode.h"
-#include "stream.h"
-#include "hashing.h"
-#include "memory.h"
+#include "lib/stream.h"
+#include "lib/hashing.h"
+#include "lib/memory.h"
 #include "ast.h"
 
 typedef struct {

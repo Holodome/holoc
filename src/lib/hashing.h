@@ -1,12 +1,12 @@
 // Author: Holodome
 // Date: 25.08.2021 
-// File: pkby/src/hashing.h
+// File: pkby/src/lib/hashing.h
 // Version: 0
 // 
 // Provides different APIs that are conncected with hashing.
 #pragma once
-#include "general.h"
-#include "memory.h"
+#include "lib/general.h"
+#include "lib/memory.h"
 
 u32 hash_string(const char *str);
 u32 crc32(u32 crc, const char *bf, uptr bf_sz);

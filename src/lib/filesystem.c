@@ -1,8 +1,8 @@
-#include "filesystem.h"
-#include "memory.h"
-#include "hashing.h"
+#include "lib/filesystem.h"
+#include "lib/memory.h"
+#include "lib/hashing.h"
 #include "error_reporter.h"
-#include "strings.h"
+#include "lib/strings.h"
 
 #define FS_HASH_SIZE 128
 

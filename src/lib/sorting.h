@@ -1,11 +1,11 @@
 // Author: Holodome
 // Date: 24.08.2021 
-// File: pkby/src/sorting.h
+// File: pkby/src/lib/sorting.h
 // Version: 0
 //
 // Provides different soring algorithms
 #pragma once
-#include "general.h"
+#include "lib/general.h"
 
 // Implementation of radix sort.
 // Has limitation of only operating on numerical values - so all sort entries have to be represented as numbers.

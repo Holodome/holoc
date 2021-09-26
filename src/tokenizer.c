@@ -1,14 +1,6 @@
 #include "tokenizer.h"
 
-#include "strings.h"
-
-static const char *TOKEN_BASIC_STRS[] = {
-    "EOS",
-    "Ident",
-    "Int",
-    "Real",
-    "Str"
-};  
+#include "lib/strings.h"
 
 static const char *KEYWORD_STRS[] = {
     "print",
@@ -50,14 +42,17 @@ b32 is_token_assign(u32 tok) {
         tok == TOKEN_IXOR || tok == TOKEN_ILSHIFT || tok == TOKEN_IRSHIFT; 
 }
 
-Tokenizer *create_tokenizer(InStream *st, FileID file_id) {
+Tokenizer *
+create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file) {
     Tokenizer *tr = arena_bootstrap(Tokenizer, arena);
     tr->st = st;
     tr->curr_loc.symb = 1;
     tr->curr_loc.line = 1;
-    tr->curr_loc.file = file_id;
+    tr->curr_loc.file = file;
     tr->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
     tr->scratch_buffer = arena_alloc(&tr->arena, tr->scratch_buffer_size);
+    tr->ss = ss;
+    tr->er = er;
     return tr;
 }
 
@@ -174,7 +169,6 @@ Token *peek_tok(Tokenizer *tr) {
             } else if (is_ident_start(symb)) {
                 char *lit = (char *)tr->scratch_buffer;
                 u32 lit_len = 0;
-                b32 is_real = FALSE;
                 for (;;) {
                     u8 peeked = 0;
                     if (!in_stream_peek(tr->st, &peeked, 1)) {
@@ -210,7 +204,6 @@ Token *peek_tok(Tokenizer *tr) {
                 advance(tr, 1);
                 char *lit = (char *)tr->scratch_buffer;
                 u32 lit_len = 0;
-                b32 is_real = FALSE;
                 for (;;) {
                     u8 peeked = 0;
                     if (!in_stream_peek(tr->st, &peeked, 1)) {

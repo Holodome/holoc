@@ -1,6 +1,6 @@
 #include "bytecode_builder.h"
 #include <time.h>
-#include "hashing.h"
+#include "lib/hashing.h"
 
 BytecodeBuilder *create_bytecode_builder(ErrorReporter *reporter) {
     BytecodeBuilder *builder = arena_bootstrap(BytecodeBuilder, arena);

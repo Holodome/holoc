@@ -1,6 +1,6 @@
-#include "general.h"
+#include "lib/general.h"
 
-#include "strings.h"
+#include "lib/strings.h"
 #include "tokenizer.h"
 #include "interp.h"
 

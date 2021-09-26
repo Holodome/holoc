@@ -1,6 +1,6 @@
-#include "stream.h"
-#include "memory.h"
-#include "strings.h"
+#include "lib/stream.h"
+#include "lib/memory.h"
+#include "lib/strings.h"
 #define STREAM_NEEDS_FLUSH(_st) ((_st)->mode == STREAM_FILE && (_st)->bf_idx >= (_st)->threshold)
 
 // When workign with binary data and size of sizngle data block is bigger than
@@ -115,7 +115,7 @@ uptr in_stream_peek(InStream *st, void *out, uptr n) {
     return result;
 }
 
-uptr in_stream_advance_n(InStream *st, uptr n) {
+uptr in_stream_advance(InStream *st, uptr n) {
     uptr result = 0;
     if (!st->is_finished) {
         if (st->bf_idx + n > st->bf_used) {

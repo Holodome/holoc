@@ -12,10 +12,10 @@
 // However, actaul perfomance of tagged union vs inheritance structure is debatable,
 // because ast in greater than cache line, and the program actually makes no operations on asts in bulk.
 #pragma once
-#include "general.h"
+#include "lib/general.h"
 
-#include "strings.h"
-#include "stream.h"
+#include "lib/strings.h"
+#include "lib/stream.h"
 #include "error_reporter.h"
 
 enum {

@@ -4,7 +4,7 @@
 // Version: 0
 #pragma once 
 #include "bytecode.h"
-#include "memory.h"
+#include "lib/memory.h"
 #include "ast.h"
 #include "error_reporter.h"
 

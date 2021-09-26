@@ -1,5 +1,5 @@
-#include "hashing.h"
-#include "memory.h"
+#include "lib/hashing.h"
+#include "lib/memory.h"
 
 u32 hash_string(const char *str) {
     u32 result = 5381;

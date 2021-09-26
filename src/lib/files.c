@@ -1,10 +1,10 @@
-#include "files.h"
+#include "lib/files.h"
 
 #include <stdio.h>
 
-#include "strings.h"
-#include "memory.h"
-#include "hashing.h"
+#include "lib/strings.h"
+#include "lib/memory.h"
+#include "lib/hashing.h"
 
 #include <sys/syslimits.h>
 #include <sys/stat.h>

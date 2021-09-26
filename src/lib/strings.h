@@ -1,11 +1,11 @@
 // Author: Holodome
 // Date: 21.08.2021 
-// File: pkby/src/strings.h
+// File: pkby/src/lib/strings.h
 // Version: 0
 //
 // Defines series of functions that are frequently used when oprating with strings.
 #pragma once
-#include "general.h"
+#include "lib/general.h"
 
 // snprintf wrappers
 uptr vfmt(char *buf, uptr buf_size, const char *format, va_list args);

@@ -1,6 +1,6 @@
 // Author: Holodome
 // Date: 13.09.2021 
-// File: pkby/src/stream.h
+// File: pkby/src/lib/stream.h
 // Version: 0
 // 
 // Defines series of data types that represent differnt types of input and output streams
@@ -19,9 +19,9 @@
 // This is done to preserve clarity in code for reading - because single use case can never mix 
 // reading and writing to same locaiton
 #pragma once
-#include "general.h"
-#include "strings.h"
-#include "filesystem.h"
+#include "lib/general.h"
+#include "lib/strings.h"
+#include "lib/filesystem.h"
 
 #define OUT_STREAM_DEFAULT_BUFFER_SIZE KB(16)
 // This is similar to stdlib's one, which is also usually 4kb

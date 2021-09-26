@@ -1,5 +1,5 @@
 #include "ast.h"
-#include "strings.h"
+#include "lib/strings.h"
 
 const char *AST_LITERAL_STRS[] = {
     "None",

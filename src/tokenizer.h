@@ -6,10 +6,11 @@
 // Defines functions used in parsing text files via splitting them into tokens.
 #pragma once 
 
-#include "general.h"
-#include "memory.h"
-#include "stream.h" 
+#include "lib/general.h"
+#include "lib/memory.h"
+#include "lib/stream.h" 
 #include "error_reporter.h"
+#include "string_storage.h"
 
 #define TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE KB(1)
 #define TOKEN_GENERAL 0x100
@@ -91,6 +92,8 @@ typedef struct Token {
 typedef struct Tokenizer {
     MemoryArena arena;
     InStream *st;
+    ErrorReporter *er;
+    StringStorage *ss;
     // @NOTE(hl): FileID for location is get from st
     SrcLoc curr_loc;
     // Buffer for internal use. When parsing multiline symbols, 
@@ -103,7 +106,7 @@ typedef struct Tokenizer {
     Token *active_token;
 } Tokenizer;
 
-Tokenizer *create_tokenizer(InStream *st, FileID file);
+Tokenizer *create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file);
 void destroy_tokenizer(Tokenizer *tokenizer);
 // Returns current token. Stores token until it's eaten
 Token *peek_tok(Tokenizer *tokenizer);

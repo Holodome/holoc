@@ -1,5 +1,5 @@
 #include "interp.h"
-#include "strings.h"
+#include "lib/strings.h"
 #include "interp.h"
 
 static void report_unexpected_token(Interp *interp, Token *tok, u32 expected) {
@@ -731,7 +731,8 @@ Interp *create_interp(const char *filename, const char *out_filename) {
     init_in_streamf(&interp->file_in_st, fs_get_handle(interp->in_file_id), 
         arena_alloc(&interp->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD, FALSE);
-    interp->tr = create_tokenizer(&interp->file_in_st, interp->in_file_id);
+    interp->tr = create_tokenizer(&interp->er, &interp->ss, 
+    &interp->file_in_st, interp->in_file_id);
     interp->bytecode_builder = create_bytecode_builder(&interp->er);
     return interp;
 }

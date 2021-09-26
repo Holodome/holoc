@@ -1,6 +1,6 @@
 // Author: Holodome
 // Date: 24.08.2021 
-// File: pkby/src/filesystem.h
+// File: pkby/src/lib/filesystem.h
 // Version: 0
 // 
 // Defines abstraction level over files.h file API.
@@ -16,9 +16,9 @@
 // This is supposed to be high-level API, so it does error reporting directly to console on its own
 // (in contrast lower-level file API does not do console error reporting)
 #pragma once
-#include "general.h"
-#include "files.h"
-#include "memory.h"
+#include "lib/general.h"
+#include "lib/files.h"
+#include "lib/memory.h"
 
 typedef struct {
     u64 value;

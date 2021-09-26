@@ -6,8 +6,8 @@
 // Provides tools for reporting errors in whole program. Can be used to report errors 
 // both inside text processing parts of the program and in the general way. 
 #pragma once
-#include "general.h"
-#include "filesystem.h"
+#include "lib/general.h"
+#include "lib/filesystem.h"
 
 struct Token;
 struct AST;

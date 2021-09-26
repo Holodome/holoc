@@ -1,6 +1,6 @@
 // Author: Holodome
 // Date: 24.08.2021 
-// File: pkby/src/files.h
+// File: pkby/src/lib/files.h
 // Version: 0
 //
 // Defines os-agnostic API to access files on disk.
@@ -15,7 +15,7 @@
 // fact that text files are mostly used with streams (see stream.h) and binary files are processed by hand
 // for each format
 #pragma once
-#include "general.h"
+#include "lib/general.h"
 
 enum {
     // 0 in file id could mean not initialized, but this flag explicitly tells that file had errors

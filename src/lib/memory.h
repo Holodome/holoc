@@ -1,12 +1,12 @@
 // Author: Holodome
 // Date: 21.08.2021 
-// File: pkby/src/memory.h
+// File: pkby/src/lib/memory.h
 // Version: 0
 //
 // Defines memory-related functions, as well as block and arena allocator.
 // @NOTE All allocation functions set allocated memory to zero
 #pragma once 
-#include "general.h"
+#include "lib/general.h"
 
 // standard library-like functions
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory

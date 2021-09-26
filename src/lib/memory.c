@@ -1,6 +1,6 @@
-#include "memory.h"
+#include "lib/memory.h"
 
-#include "strings.h"
+#include "lib/strings.h"
 
 #include <string.h> // memset, memcpy, memmove
 #include <stdlib.h> // malloc, free
