@@ -32,6 +32,6 @@ typedef struct {
     u32 buffer_count;
 } StringStorage;
 
-void init_string_storage(StringStorage *storage, u32 hash_size, MemoryArena *arena);
+StringStorage *create_string_storage(u32 hash_size, MemoryArena *arena);
 StringID string_storage_add(StringStorage *storage, const char *str);
 const char *string_storage_get(StringStorage *storage, StringID id);

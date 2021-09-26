@@ -1,9 +1,12 @@
 #include "string_storage.h"
 #include "lib/strings.h"
 
-void init_string_storage(StringStorage *storage, u32 hash_size, MemoryArena *arena) {
+StringStorage * 
+create_string_storage(u32 hash_size, MemoryArena *arena) {
+    StringStorage *storage = arena_alloc_struct(arena, StringStorage);
     storage->arena = arena;
     storage->hash = create_hash64(hash_size, storage->arena);    
+    return storage;
 }
 
 StringID string_storage_add(StringStorage *storage, const char *str) {

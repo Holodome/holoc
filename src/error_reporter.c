@@ -2,6 +2,15 @@
 #include "tokenizer.h"
 #include "ast.h"
 
+
+ErrorReporter *create_error_reporter(OutStream *out, OutStream *errout, MemoryArena *arena) {
+    ErrorReporter *er = arena_alloc_struct(arena, ErrorReporter);
+    er->arena = arena;
+    er->out = out;
+    er->errout = errout;
+    return er;
+}
+
 b32 is_error_reported(ErrorReporter *reporter) {
     return reporter->error_count != 0;
 }

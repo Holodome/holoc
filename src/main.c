@@ -1,8 +1,6 @@
-#include "lib/general.h"
-
-#include "lib/strings.h"
 #include "tokenizer.h"
-#include "interp.h"
+#include "parser.h"
+#include "bytecode_builder.h"
 
 enum {
     PROGRAM_TOKEN_VIEW,
@@ -69,26 +67,37 @@ static ProgramSettings parse_command_line_args(int argc, char **argv) {
     return settings;
 }
 
-static void ast_view(AST *ast, int depth) {
+void do_interp(const char *filename, const char *out_filename) {
+    MemoryArena interp_arena = {0};
+    StringStorage *ss = create_string_storage(STRING_STORAGE_HASH_SIZE, &interp_arena);
+    ErrorReporter *er = create_error_reporter(get_stdout_stream(), get_stderr_stream(), &interp_arena);
     
-}
-
-static void token_view(Tokenizer *tokenizer) {
-    SrcLoc *last_src_location = 0;
-    
-    Token *token = peek_tok(tokenizer);
-    while (token->kind != TOKEN_EOS) {
-        if (last_src_location && token->src_loc.line != last_src_location->line) {
-            outf("\n");
+    FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    InStream in_file_st = {0};
+    init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
+        arena_alloc(&interp_arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        IN_STREAM_DEFAULT_THRESHLOD, FALSE);
+    Tokenizer *tokenizer = create_tokenizer(er, ss, &in_file_st, in_file_id);
+    Parser *parser = create_parser(tokenizer, ss, er);
+    BytecodeBuilder *builder = create_bytecode_builder(er);
+    for (;;) {
+        AST *toplevel = parser_parse_toplevel(parser);
+        if (!toplevel || is_error_reported(er)) {
+            break;
         }
-        last_src_location = &token->src_loc;
-        
-        char buffer[128];
-        fmt_tok(buffer, sizeof(buffer), token);
-        outf("%s ", buffer);
-        token = peek_next_tok(tokenizer);
+        bytecode_builder_proccess_toplevel(builder, toplevel);
     }
-    outf("\n");
+    destroy_parser(parser);
+    destroy_tokenizer(tokenizer);
+    fs_close_file(in_file_id);
+    
+    if (!is_error_reported(er)) {
+        FileID out_file = fs_open_file(out_filename, FILE_MODE_WRITE);
+        bytecode_builder_emit_code(builder, fs_get_handle(out_file));
+        fs_close_file(out_file);
+    }
+    destroy_bytecode_builder(builder);
+    arena_clear(&interp_arena);
 }
 
 int main(int argc, char **argv) {
@@ -103,9 +112,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     
-    Interp *interp = create_interp(settings.filename, "out.kbex");
-    do_interp(interp);
-    destroy_interp(interp);
+    do_interp(settings.filename, "out.pkex");
     
     outf("Exited without errors\n");
     out_stream_flush(get_stdout_stream());

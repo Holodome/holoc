@@ -8,6 +8,7 @@
 #pragma once
 #include "lib/general.h"
 #include "lib/filesystem.h"
+#include "lib/stream.h"
 
 struct Token;
 struct AST;
@@ -19,10 +20,14 @@ typedef struct {
 } SrcLoc;
 
 typedef struct {
+    MemoryArena *arena;
     u32 warning_count;
     u32 error_count;
+    OutStream *out;
+    OutStream *errout;
 } ErrorReporter;
 
+ErrorReporter *create_error_reporter(OutStream *out, OutStream *errout, MemoryArena *arena);
 void report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list args);
 void report_error(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...);
 void report_error_tok(ErrorReporter *reporter, struct Token *token, const char *msg, ...);
