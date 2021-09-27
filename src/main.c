@@ -85,6 +85,7 @@ void do_interp(const char *filename, const char *out_filename) {
         if (!toplevel || is_error_reported(er)) {
             break;
         }
+        fmt_ast_tree(ss, get_stdout_stream(), toplevel, 0);
         bytecode_builder_proccess_toplevel(builder, toplevel);
     }
     destroy_parser(parser);

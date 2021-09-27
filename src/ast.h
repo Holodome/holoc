@@ -17,6 +17,7 @@
 #include "lib/strings.h"
 #include "lib/stream.h"
 #include "error_reporter.h"
+#include "string_storage.h"
 
 enum {
     AST_NONE,
@@ -76,6 +77,7 @@ enum {
 typedef struct {
     u32 kind;
     union {
+        StringID value_str;
         i64 value_int;
         f64 value_real;  
     };
@@ -87,7 +89,7 @@ typedef struct {
 } ASTAssign;
 
 typedef struct {
-    char *name;
+    StringID name;
 } ASTIdent;
 
 enum {
@@ -213,7 +215,7 @@ struct AST {
 };
 
 // Prints ast tree as text tree-like structure.
-void fmt_ast_tree(OutStream *stream, AST *ast, u32 depth);
+void fmt_ast_tree(StringStorage *ss, OutStream *stream, AST *ast, u32 depth);
 // Prints ast expression as code, trying to reverse get the input
 // Used in debugging expression parsing 
 // @NOTE Can be modified to format whole ast tree as source code

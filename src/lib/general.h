@@ -59,3 +59,5 @@ do { \
 #define lazy_assert assert
 // Macro that should be used in unit testing system.
 #define TEST_CASE(_name)
+
+#define ATTR(...) __attribute__(__VA_ARGS__)

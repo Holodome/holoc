@@ -68,185 +68,184 @@ static b32 advance(Tokenizer *tr, u32 n) {
     return result;
 }
 
-static b32 next_eq(Tokenizer *tr, const char *str, uptr *out_len) {
-    b32 result = FALSE;
-    uptr len = str_len(str);
-    char buffer[128] = {};
-    assert(len <= sizeof(buffer));
-    if (in_stream_peek(tr->st, buffer, len) == len) {
-        result = str_eqn(buffer, str, len);
-    }
-    if (out_len) {
-        *out_len = len;
-    }
-    return result;
-}
-
 static b32 parse(Tokenizer *tr, const char *str) {
     b32 result = FALSE;
-    uptr len = 0;
-    if (next_eq(tr, str, &len)) {
-        advance(tr, len);
-        result = TRUE;
+    uptr len = str_len(str);
+    assert(len < tr->scratch_buffer_size);
+    if (in_stream_peek(tr->st, tr->scratch_buffer, len) == len) {
+        result = mem_eq(tr->scratch_buffer, str, len);
+        if (result) {
+            advance(tr, len);
+        }
     }
+    
     return result;
 }
 
 Token *peek_tok(Tokenizer *tr) {
     Token *token = tr->active_token;
-    if (!token) {
-        token = arena_alloc_struct(&tr->arena, Token);
-        tr->active_token = token;
+    if (token) {
+        return token;
+    }
+    
+    token = arena_alloc_struct(&tr->arena, Token);
+    tr->active_token = token;
 
-        for (;;) {
-            u8 symb = in_stream_peek_b_or_zero(tr->st);
-            if (!symb) {
-                token->kind = TOKEN_EOS;
-                break;
-            }
-            
-            if (parse(tr, "\n\r") || parse(tr, "\n")) {
-                ++tr->curr_loc.line;
-                tr->curr_loc.symb = 1;
-                continue;
-            } else if (is_space(symb)) {
+    for (;;) {
+        u8 symb = in_stream_peek_b_or_zero(tr->st);
+        if (!symb) {
+            token->kind = TOKEN_EOS;
+            break;
+        }
+        
+        if (parse(tr, "\n\r") || parse(tr, "\n")) {
+            ++tr->curr_loc.line;
+            tr->curr_loc.symb = 1;
+            continue;
+        } else if (is_space(symb)) {
+            advance(tr, 1);
+            continue;
+        } else if (parse(tr, "//")) {
+            for (;;) {
+                u8 peeked = in_stream_peek_b_or_zero(tr->st);
+                if (!peeked || peeked == '\n') {
+                    break;
+                }
                 advance(tr, 1);
-                continue;
-            } else if (parse(tr, "//")) {
-                while (in_stream_peek_b_or_zero(tr->st) != '\n') {
+            }
+            continue;
+        } else if (parse(tr, "/*")) {
+            for (;;) {
+                for (;;) {
+                    u8 peeked = in_stream_peek_b_or_zero(tr->st);
+                    if (!peeked || peeked == '*') {
+                        break;
+                    }
                     advance(tr, 1);
                 }
-                continue;
-            } else if (parse(tr, "/*")) {
-                for (;;) {
-                    do {
-                        advance(tr, 1);
-                    } while (in_stream_peek_b_or_zero(tr->st) != '*');
-                    if (parse(tr, "*/")) {
-                        break;
-                    }
+                // @NOTE(hl): This is rarely hit path in case other than correct comment end,
+                //  so additional peeking is not a problem here
+                if (parse(tr, "*/") || !(in_stream_peek_b_or_zero(tr->st))) {
+                    break;
                 }
-                continue;
             }
+            continue;
+        }
+        
+        token->src_loc = tr->curr_loc;
+        if (is_digit(symb)) {
+            // @TODO warn on large ident lengths
+            char *lit = (char *)tr->scratch_buffer;
+            u32 lit_len = 0;
+            b32 is_real = FALSE;
+            for (;;) {
+                // @TODO Provide handling for scientific notation
+                u8 peeked = 0;
+                if (!in_stream_peek(tr->st, &peeked, 1)) {
+                    break;
+                }
+                if (!is_digit(peeked) || !peeked) {
+                    break;
+                }
+                if (peeked == '.') {
+                    is_real = TRUE;
+                }
+                assert(lit_len < sizeof(lit));
+                lit[lit_len++] = peeked;
+                
+                b32 advanced = advance(tr, 1);
+                assert(advanced);
+            }
+            assert(lit_len < tr->scratch_buffer_size);
+            lit[lit_len] = 0;
             
-            token->src_loc = tr->curr_loc;
-            if (is_digit(symb)) {
-                // @TODO warn on large ident lengths
-                char *lit = (char *)tr->scratch_buffer;
-                u32 lit_len = 0;
-                b32 is_real = FALSE;
-                for (;;) {
-                    // @TODO Provide handling for scientific notation
-                    u8 peeked = 0;
-                    if (!in_stream_peek(tr->st, &peeked, 1)) {
-                        break;
-                    }
-                    if (!is_digit(peeked)) {
-                        break;
-                    }
-                    if (peeked == '.') {
-                        is_real = TRUE;
-                    }
-                    assert(lit_len < sizeof(lit));
-                    lit[lit_len++] = peeked;
-                    
-                    b32 advanced = advance(tr, 1);
-                    assert(advanced);
-                }
-                assert(lit_len < tr->scratch_buffer_size);
-                lit[lit_len] = 0;
-                
-                if (is_real) {
-                    f64 real = str_to_f64(lit);
-                    token->value_real = real;
-                    token->kind = TOKEN_REAL;
-                } else {
-                    i64 iv = str_to_i64(lit);
-                    token->value_int = iv;
-                    token->kind = TOKEN_INT;
-                }
-                break;
-            } else if (is_ident_start(symb)) {
-                char *lit = (char *)tr->scratch_buffer;
-                u32 lit_len = 0;
-                for (;;) {
-                    u8 peeked = 0;
-                    if (!in_stream_peek(tr->st, &peeked, 1)) {
-                        break;
-                    }
-                    if (!is_ident(peeked)) {
-                        break;
-                    }
-                    assert(lit_len < tr->scratch_buffer_size);
-                    lit[lit_len++] = peeked;
-                    b32 advanced = advance(tr, 1);
-                    assert(advanced);
-                }
-                assert(lit_len < tr->scratch_buffer_size);
-                lit[lit_len] = 0;
-                
-                char *str = arena_alloc(&tr->arena, lit_len + 1);
-                mem_copy(str, lit, lit_len + 1);
-                
-                for (u32 i = TOKEN_KEYWORD, local_i = 0; IS_TOKEN_KEYWORD(i) && local_i < ARRAY_SIZE(KEYWORD_STRS); ++i, ++local_i) {
-                    if (str_eq(KEYWORD_STRS[local_i], str)) {
-                        token->kind = i;
-                        break;
-                    }
-                }
-                
-                if (!token->kind) {
-                    token->kind = TOKEN_IDENT;
-                    token->value_str = str;
-                }
-                break;
-            } else if (symb == '\"') {
-                advance(tr, 1);
-                char *lit = (char *)tr->scratch_buffer;
-                u32 lit_len = 0;
-                for (;;) {
-                    u8 peeked = 0;
-                    if (!in_stream_peek(tr->st, &peeked, 1)) {
-                        break;
-                    }
-                    if (peeked == '\"') {
-                        break;
-                    }
-                    assert(lit_len < sizeof(lit));
-                    lit[lit_len++] = peeked;
-                    b32 advanced = advance(tr, 1);
-                    assert(advanced);
-                }
-                assert(lit_len < tr->scratch_buffer_size);
-                lit[lit_len] = 0;
-                
-                char *str = arena_alloc(&tr->arena, lit_len + 1);
-                mem_copy(str, lit, lit_len + 1);
-                token->kind = TOKEN_STR;
-                token->value_str = str;
-                break;
-            } else if (is_punct(symb)) {
-                // Because muttiple operators can be put together (+=-2),
-                // check by descending length
-                for (u32 i = TOKEN_ILSHIFT, local_i = 0; IS_TOKEN_MULTISYMB(i); ++i, ++local_i) {
-                    if (parse(tr, MULTISYMB_STRS[local_i])) {
-                        token->kind = i;
-                        break;
-                    }
-                }
-                
-                // All unhandled cases before - single character 
-                if (!token->kind) {
-                    token->kind = symb;
-                    advance(tr, 1);
-                }
-                break;
+            if (is_real) {
+                f64 real = str_to_f64(lit);
+                token->value_real = real;
+                token->kind = TOKEN_REAL;
             } else {
-                DBG_BREAKPOINT;
-                token->kind = TOKEN_ERROR;
-                advance(tr, 1);
-                break;
+                i64 iv = str_to_i64(lit);
+                token->value_int = iv;
+                token->kind = TOKEN_INT;
             }
+            break;
+        } else if (is_ident_start(symb)) {
+            char *lit = (char *)tr->scratch_buffer;
+            u32 lit_len = 0;
+            for (;;) {
+                u8 peeked = 0;
+                if (!in_stream_peek(tr->st, &peeked, 1)) {
+                    break;
+                }
+                if (!is_ident(peeked) || !peeked) {
+                    break;
+                }
+                assert(lit_len < tr->scratch_buffer_size);
+                lit[lit_len++] = peeked;
+                b32 advanced = advance(tr, 1);
+                assert(advanced);
+            }
+            assert(lit_len < tr->scratch_buffer_size);
+            lit[lit_len] = 0;
+                        
+            for (u32 i = TOKEN_KEYWORD, local_i = 0; IS_TOKEN_KEYWORD(i) && local_i < ARRAY_SIZE(KEYWORD_STRS); ++i, ++local_i) {
+                if (str_eq(KEYWORD_STRS[local_i], lit)) {
+                    token->kind = i;
+                    break;
+                }
+            }
+            
+            if (!token->kind) {
+                StringID id = string_storage_add(tr->ss, lit);
+                token->kind = TOKEN_IDENT;
+                token->value_str = id;
+            }
+            break;
+        } else if (symb == '\"') {
+            advance(tr, 1);
+            char *lit = (char *)tr->scratch_buffer;
+            u32 lit_len = 0;
+            for (;;) {
+                u8 peeked = 0;
+                if (!in_stream_peek(tr->st, &peeked, 1)) {
+                    break;
+                }
+                if (peeked == '\"' || !peeked) {
+                    break;
+                }
+                assert(lit_len < sizeof(lit));
+                lit[lit_len++] = peeked;
+                b32 advanced = advance(tr, 1);
+                assert(advanced);
+            }
+            assert(lit_len < tr->scratch_buffer_size);
+            lit[lit_len] = 0;
+            
+            StringID id = string_storage_add(tr->ss, lit);
+            token->kind = TOKEN_STR;
+            token->value_str = id;
+            break;
+        } else if (is_punct(symb)) {
+            // Because muttiple operators can be put together (+=-2),
+            // check by descending length
+            for (u32 i = TOKEN_ILSHIFT, local_i = 0; IS_TOKEN_MULTISYMB(i); ++i, ++local_i) {
+                if (parse(tr, MULTISYMB_STRS[local_i])) {
+                    token->kind = i;
+                    break;
+                }
+            }
+            
+            // All unhandled cases before - single character 
+            if (!token->kind) {
+                token->kind = symb;
+                advance(tr, 1);
+            }
+            break;
+        } else {
+            report_error_tok(tr->er, token, "Unexpected token");
+            token->kind = TOKEN_ERROR;
+            advance(tr, 1);
+            break;
         }
     }
     return token;
@@ -293,7 +292,7 @@ uptr fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
     return result;    
 }
 
-uptr fmt_tok(char *buf, uptr buf_sz, Token *token) {
+uptr fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token) {
     uptr result = 0;
     if (IS_TOKEN_ASCII(token->kind)) {
         result = fmt(buf, buf_sz, "%c", token->kind);
@@ -307,10 +306,10 @@ uptr fmt_tok(char *buf, uptr buf_sz, Token *token) {
                 result = fmt(buf, buf_sz, "<EOS>");
             } break;
             case TOKEN_IDENT: {
-                result = fmt(buf, buf_sz, "<ident>%s", token->value_str);
+                result = fmt(buf, buf_sz, "<ident>%s", string_storage_get(ss, token->value_str));
             } break;
             case TOKEN_STR: {
-                result = fmt(buf, buf_sz, "<str>%s", token->value_str);
+                result = fmt(buf, buf_sz, "<str>%s", string_storage_get(ss, token->value_str));
             } break;
             case TOKEN_INT: {
                 result = fmt(buf, buf_sz, "<int>%lld", token->value_int);

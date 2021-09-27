@@ -45,9 +45,10 @@ static AST *ast_new(Parser *parser, u32 kind) {
     return ast;
 }
 
-static AST *create_ident(Parser *parser, const char *name) {
+// @TODO(hl): @LEAK: We can optimize memory usage if use hash table for string ids
+static AST *create_ident(Parser *parser, StringID id) {
     AST *ident = ast_new(parser, AST_IDENT);
-    ident->ident.name = arena_alloc_str(&parser->arena, name);
+    ident->ident.name = id;
     return ident;
 }
 

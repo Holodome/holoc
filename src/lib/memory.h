@@ -24,6 +24,8 @@ void mem_copy(void *dst, const void *src, uptr size);
 void mem_move(void *dst, const void *src, uptr size);
 // memset
 void mem_zero(void *dst, uptr size);
+// memcmp
+b32 mem_eq(const void *a, const void *b, uptr n);
 
 // Memory blocks are used in arena-like allocators
 // Used to batch several allocations together instead of making multiple os callss

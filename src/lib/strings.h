@@ -9,8 +9,9 @@
 
 // snprintf wrappers
 uptr vfmt(char *buf, uptr buf_size, const char *format, va_list args);
+__attribute__((__format__ (__printf__, 3, 4)))
 uptr fmt(char *buf, uptr buf_size, const char *format, ...);
-
+      
 b32 is_ascii(u32 symb);
 b32 is_space(u32 symb);
 b32 is_nextline(u32 symb);

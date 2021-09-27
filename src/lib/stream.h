@@ -67,6 +67,7 @@ typedef struct {
 void init_out_streamf(OutStream *st, OSFileHandle *file_handle,
     void *bf, uptr bf_sz, uptr threshold, b32 is_std);
 // Printfs to stream
+__attribute__((__format__ (__printf__, 2, 3)))
 uptr out_streamf(OutStream *st, const char *fmt, ...);
 uptr out_streamv(OutStream *st, const char *fmt, va_list args);
 void out_stream_flush(OutStream *st);

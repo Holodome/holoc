@@ -11,7 +11,7 @@
 #define BYTECODE_BUILDER_CODE_PAGE_SIZE KB(4)
 
 typedef struct BytecodeBuilderVar {
-    const char *ident;
+    StringID name;
     u64 storage; // can be zero
     u32 type;
     struct BytecodeBuilderVar *next;

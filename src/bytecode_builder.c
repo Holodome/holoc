@@ -12,7 +12,7 @@ void destroy_bytecode_builder(BytecodeBuilder *builder) {
     arena_clear(&builder->arena);    
 }
 
-static BytecodeBuilderVar *lookup_var(BytecodeBuilder *builder, const char *name) {
+static BytecodeBuilderVar *lookup_var(BytecodeBuilder *builder, StringID id) {
     BytecodeBuilderVar *result = 0;
     
     return result;
@@ -76,7 +76,6 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
     u64 storage = 0;
     AST *ident_ast = decl->decl.ident;
     assert(ident_ast->kind == AST_IDENT);
-    const char *ident_str = arena_alloc_str(&builder->arena, ident_ast->ident.name);
     
     u32 decl_type = AST_TYPE_NONE;
     if (decl->decl.type) {
@@ -96,7 +95,7 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
     
     BytecodeBuilderVar *var = arena_alloc_struct(&builder->arena, BytecodeBuilderVar);
     LLIST_ADD(builder->static_vars, var);
-    var->ident = ident_str;
+    var->name = ident_ast->ident.name;
     var->storage = storage;
     var->type = decl_type;
     // var->is_immutable = decl->decl.is_immutable;
@@ -109,8 +108,6 @@ static void add_func_def(BytecodeBuilder *builder, AST *decl) {
     // Parse function name
     AST *func_name = decl->func_decl.name;
     assert(func_name->kind == AST_IDENT);
-    u64 name_hash = hash_string(func_name->ident.name);
-    function->name_hash = name_hash;
     // @TODO Parse function signature
     // AST *func_sign = decl->func_decl.sign;
     // assert(func_sign->kind == AST_FUNC_SIGNATURE);

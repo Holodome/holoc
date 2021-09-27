@@ -43,6 +43,10 @@ void mem_zero(void *dst, uptr size) {
     memset(dst, 0, size);
 }
 
+b32 mem_eq(const void *a, const void *b, uptr n) {
+    return memcmp(a, b, n) == 0;
+}
+
 MemoryBlock *mem_alloc_block(uptr size) {
     uptr total_size = size + sizeof(MemoryBlock);
     MemoryBlock *block = mem_alloc(total_size);

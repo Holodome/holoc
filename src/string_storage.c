@@ -30,7 +30,8 @@ StringID string_storage_add(StringStorage *storage, const char *str) {
         assert(buf && buf->used + len <= STRING_STORAGE_BUFFER_SIZE);
         
         string_buffer_idx = ((u64)storage->buffer_count << 32) | ((u64)buf->used);
-        
+        hash64_set(&storage->hash, string_buffer_idx, string_buffer_idx);
+           
         mem_copy(buf->storage + buf->used, str, len);
         buf->used += len;
         id.value = string_buffer_idx;
@@ -47,7 +48,7 @@ const char *string_storage_get(StringStorage *storage, StringID id) {
         u32 buffer_idx = buffer_string_idx >> 32;
         u32 string_idx = buffer_string_idx & 0xFFFFFFFF;
         StringStorageBuffer *buf = storage->first_buffer;
-        u32 cursor = storage->buffer_count - 1;
+        u32 cursor = storage->buffer_count;
         while (cursor != buffer_idx) {
             --cursor;
             buf = buf->next;

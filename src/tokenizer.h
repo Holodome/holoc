@@ -76,7 +76,7 @@ b32 is_token_assign(u32 tok);
 typedef struct Token {
     u32 kind;
     union {
-        const char *value_str;
+        StringID value_str;
         i64 value_int;
         f64 value_real;
     };
@@ -117,4 +117,4 @@ void eat_tok(Tokenizer *tokenizer);
 Token *peek_next_tok(Tokenizer *tokenizer);
 
 uptr fmt_tok_kind(char *buf, uptr buf_sz, u32 kind);
-uptr fmt_tok(char *buf, uptr buf_sz, Token *token);
+uptr fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token);
