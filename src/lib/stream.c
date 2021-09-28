@@ -18,14 +18,10 @@ void init_out_stream(OutStream *st, void *bf, uptr bf_sz) {
     st->bf_sz = bf_sz;
 }
 
-void init_out_streamf(OutStream *st, OSFileHandle *file,  void *bf, uptr bf_sz, uptr threshold, b32 is_std) {
+void init_out_streamf(OutStream *st, OSFileHandle *file,  void *bf, uptr bf_sz, uptr threshold) {
     assert(threshold < bf_sz);
     st->file = file;
-    if (is_std) {
-        st->mode = STREAM_ST;
-    } else {
-        st->mode = STREAM_FILE;
-    }
+    st->mode = STREAM_FILE;
     st->bf = bf;
     st->bf_sz = bf_sz;
     st->threshold = threshold;
@@ -72,8 +68,11 @@ void out_stream_flush(OutStream *st) {
     } else if (st->mode == STREAM_FILE) {
         out_stream_write_direct(st, st->bf, st->bf_idx);
         st->bf_idx = 0;
-    } else if (st->mode == STREAM_ST) {
-        os_write_file(st->file, 0xFFFFFFFF, st->bf, st->bf_idx);
+    } else if (st->mode == STREAM_STDOUT) {
+        os_write_stdout(st->bf, st->bf_idx);
+        st->bf_idx = 0;
+    } else if (st->mode == STREAM_STDERR) {
+        os_write_stderr(st->bf, st->bf_idx);
         st->bf_idx = 0;
     }
 }
@@ -84,15 +83,11 @@ void init_in_stream(InStream *st, void *bf, uptr bf_sz) {
     st->bf_sz = bf_sz;
 }
 
-void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std) {
+void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold) {
     assert(bf_sz > threshold);
     st->file = file;
     st->file_size = os_get_file_size(file);
-    if (is_std) {
-        st->mode = STREAM_ST;
-    } else {
-        st->mode = STREAM_FILE;
-    }
+    st->mode = STREAM_FILE;
     st->bf = bf;
     st->bf_sz = bf_sz;
     st->threshold = threshold;
@@ -158,21 +153,7 @@ void in_stream_flush(InStream *st) {
             // @TODO buggy
             st->is_finished = TRUE;
         }
-    } else if (st->mode == STREAM_ST) {
-        // Move chunk of file that is not processed to buffer start
-        assert(st->bf_idx < st->bf_sz);
-        mem_move(st->bf, st->bf + st->bf_idx, st->bf_used - st->bf_idx);
-        st->bf_used = st->bf_idx;
-        st->bf_idx = 0;
-        // Read new data
-        uptr buffer_size_aviable = st->bf_sz - st->bf_used;
-        uptr read_data_size = st->file_size - st->file_idx;
-        if (read_data_size > buffer_size_aviable) {
-            read_data_size = buffer_size_aviable;
-        }
-        uptr bytes_read = os_read_file(st->file, 0xFFFFFFFF, st->bf + st->bf_used, read_data_size);
-        st->bf_used += bytes_read;
-    }
+    } 
 }
 
 u8 in_stream_peek_b_or_zero(InStream *st) {
@@ -181,31 +162,31 @@ u8 in_stream_peek_b_or_zero(InStream *st) {
     return result;    
 }
 
-static InStream stdin_stream_storage;
 static OutStream stdout_stream_storage;
 static OutStream stderr_stream_storage;
 
-static InStream *stdin_stream;
 static OutStream *stdout_stream;
 static OutStream *stderr_stream;
 
 OutStream *get_stdout_stream(void) {
+    static u8 stdout_buffer[STDOUT_STREAM_BF_SZ];
     if (stdout_stream == 0) {
-        init_out_streamf(&stdout_stream_storage, 
-            os_get_stdout_file(), 
-            mem_alloc(STDIN_STREAM_BF_SZ), STDIN_STREAM_BF_SZ,
-            STDIN_STREAM_THRESHOLD, TRUE);
+        stdout_stream_storage.bf = stdout_buffer;
+        stdout_stream_storage.bf_sz = STDOUT_STREAM_BF_SZ;
+        stdout_stream_storage.threshold = STDOUT_STREAM_THRESHOLD;
+        stdout_stream_storage.mode = STREAM_STDOUT;
         stdout_stream = &stdout_stream_storage;
     }
     return stdout_stream;
 }
 
 OutStream *get_stderr_stream(void) {
+    static u8 stderr_buffer[STDOUT_STREAM_BF_SZ];
     if (stderr_stream == 0) {
-        init_out_streamf(&stderr_stream_storage, 
-            os_get_stderr_file(), 
-            mem_alloc(STDOUT_STREAM_BF_SZ), STDOUT_STREAM_BF_SZ,
-            STDOUT_STREAM_THRESHOLD, TRUE);
+        stderr_stream_storage.bf = stderr_buffer;
+        stderr_stream_storage.bf_sz = STDOUT_STREAM_BF_SZ;
+        stderr_stream_storage.threshold = STDOUT_STREAM_THRESHOLD;
+        stderr_stream_storage.mode = STREAM_STDERR;
         stderr_stream = &stderr_stream_storage;
     } 
     return stderr_stream;

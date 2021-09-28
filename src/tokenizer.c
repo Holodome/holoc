@@ -36,7 +36,8 @@ static const char *MULTISYMB_STRS[] = {
     "||"
 };  
 
-b32 is_token_assign(u32 tok) {
+b32 
+is_token_assign(u32 tok) {
     return tok == '=' || tok == TOKEN_IADD || tok == TOKEN_ISUB || tok == TOKEN_IMUL ||
         tok == TOKEN_IDIV || tok == TOKEN_IMOD || tok == TOKEN_IAND || tok == TOKEN_IOR ||
         tok == TOKEN_IXOR || tok == TOKEN_ILSHIFT || tok == TOKEN_IRSHIFT; 
@@ -53,22 +54,26 @@ create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file
     tr->scratch_buffer = arena_alloc(&tr->arena, tr->scratch_buffer_size);
     tr->ss = ss;
     tr->er = er;
+    // create hashes
     return tr;
 }
 
-void destroy_tokenizer(Tokenizer *tr) {
+void 
+destroy_tokenizer(Tokenizer *tr) {
     arena_clear(&tr->arena);
 }
 
 // Safely advance cursor. If end of buffer is reached, 0 is set to tr->symb and  
 // false is returned
-static b32 advance(Tokenizer *tr, u32 n) {
+static b32 
+advance(Tokenizer *tr, u32 n) {
     b32 result = in_stream_advance(tr->st, n);
     tr->curr_loc.symb += n;
     return result;
 }
 
-static b32 parse(Tokenizer *tr, const char *str) {
+static b32 
+parse(Tokenizer *tr, const char *str) {
     b32 result = FALSE;
     uptr len = str_len(str);
     assert(len < tr->scratch_buffer_size);
@@ -82,7 +87,33 @@ static b32 parse(Tokenizer *tr, const char *str) {
     return result;
 }
 
-Token *peek_tok(Tokenizer *tr) {
+static void 
+begin_scratch_buffer_write(Tokenizer *tokenizer) {
+    tokenizer->scratch_buffer_used = 0;
+}
+
+static b32 
+scratch_buffer_write_and_advance(Tokenizer *tokenizer, u8 symb) {
+    b32 result = FALSE;
+    // @NOTE(hl): Reserve ony byte for null-termination
+    if (tokenizer->scratch_buffer_used + 1 < tokenizer->scratch_buffer_size - 1) {
+        tokenizer->scratch_buffer[tokenizer->scratch_buffer_used++] = symb;
+        advance(tokenizer, 1);
+        result = TRUE;
+    } 
+    return result;
+}
+
+static const char *
+end_scratch_buffer_write(Tokenizer *tokenizer) {
+    if (tokenizer->scratch_buffer_used + 1 < tokenizer->scratch_buffer_size) {
+        tokenizer->scratch_buffer[tokenizer->scratch_buffer_used++] = 0;
+    }
+    return (char *)tokenizer->scratch_buffer;
+}
+
+Token *
+peek_tok(Tokenizer *tr) {
     Token *token = tr->active_token;
     if (token) {
         return token;
@@ -134,32 +165,26 @@ Token *peek_tok(Tokenizer *tr) {
         
         token->src_loc = tr->curr_loc;
         if (is_digit(symb)) {
-            // @TODO warn on large ident lengths
-            char *lit = (char *)tr->scratch_buffer;
-            u32 lit_len = 0;
-            b32 is_real = FALSE;
+            begin_scratch_buffer_write(tr);
+            b32 is_real_lit = FALSE;
             for (;;) {
-                // @TODO Provide handling for scientific notation
-                u8 peeked = 0;
-                if (!in_stream_peek(tr->st, &peeked, 1)) {
+                u8 symb = in_stream_peek_b_or_zero(tr->st);
+                if (is_int(symb)) {
+                    // nop
+                } else if (is_real(symb)) {
+                    is_real_lit = TRUE;
+                } else {
                     break;
                 }
-                if (!is_digit(peeked) || !peeked) {
-                    break;
-                }
-                if (peeked == '.') {
-                    is_real = TRUE;
-                }
-                assert(lit_len < sizeof(lit));
-                lit[lit_len++] = peeked;
                 
-                b32 advanced = advance(tr, 1);
-                assert(advanced);
+                if (!scratch_buffer_write_and_advance(tr, symb)) {
+                    report_error_tok(tr->er, token, "Too long number literal. Maximum length is %u", tr->scratch_buffer_size - 1);
+                    break;
+                }
             }
-            assert(lit_len < tr->scratch_buffer_size);
-            lit[lit_len] = 0;
+            const char *lit = end_scratch_buffer_write(tr);
             
-            if (is_real) {
+            if (is_real_lit) {
                 f64 real = str_to_f64(lit);
                 token->value_real = real;
                 token->kind = TOKEN_REAL;
@@ -170,27 +195,25 @@ Token *peek_tok(Tokenizer *tr) {
             }
             break;
         } else if (is_ident_start(symb)) {
-            char *lit = (char *)tr->scratch_buffer;
-            u32 lit_len = 0;
+            begin_scratch_buffer_write(tr);
+            scratch_buffer_write_and_advance(tr, symb);
             for (;;) {
-                u8 peeked = 0;
-                if (!in_stream_peek(tr->st, &peeked, 1)) {
+                u8 symb = in_stream_peek_b_or_zero(tr->st);
+                if (!is_ident(symb)) {
                     break;
                 }
-                if (!is_ident(peeked) || !peeked) {
+                
+                if (!scratch_buffer_write_and_advance(tr, symb)) {
+                    report_error_tok(tr->er, token, "Too long ident name. Maximum length is %u", tr->scratch_buffer_size - 1);
                     break;
                 }
-                assert(lit_len < tr->scratch_buffer_size);
-                lit[lit_len++] = peeked;
-                b32 advanced = advance(tr, 1);
-                assert(advanced);
             }
-            assert(lit_len < tr->scratch_buffer_size);
-            lit[lit_len] = 0;
+            const char *lit = end_scratch_buffer_write(tr);
                         
-            for (u32 i = TOKEN_KEYWORD, local_i = 0; IS_TOKEN_KEYWORD(i) && local_i < ARRAY_SIZE(KEYWORD_STRS); ++i, ++local_i) {
-                if (str_eq(KEYWORD_STRS[local_i], lit)) {
-                    token->kind = i;
+            // @TODO This can be simplified using hashes
+            for (u32 kind = TOKEN_KEYWORD, i = 0; i < ARRAY_SIZE(KEYWORD_STRS); ++i, ++kind) {
+                if (str_eq(KEYWORD_STRS[i], lit)) {
+                    token->kind = kind;
                     break;
                 }
             }
@@ -203,23 +226,19 @@ Token *peek_tok(Tokenizer *tr) {
             break;
         } else if (symb == '\"') {
             advance(tr, 1);
-            char *lit = (char *)tr->scratch_buffer;
-            u32 lit_len = 0;
+            begin_scratch_buffer_write(tr);
             for (;;) {
-                u8 peeked = 0;
-                if (!in_stream_peek(tr->st, &peeked, 1)) {
+                u8 symb = in_stream_peek_b_or_zero(tr->st);
+                if (symb == '\"') {
                     break;
                 }
-                if (peeked == '\"' || !peeked) {
+                
+                if (!scratch_buffer_write_and_advance(tr, symb)) {
+                    report_error_tok(tr->er, token, "Too long string name. Maximum length is %u", tr->scratch_buffer_size - 1);
                     break;
                 }
-                assert(lit_len < sizeof(lit));
-                lit[lit_len++] = peeked;
-                b32 advanced = advance(tr, 1);
-                assert(advanced);
             }
-            assert(lit_len < tr->scratch_buffer_size);
-            lit[lit_len] = 0;
+            const char *lit = end_scratch_buffer_write(tr);
             
             StringID id = string_storage_add(tr->ss, lit);
             token->kind = TOKEN_STR;
@@ -228,9 +247,9 @@ Token *peek_tok(Tokenizer *tr) {
         } else if (is_punct(symb)) {
             // Because muttiple operators can be put together (+=-2),
             // check by descending length
-            for (u32 i = TOKEN_ILSHIFT, local_i = 0; IS_TOKEN_MULTISYMB(i); ++i, ++local_i) {
-                if (parse(tr, MULTISYMB_STRS[local_i])) {
-                    token->kind = i;
+            for (u32 kind = TOKEN_MULTISYMB, i = 0; i < ARRAY_SIZE(MULTISYMB_STRS); ++i, ++kind) {
+                if (parse(tr, MULTISYMB_STRS[i])) {
+                    token->kind = kind;
                     break;
                 }
             }

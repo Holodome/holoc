@@ -8,12 +8,6 @@
 // @NOTE Filsystem API implements minimal interface for interacting with OS filesystem,
 // it does not do streamed IO, like c standard library does (see stream.h).
 //
-// @NOTE It is an ongoing experiment to create API that does not use 
-// cursors implictly; But it is really a double edged sword - because it handling text files becomes easy
-// (like with use of cursors) then binary files become tedious and the other way around.
-// It seems, however, that having api for specialized for binary files is more benefitial due to the
-// fact that text files are mostly used with streams (see stream.h) and binary files are processed by hand
-// for each format
 #pragma once
 #include "lib/general.h"
 
@@ -23,10 +17,8 @@ enum {
     // (probably with use of return codes), but general the fact that file has errors is enough to 
     // stop execution process 
     FILE_FLAG_HAS_ERRORS   = 0x1,
-    // File mode is appending - API disallows mixing appending and offset-based IO 
-    FILE_FLAG_IS_APPENDING = 0x2,
-    // Is standard stream 
-    FILE_FLAG_IS_ST        = 0x4,
+    // 0x2 not used
+    // 0x4 not used
     FILE_FLAG_IS_CLOSED    = 0x8,
     FILE_FLAG_NOT_OPERATABLE = FILE_FLAG_IS_CLOSED | FILE_FLAG_HAS_ERRORS,
 };
@@ -44,33 +36,22 @@ typedef struct {
 enum {
     FILE_MODE_READ,
     FILE_MODE_WRITE,
-    FILE_MODE_READ_APPEND,
-    FILE_MODE_WRITE_APPEND,
 };
 
 void os_open_file(OSFileHandle *handle, const char *filename, u32 mode);
 b32 os_close_file(OSFileHandle *id);
 // Get console out handle
-// @NOTE in most OSs writing to file and console is the same.
-// This API makes use of same paradigm
-OSFileHandle *os_get_stdout_file(void);
-OSFileHandle *os_get_stderr_file(void);
-// Write bf_sz bytes to file with offset.
-// Unlike stdio fwrite, offset is explicitly specified.
-// If offset = UINT32_MAX, no offset is done (used in standard streams)
-// @TODO API is not clear. By having way of accessing IO streams, we basiaclly provide
-// user with opportunity ot do IO on the file end, which is what this API tries actually not to do
-// But behaviour of IO of file end is not clear because in all other cases offsets are used
-// and behaviour will not be as expected.
-// Solution could be to create special function for accessing file end, and, for example, 
-// have flag in file structure that indicates what mode it is used so user could be warned on
-// incorrect usage
 uptr os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz);
 // Same as write file, but read
 uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz);
 // read_file with advancing cursor
 uptr os_get_file_size(OSFileHandle *);
-// Is handle valid.
+// @NOTE(hl): Although stanadrd streams in most os's are handled the same way as files,
+//  it has been decided to split them in API, because of large difference in logic of work
+//  (file api does use offsets, which streams have no support of)
+uptr os_write_stdout(void *bf, uptr bf_sz);
+uptr os_write_stderr(void *bf, uptr bf_sz);
+
 b32 os_is_file_valid(OSFileHandle *);
 // Prefixed with fs to avoid collisions (fs for filesystems)
 b32 os_mkdir(const char *name);

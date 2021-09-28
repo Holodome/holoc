@@ -56,6 +56,14 @@ b32 is_punct(u32 symb) {
         || symb == '}' || symb == '~';
 }
 
+b32 is_real(u32 symb) {
+    return is_digit(symb) || symb == '-' || symb == '+' || symb == 'e' || symb == 'E' || symb == '.';
+}
+
+b32 is_int(u32 symb) {
+    return is_digit(symb) || symb == '-' || symb == '+';
+}
+
 f64 str_to_f64(const char *str) {
     return atof(str);
 }

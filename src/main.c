@@ -76,7 +76,7 @@ void do_interp(const char *filename, const char *out_filename) {
     InStream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
         arena_alloc(&interp_arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
-        IN_STREAM_DEFAULT_THRESHLOD, FALSE);
+        IN_STREAM_DEFAULT_THRESHLOD);
     Tokenizer *tokenizer = create_tokenizer(er, ss, &in_file_st, in_file_id);
     Parser *parser = create_parser(tokenizer, ss, er);
     BytecodeBuilder *builder = create_bytecode_builder(er);

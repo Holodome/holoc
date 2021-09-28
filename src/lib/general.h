@@ -19,7 +19,6 @@ typedef u8 b8;
 // @NOTE C has strange notion of size_t and uintptr_t being different types. 
 // Not to compilcate code until we need to, single type was introduced.
 // @NOTE currently code assumes platform being 64 bit, but it can be changed in future
-// in places where we use this type
 typedef uintptr_t uptr;
 typedef float f32;
 typedef double f64;
@@ -46,11 +45,11 @@ do { \
 #ifdef _MSC_VER
 #define DBG_BREAKPOINT __debugbreak()
 #else 
-#define DBG_BREAKPOINT __asm__("int $3")
+#define DBG_BREAKPOINT __builtin_trap()
 #endif 
 #define STRUCT_FIELD(_struct, _field) (((_struct *)0)->_field)
 #define STRUCT_OFFSET(_struct, _field) ((uptr)((u8 *)(&STRUCT_FIELD(_struct, _field))))
-#define NOT_IMPLEMENTED assert(!"NotImplemented")
+#define NOT_IMPLEMENTED DBG_BREAKPOINT
 #define INVALID_DEFAULT_CASE assert(!"InvalidDefaultCase")
 #define UNREACHABLE assert(!"Unreachable")
 // this is defined to separate developer assertions that are used by optimizer and for

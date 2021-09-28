@@ -20,6 +20,8 @@ b32 is_alpha(u32 symb);
 b32 is_ident(u32 symb);
 b32 is_ident_start(u32 symb);
 b32 is_punct(u32 symb);
+b32 is_real(u32 symb);
+b32 is_int(u32 symb);
 
 f64 str_to_f64(const char *str);
 i64 str_to_i64(const char *str);

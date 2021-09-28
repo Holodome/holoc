@@ -16,8 +16,8 @@ static void report_unexpected_token(Parser *parser, Token *tok, u32 expected) {
     char expected_str[128], got_str[128];
     fmt_tok_kind(expected_str, sizeof(expected_str), expected);
     fmt_tok_kind(got_str, sizeof(got_str), tok->kind);
-    report_error_tok(parser->er, tok, "Token %s expected (got %s)",
-        expected_str, got_str);
+    report_error_tok(parser->er, tok, "Token %s expected (got %s %#x)",
+        expected_str, got_str, tok->kind);
 }
 
 static b32 expect_tok(Parser *parser, Token *tok, u32 kind) {

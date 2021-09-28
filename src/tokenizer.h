@@ -12,14 +12,21 @@
 #include "error_reporter.h"
 #include "string_storage.h"
 
+// @NOTE(hl): These limits are set for easier manipulation in case of future updates and usages
+// of this code.
+// Basically, since u8 is not enough to store all simple token kinds, 
+// we have to use u16, which offers a lot of space to assign token kinds to
 #define TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE KB(1)
-#define TOKEN_GENERAL 0x100
-#define TOKEN_KEYWORD 0x120
-#define TOKEN_MULTISYMB 0x160
+#define TOKEN_GENERAL (0x100)
+#define MAX_GENERAL_TOKEN_COUNT 0x100
+#define TOKEN_KEYWORD (TOKEN_GENERAL + MAX_GENERAL_TOKEN_COUNT)
+#define MAX_KEYWORD_TOKEN_COUNT 0x100
+#define TOKEN_MULTISYMB (TOKEN_KEYWORD + MAX_KEYWORD_TOKEN_COUNT)
+#define MAX_MULTISYMB_TOKEN_COUNT 0x100
 #define IS_TOKEN_ASCII(_tok) (0 <= (_tok) && (_tok) <= 0xFF)
-#define IS_TOKEN_GENERAL(_tok) (TOKEN_GENERAL <= (_tok) && (_tok) < TOKEN_KEYWORD)
-#define IS_TOKEN_KEYWORD(_tok) (TOKEN_KEYWORD <= (_tok) && (_tok) < TOKEN_MULTISYMB)
-#define IS_TOKEN_MULTISYMB(_tok) (TOKEN_MULTISYMB <= (_tok) && (_tok) < TOKEN_COUNT)
+#define IS_TOKEN_GENERAL(_tok) (TOKEN_GENERAL <= (_tok) && (_tok) < TOKEN_GENERAL + MAX_GENERAL_TOKEN_COUNT)
+#define IS_TOKEN_KEYWORD(_tok) (TOKEN_KEYWORD <= (_tok) && (_tok) < TOKEN_KEYWORD + MAX_KEYWORD_TOKEN_COUNT)
+#define IS_TOKEN_MULTISYMB(_tok) (TOKEN_MULTISYMB <= (_tok) && (_tok) < TOKEN_MULTISYMB + MAX_MULTISYMB_TOKEN_COUNT)
 // Token kind space is reserved to handle expanding easilly
 // Values 0-255 correspond to single-symbol ASCII tokens
 // Values 256-287 (32) correspond to basic kinds
@@ -42,7 +49,6 @@ enum {
     TOKEN_KW_ELSE, // else
     TOKEN_KW_INT, // int 
     TOKEN_KW_FLOAT, // float
-    TOKEN_KW__END,
     
     // Digraphs and trigraphs
     TOKEN_ILSHIFT = TOKEN_MULTISYMB, // <<=
@@ -66,8 +72,6 @@ enum {
     TOKEN_IMOD, // %=
     TOKEN_LOGICAL_AND, // &&
     TOKEN_LOGICAL_OR, // ||
-    
-    TOKEN_COUNT,
 };
 
 // Does token mean assignment (e.g. =, +=, etc.)
@@ -101,7 +105,11 @@ typedef struct Tokenizer {
     // of identifier.
     // @TODO(hl): There is special case for parsing big strings - we need to think how we would handle that
     u32 scratch_buffer_size;
+    u32 scratch_buffer_used; 
     u8 *scratch_buffer;
+    
+    u64 keyword_hashes[MAX_KEYWORD_TOKEN_COUNT];
+    u64 multisymb_hashes[MAX_MULTISYMB_TOKEN_COUNT];
     
     Token *active_token;
 } Tokenizer;

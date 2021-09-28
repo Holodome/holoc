@@ -44,7 +44,7 @@ void report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_
     fs_fmt_filename(filename, sizeof(filename), id);
     OutStream *out = get_stderr_stream();
     out_streamf(out, "%s:%u:%u: \033[31merror\033[0m: ", filename, src_loc.line, src_loc.symb);
-    out_streamf(out, msg, args);
+    out_streamv(out, msg, args);
     // @TODO(hl): Investigate why printf "%*c" 0, ' ' gives one space still
     if (symb) {
         out_streamf(out, "\n%.*s\n%*c\033[33m^\033[0m\n", line_len, line_start,
@@ -54,6 +54,7 @@ void report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_
     }
     out_stream_flush(out);
     ++reporter->error_count;
+    DBG_BREAKPOINT;
 }
 
 void report_error(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...) {

@@ -27,18 +27,16 @@
 // This is similar to stdlib's one, which is also usually 4kb
 #define OUT_STREAM_DEFAULT_MAX_PRINTF_LEN KB(4)
 #define OUT_STREAM_DEFAULT_THRESHOLD (OUT_STREAM_DEFAULT_BUFFER_SIZE - OUT_STREAM_DEFAULT_MAX_PRINTF_LEN)
-#define IN_STREAM_DEFAULT_BUFFER_SIZE KB(8)
-#define IN_STREAM_DEFAULT_MAX_CONSUMPTION_SIZE KB(1)
-#define IN_STREAM_DEFAULT_THRESHLOD (IN_STREAM_DEFAULT_BUFFER_SIZE - IN_STREAM_DEFAULT_MAX_CONSUMPTION_SIZE)
-#define STDIN_STREAM_BF_SZ KB(16)
-#define STDIN_STREAM_THRESHOLD KB(12)
 #define STDOUT_STREAM_BF_SZ KB(16)
 #define STDOUT_STREAM_THRESHOLD KB(12)
+#define IN_STREAM_DEFAULT_BUFFER_SIZE OUT_STREAM_DEFAULT_BUFFER_SIZE
+#define IN_STREAM_DEFAULT_THRESHLOD OUT_STREAM_DEFAULT_THRESHOLD
 
 enum {
     STREAM_BUFFER,
     STREAM_FILE,
-    STREAM_ST, // stdin, stdout, stderr
+    STREAM_STDOUT,
+    STREAM_STDERR
 };
 
 // Stream is an object that supports continously writing to while having
@@ -65,7 +63,7 @@ typedef struct {
 // threshold >= bf_sz
 // bf - storage for stream buffer
 void init_out_streamf(OutStream *st, OSFileHandle *file_handle,
-    void *bf, uptr bf_sz, uptr threshold, b32 is_std);
+    void *bf, uptr bf_sz, uptr threshold);
 // Printfs to stream
 __attribute__((__format__ (__printf__, 2, 3)))
 uptr out_streamf(OutStream *st, const char *fmt, ...);
@@ -104,7 +102,7 @@ typedef struct {
     b32 is_finished;
 } InStream;
 
-void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold, b32 is_std);
+void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold);
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked
 uptr in_stream_peek(InStream *st, void *out, uptr n);

@@ -39,26 +39,11 @@ b32 os_close_file(OSFileHandle *id) {
     return result;
 }
 
-OSFileHandle *os_get_stdout_file(void) {
-    static OSFileHandle id = { 1, FILE_FLAG_IS_ST };
-    return &id;
-}
-OSFileHandle *os_get_stderr_file(void) {
-    static OSFileHandle id = { 2, FILE_FLAG_IS_ST };
-    return &id;
-}
-OSFileHandle *os_get_stdin_file(void) {
-    static OSFileHandle id = { 3, FILE_FLAG_IS_ST };
-    return &id;
-}
-
 uptr os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
     uptr result = 0;
     if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
-        if (offset != 0xFFFFFFFF) {
-            lseek(posix_handle, offset, SEEK_SET);
-        }
+        lseek(posix_handle, offset, SEEK_SET);
         ssize_t written = write(posix_handle, bf, bf_sz);
         if (written == -1) {
             DBG_BREAKPOINT;
@@ -74,9 +59,7 @@ uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz) {
     uptr result = 0;
     if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
-        if (offset != 0xFFFFFFFF) {
-            lseek(posix_handle, offset, SEEK_SET);
-        }
+        lseek(posix_handle, offset, SEEK_SET);
         ssize_t nread = read(posix_handle, bf, bf_sz);
         if (nread == -1) {
             DBG_BREAKPOINT;
@@ -87,6 +70,15 @@ uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz) {
     }
     return result;
 }
+
+uptr os_write_stdout(void *bf, uptr bf_sz) {
+    return write(1, bf, bf_sz);
+}
+
+uptr os_write_stderr(void *bf, uptr bf_sz) {
+    return write(2, bf, bf_sz);
+}
+
 uptr os_get_file_size(OSFileHandle *id) {
     uptr result = 0;
     if (os_is_file_valid(id)) {
@@ -95,6 +87,7 @@ uptr os_get_file_size(OSFileHandle *id) {
     }      
     return result;
 }
+
 b32 os_is_file_valid(OSFileHandle *id) {
     return id->handle != 0 && !(id->flags & FILE_FLAG_NOT_OPERATABLE);
 }
