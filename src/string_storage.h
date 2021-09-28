@@ -13,6 +13,8 @@
 #define STRING_STORAGE_BUFFER_SIZE KB(4)
 #define STRING_STORAGE_HASH_SIZE 8192
 
+// @TODO(hl): Do we want to store some metadata with the string
+// (like length,hash)
 typedef struct {
     u64 value;
 } StringID;

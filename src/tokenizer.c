@@ -55,6 +55,10 @@ create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file
     tr->ss = ss;
     tr->er = er;
     // create hashes
+    tr->keyword_count = ARRAY_SIZE(KEYWORD_STRS);
+    for (u32 i = 0; i < tr->keyword_count; ++i) {
+        tr->keyword_hashes[i] = hash_string(KEYWORD_STRS[i]);
+    }
     return tr;
 }
 
@@ -63,13 +67,21 @@ destroy_tokenizer(Tokenizer *tr) {
     arena_clear(&tr->arena);
 }
 
-// Safely advance cursor. If end of buffer is reached, 0 is set to tr->symb and  
-// false is returned
-static b32 
+// @TODO(hl): @SPEED:
+// Do we always have to check for newlines?
+static b32
 advance(Tokenizer *tr, u32 n) {
-    b32 result = in_stream_advance(tr->st, n);
-    tr->curr_loc.symb += n;
-    return result;
+    u32 line_idx = n;
+    for (u32 i = 0; i < n; ++i) {
+        if (in_stream_soft_peek_at(tr->st, i) == '\n') {
+            ++tr->curr_loc.line;
+            line_idx = 0;
+        } 
+        ++line_idx;
+    }
+    uptr advanced = in_stream_advance(tr->st, n);
+    tr->curr_loc.symb = line_idx;
+    return advanced == n;
 }
 
 static b32 
@@ -77,6 +89,8 @@ parse(Tokenizer *tr, const char *str) {
     b32 result = FALSE;
     uptr len = str_len(str);
     assert(len < tr->scratch_buffer_size);
+    // @SPEED(hl): This can be done as direct compare with memory from 
+    // stream, like in_stream_cmp(st, bf, bf_sz)
     if (in_stream_peek(tr->st, tr->scratch_buffer, len) == len) {
         result = mem_eq(tr->scratch_buffer, str, len);
         if (result) {
@@ -129,11 +143,7 @@ peek_tok(Tokenizer *tr) {
             break;
         }
         
-        if (parse(tr, "\n\r") || parse(tr, "\n")) {
-            ++tr->curr_loc.line;
-            tr->curr_loc.symb = 1;
-            continue;
-        } else if (is_space(symb)) {
+        if (is_space(symb)) {
             advance(tr, 1);
             continue;
         } else if (parse(tr, "//")) {
@@ -146,19 +156,20 @@ peek_tok(Tokenizer *tr) {
             }
             continue;
         } else if (parse(tr, "/*")) {
-            for (;;) {
-                for (;;) {
-                    u8 peeked = in_stream_peek_b_or_zero(tr->st);
-                    if (!peeked || peeked == '*') {
-                        break;
-                    }
-                    advance(tr, 1);
-                }
-                // @NOTE(hl): This is rarely hit path in case other than correct comment end,
-                //  so additional peeking is not a problem here
-                if (parse(tr, "*/") || !(in_stream_peek_b_or_zero(tr->st))) {
+            SrcLoc comment_start_loc = tr->curr_loc;
+            u32 depth = 1;
+            while (depth) {
+                if (parse(tr, "/*")) {
+                    ++depth; 
+                } else if (parse(tr, "*/")) {
+                    --depth;
+                } else if (!advance(tr, 1)) {
                     break;
                 }
+            }
+            
+            if (depth) {
+                report_error(tr->er, comment_start_loc, "*/ expected to end comment");
             }
             continue;
         }
@@ -210,10 +221,10 @@ peek_tok(Tokenizer *tr) {
                 }
             }
             const char *lit = end_scratch_buffer_write(tr);
-                        
-            // @TODO This can be simplified using hashes
-            for (u32 kind = TOKEN_KEYWORD, i = 0; i < ARRAY_SIZE(KEYWORD_STRS); ++i, ++kind) {
-                if (str_eq(KEYWORD_STRS[i], lit)) {
+            u64 lit_hash = hash_string(lit);  // @SPEED(hl): This can be futher optimized, if we bake in 
+            // hashing into parsing
+            for (u32 kind = TOKEN_KEYWORD, i = 0; i < tr->keyword_count; ++i, ++kind) {
+                if (lit_hash == tr->keyword_hashes[i]) {
                     token->kind = kind;
                     break;
                 }
@@ -262,7 +273,7 @@ peek_tok(Tokenizer *tr) {
             }
             break;
         } else {
-            report_error_tok(tr->er, token, "Unexpected token");
+            report_error_tok(tr->er, token, "Unexpected character");
             token->kind = TOKEN_ERROR;
             advance(tr, 1);
             break;
@@ -271,18 +282,21 @@ peek_tok(Tokenizer *tr) {
     return token;
 }
 
-void eat_tok(Tokenizer *tr) {
+void 
+eat_tok(Tokenizer *tr) {
     if (tr->active_token) {
         tr->active_token = 0;
     }
 }
 
-Token *peek_next_tok(Tokenizer *tr) {
+Token *
+peek_next_tok(Tokenizer *tr) {
     eat_tok(tr);
     return peek_tok(tr);    
 }
 
-uptr fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
+uptr 
+fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
     uptr result = 0;
     if (IS_TOKEN_ASCII(kind)) {
         result = fmt(buf, buf_sz, "%c", kind);
@@ -312,7 +326,8 @@ uptr fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
     return result;    
 }
 
-uptr fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token) {
+uptr 
+fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token) {
     uptr result = 0;
     if (IS_TOKEN_ASCII(token->kind)) {
         result = fmt(buf, buf_sz, "%c", token->kind);

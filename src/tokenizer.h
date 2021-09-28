@@ -108,8 +108,8 @@ typedef struct Tokenizer {
     u32 scratch_buffer_used; 
     u8 *scratch_buffer;
     
+    u32 keyword_count;
     u64 keyword_hashes[MAX_KEYWORD_TOKEN_COUNT];
-    u64 multisymb_hashes[MAX_MULTISYMB_TOKEN_COUNT];
     
     Token *active_token;
 } Tokenizer;

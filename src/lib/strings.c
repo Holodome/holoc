@@ -24,7 +24,7 @@ b32 is_ascii(u32 symb) {
 }
 
 b32 is_space(u32 symb) {
-    return symb == ' ' || symb == '\r';
+    return symb == ' ' || symb == '\r' || symb == '\n';
 }
 
 b32 is_nextline(u32 symb) {

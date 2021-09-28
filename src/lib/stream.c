@@ -110,6 +110,14 @@ uptr in_stream_peek(InStream *st, void *out, uptr n) {
     return result;
 }
 
+u8 in_stream_soft_peek_at(InStream *st, uptr offset) {
+    u8 result = 0;
+    if (st->bf_idx + offset <= st->bf_used) {
+        result = st->bf[st->bf_idx + offset];
+    }
+    return result;
+}
+
 uptr in_stream_advance(InStream *st, uptr n) {
     uptr result = 0;
     if (!st->is_finished) {

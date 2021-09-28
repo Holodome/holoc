@@ -106,6 +106,7 @@ void init_in_streamf(InStream *st, OSFileHandle *file, void *bf, uptr bf_sz, upt
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked
 uptr in_stream_peek(InStream *st, void *out, uptr n);
+u8 in_stream_soft_peek_at(InStream *st, uptr offset);
 // Advance stream by n bytes. 
 // Return numbef of bytes advanced by
 uptr in_stream_advance(InStream *st, uptr n);

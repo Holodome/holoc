@@ -1,6 +1,5 @@
 global_variable := 4;
 
-/* Multiline comment */
 inc := (x: int) -> int {
    result := x + 1;
    return result; 
