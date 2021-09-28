@@ -194,6 +194,7 @@ peek_tok(Tokenizer *tr) {
                 token->kind = TOKEN_INT;
             }
             break;
+            
         } else if (is_ident_start(symb)) {
             begin_scratch_buffer_write(tr);
             scratch_buffer_write_and_advance(tr, symb);
