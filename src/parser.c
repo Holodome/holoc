@@ -1,10 +1,10 @@
 #include "parser.h"
 
-Parser *create_parser(Tokenizer *tr, StringStorage *ss, ErrorReporter *er) {
+Parser *create_parser(Lexer *lexer, StringStorage *ss, ErrorReporter *er) {
     Parser *parser = arena_bootstrap(Parser, arena);
     parser->er = er;
     parser->ss = ss;
-    parser->tr = tr;
+    parser->lexer = lexer;
     return parser;
 }
 
@@ -32,7 +32,7 @@ static b32 expect_tok(Parser *parser, Token *tok, u32 kind) {
 static b32 parse_end_of_statement(Parser *parser, Token *tok) {
     b32 result = expect_tok(parser, tok, ';');
     if (result) {
-        eat_tok(parser->tr);
+        eat_tok(parser->lexer);
     }
     return result;
 }
@@ -41,7 +41,7 @@ static AST *ast_new(Parser *parser, u32 kind) {
     AST *ast = arena_alloc_struct(&parser->arena, AST);
     ast->kind = kind;
     // @TODO more explicit way of taking source location?
-    ast->src_loc = peek_tok(parser->tr)->src_loc;
+    ast->src_loc = peek_tok(parser->lexer)->src_loc;
     return ast;
 }
 
@@ -61,13 +61,13 @@ static AST *create_int_lit(Parser *parser, i64 value) {
 
 ASTList parse_comma_separated_idents(Parser *parser) {
     ASTList idents = {0};
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     while (tok->kind == TOKEN_IDENT) {
         AST *ident = create_ident(parser, tok->value_str);
         ast_list_add(&idents, ident);
-        tok = peek_next_tok(parser->tr);
+        tok = peek_next_tok(parser->lexer);
         if (tok->kind == ',') {
-            tok = peek_next_tok(parser->tr);
+            tok = peek_next_tok(parser->lexer);
         }
     }
     return idents;
@@ -104,7 +104,7 @@ static AST *parse_binary_subxepr(Parser *parser, u32 prec, u32 bin_kind, AST *le
         bin->binary.right = right; 
         result = bin;
     } else {
-        report_error_tok(parser->er, peek_tok(parser->tr), "Expected expression");
+        report_error_tok(parser->er, peek_tok(parser->lexer), "Expected expression");
     }
     return result; 
 }
@@ -117,28 +117,28 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
     AST *expr = 0;
     switch (precedence) {
         case 0: {
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             switch (tok->kind) {
                 case TOKEN_IDENT: {
-                    eat_tok(parser->tr);
+                    eat_tok(parser->lexer);
                     AST *ident = create_ident(parser, tok->value_str);
                     expr = ident;
-                    tok = peek_tok(parser->tr);
+                    tok = peek_tok(parser->lexer);
                     // @TODO What if some mangling done to function name???
                     // finder better place for function call
                     if (tok->kind == '(') {
-                        eat_tok(parser->tr);
+                        eat_tok(parser->lexer);
                         AST *function_call = ast_new(parser, AST_FUNC_CALL);
                         function_call->func_call.callable = ident;
                         ASTList arguments = parse_comma_separated_idents(parser);
-                        if (expect_tok(parser, peek_tok(parser->tr), ')')) {
-                            eat_tok(parser->tr);
+                        if (expect_tok(parser, peek_tok(parser->lexer), ')')) {
+                            eat_tok(parser->lexer);
                             expr = function_call;
                         }
                     }
                 } break;
                 case TOKEN_INT: {
-                    eat_tok(parser->tr);
+                    eat_tok(parser->lexer);
                     AST *lit = create_int_lit(parser, tok->value_int);
                     expr = lit;
                 } break;
@@ -149,15 +149,15 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
         } break;
         case 1: {
             expr = parse_expr_precedence(parser, precedence - 1);
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             switch (tok->kind) {
                 case '(': {
-                    eat_tok(parser->tr);
+                    eat_tok(parser->lexer);
                     AST *temp = parse_expr(parser);
-                    tok = peek_tok(parser->tr);
+                    tok = peek_tok(parser->lexer);
                     if (expect_tok(parser, tok, ')')) {
                         expr = temp;
-                        eat_tok(parser->tr);
+                        eat_tok(parser->lexer);
                     }
                 } break;
                 case '.': {
@@ -169,31 +169,31 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             }
         } break;
         case 2: {
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             switch (tok->kind) {
                 case '+': {
-                    eat_tok(parser->tr);
+                    eat_tok(parser->lexer);
                     AST *unary = ast_new(parser, AST_UNARY);
                     unary->unary.kind = AST_UNARY_PLUS;
                     unary->unary.expr = parse_expr(parser);
                     expr = unary;
                 } break;
                 case '-': {
-                    eat_tok(parser->tr);
+                    eat_tok(parser->lexer);
                     AST *unary = ast_new(parser, AST_UNARY);
                     unary->unary.kind = AST_UNARY_MINUS;
                     unary->unary.expr = parse_expr(parser);
                     expr = unary;
                 } break;
                 case '!': {
-                    eat_tok(parser->tr);
+                    eat_tok(parser->lexer);
                     AST *unary = ast_new(parser, AST_UNARY);
                     unary->unary.kind = AST_UNARY_LOGICAL_NOT;
                     unary->unary.expr = parse_expr(parser);
                     expr = unary;
                 } break;
                 case '~': {
-                    eat_tok(parser->tr);
+                    eat_tok(parser->lexer);
                     AST *unary = ast_new(parser, AST_UNARY);
                     unary->unary.kind = AST_UNARY_NOT;
                     unary->unary.expr = parse_expr(parser);
@@ -210,7 +210,7 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == '*' || tok->kind == '/' || tok->kind == '%') {
                 u32 bin_kind = 0;
                 switch (tok->kind) {
@@ -224,9 +224,9 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
                         bin_kind = AST_BINARY_MOD;
                     } break;
                 }
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 4: {
@@ -234,7 +234,7 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == '+' || tok->kind == '-') {
                 u32 bin_kind = 0;
                 if (tok->kind == '+') {
@@ -242,9 +242,9 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
                 } else if (tok->kind == '-') {
                     bin_kind = AST_BINARY_SUB;
                 }
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 5: {
@@ -252,7 +252,7 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == TOKEN_LSHIFT || tok->kind == TOKEN_RSHIFT) {
                 u32 bin_kind = 0;
                 if (tok->kind == TOKEN_RSHIFT) {
@@ -260,9 +260,9 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
                 } else if (tok->kind == TOKEN_LSHIFT) {
                     bin_kind = AST_BINARY_SUB;
                 }
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 6: {
@@ -270,7 +270,7 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == '<' || tok->kind == '>' || tok->kind == TOKEN_LE || tok->kind == TOKEN_GE) {
                 u32 bin_kind = 0;
                 if (tok->kind == TOKEN_LE) {
@@ -282,9 +282,9 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
                 } else if (tok->kind == '>') {
                     bin_kind = AST_BINARY_G;
                 }
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 7: {
@@ -292,7 +292,7 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == TOKEN_EQ || tok->kind == TOKEN_NEQ) {
                 u32 bin_kind = 0;
                 if (tok->kind == TOKEN_EQ) {
@@ -300,9 +300,9 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
                 } else if (tok->kind == TOKEN_NEQ) {
                     bin_kind = AST_BINARY_NEQ;
                 }
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 8: {
@@ -310,12 +310,12 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == '&') {
                 u32 bin_kind = AST_BINARY_AND;
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 9: {
@@ -323,12 +323,12 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == '&') {
                 u32 bin_kind = AST_BINARY_XOR;
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 10: {
@@ -336,12 +336,12 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == '&') {
                 u32 bin_kind = AST_BINARY_OR;
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 11: {
@@ -349,12 +349,12 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == TOKEN_LOGICAL_AND) {
                 u32 bin_kind = AST_BINARY_LOGICAL_AND;
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         case 12: {
@@ -362,12 +362,12 @@ AST *parse_expr_precedence(Parser *parser, u32 precedence) {
             if (!expr) {
                 goto end;
             }
-            Token *tok = peek_tok(parser->tr);
+            Token *tok = peek_tok(parser->lexer);
             while (tok->kind == TOKEN_LOGICAL_OR) {
                 u32 bin_kind = AST_BINARY_LOGICAL_OR;
-                eat_tok(parser->tr);
+                eat_tok(parser->lexer);
                 expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
             }
         } break;
         default: assert(FALSE);
@@ -378,15 +378,15 @@ end:
 
 static AST *parse_type(Parser *parser) {
     AST *type = 0;
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     if (tok->kind == TOKEN_KW_INT) {
         type = ast_new(parser, AST_TYPE);
         type->type.kind = AST_TYPE_INT;
-        eat_tok(parser->tr);
+        eat_tok(parser->lexer);
     } else if (tok->kind == TOKEN_KW_FLOAT) {
         type = ast_new(parser, AST_TYPE);
         type->type.kind = AST_TYPE_FLOAT;
-        eat_tok(parser->tr);
+        eat_tok(parser->lexer);
     } else {
         
     }
@@ -434,14 +434,14 @@ static u32 assign_token_to_binary_kind(u32 tok) {
 
 AST *parse_assign_ident(Parser *parser, AST *ident) {
     AST *assign = 0;
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     if (!is_token_assign(tok->kind)) {
         report_error_tok(parser->er, tok, "Expected assign operator");
         return 0;    
     }
     
     // All incorrect tokens should be handled before
-    eat_tok(parser->tr);
+    eat_tok(parser->lexer);
     // @TODO make this more readable...
     if (tok->kind == '=') {
         AST *expr = parse_expr(parser);
@@ -461,7 +461,7 @@ AST *parse_assign_ident(Parser *parser, AST *ident) {
         assign->assign.expr = binary;
     }
     
-    tok = peek_tok(parser->tr);
+    tok = peek_tok(parser->lexer);
     if (!parse_end_of_statement(parser, tok)) {
         assign = 0;
     }
@@ -469,12 +469,12 @@ AST *parse_assign_ident(Parser *parser, AST *ident) {
 }
 
 AST *parse_if_compound(Parser *parser) {
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     if (tok->kind != TOKEN_KW_IF) {
         return 0;
     }
     
-    tok = peek_next_tok(parser->tr);
+    tok = peek_next_tok(parser->lexer);
     AST *expr = parse_expr(parser);
     if (!expr) {
         return 0;
@@ -482,16 +482,16 @@ AST *parse_if_compound(Parser *parser) {
     
     AST *if_st = ast_new(parser, AST_IF);
     if_st->ifs.cond = expr;
-    tok = peek_tok(parser->tr);
+    tok = peek_tok(parser->lexer);
     if (expect_tok(parser, tok, '{')) {
         AST *block = parse_block(parser);
         if (!block) {
             return 0;
         }
         if_st->ifs.block = block;
-        tok = peek_tok(parser->tr);
+        tok = peek_tok(parser->lexer);
         if (tok->kind == TOKEN_KW_ELSE) {
-            tok = peek_next_tok(parser->tr);
+            tok = peek_next_tok(parser->lexer);
             if (tok->kind == TOKEN_KW_IF) {
                 AST *else_if_st = parse_if_compound(parser);
                 if_st->ifs.else_block = else_if_st;
@@ -506,19 +506,19 @@ AST *parse_if_compound(Parser *parser) {
 
 AST *parse_statement(Parser *parser) {
     AST *statement = 0;
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     // Common path for assign and decl
     // @TODO maybe unite assign and declaration
     AST *ident = 0;
     if (tok->kind == TOKEN_IDENT) {
         ident = create_ident(parser, tok->value_str);
-        tok = peek_next_tok(parser->tr);
+        tok = peek_next_tok(parser->lexer);
     } 
     
     if (is_token_assign(tok->kind)) {
         statement = parse_assign_ident(parser, ident);
     } else if (tok->kind == TOKEN_KW_RETURN) {
-        tok = peek_next_tok(parser->tr);
+        tok = peek_next_tok(parser->lexer);
         ASTList return_vars = {0};
         while (tok->kind != ';') {
             AST *expr = parse_expr(parser);
@@ -527,9 +527,9 @@ AST *parse_statement(Parser *parser) {
             }
             ast_list_add(&return_vars, expr);
             
-            tok = peek_tok(parser->tr);
+            tok = peek_tok(parser->lexer);
             if (tok->kind == ',') {
-                tok = peek_next_tok(parser->tr);
+                tok = peek_next_tok(parser->lexer);
             }
         }
         
@@ -541,7 +541,7 @@ AST *parse_statement(Parser *parser) {
         AST *if_st = parse_if_compound(parser);
         statement = if_st;
     } else if (tok->kind == TOKEN_KW_WHILE) {
-        eat_tok(parser->tr);
+        eat_tok(parser->lexer);
         AST *condition = parse_expr(parser);
         if (condition) {
             AST *block = parse_block(parser);
@@ -554,11 +554,11 @@ AST *parse_statement(Parser *parser) {
             }
         }
     } else if (tok->kind == TOKEN_KW_PRINT) {
-        eat_tok(parser->tr);
+        eat_tok(parser->lexer);
         AST *expr = parse_expr(parser);
         ASTList exprs = {0};
         ast_list_add(&exprs, expr);
-        tok = peek_tok(parser->tr);
+        tok = peek_tok(parser->lexer);
         if (parse_end_of_statement(parser, tok)) {
             AST *print_st = ast_new(parser, AST_PRINT);
             print_st->prints.arguments = exprs;
@@ -573,15 +573,15 @@ AST *parse_statement(Parser *parser) {
 
 AST *parse_block(Parser *parser) {
     AST *block = 0;
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     if (expect_tok(parser, tok, '{')) {
-        tok = peek_next_tok(parser->tr);     
+        tok = peek_next_tok(parser->lexer);     
     } else {
         return 0;
     }
     
     ASTList statements = {0};
-    while (peek_tok(parser->tr)->kind != '}') {
+    while (peek_tok(parser->lexer)->kind != '}') {
         AST *statement = parse_statement(parser);
         if (!statement) {
             break;
@@ -595,9 +595,9 @@ AST *parse_block(Parser *parser) {
     block = ast_new(parser, AST_BLOCK);
     block->block.statements = statements;
     
-    tok = peek_tok(parser->tr);
+    tok = peek_tok(parser->lexer);
     if (expect_tok(parser, tok, '}')) {
-        tok = peek_next_tok(parser->tr);     
+        tok = peek_next_tok(parser->lexer);     
     } else {
         return 0;
     }
@@ -605,20 +605,20 @@ AST *parse_block(Parser *parser) {
 }
 
 AST *parse_function_signature(Parser *parser) {
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     if (!expect_tok(parser, tok, '(')) {
         return 0;
     }
-    tok = peek_next_tok(parser->tr);
+    tok = peek_next_tok(parser->lexer);
     // Parse arguments
     ASTList args = {0};
     while (tok->kind != ')') {
         if (expect_tok(parser, tok, TOKEN_IDENT)) {
             AST *ident = create_ident(parser, tok->value_str);
-            eat_tok(parser->tr);
+            eat_tok(parser->lexer);
             AST *decl = parse_decl_ident(parser, ident, FALSE);
             ast_list_add(&args, ident);
-            tok = peek_tok(parser->tr);
+            tok = peek_tok(parser->lexer);
         } else {
             break;
         }
@@ -630,19 +630,19 @@ AST *parse_function_signature(Parser *parser) {
     AST *sign = ast_new(parser, AST_FUNC_SIGNATURE);
     sign->func_sign.arguments = args;
     
-    tok = peek_next_tok(parser->tr);
+    tok = peek_next_tok(parser->lexer);
     if (tok->kind == TOKEN_ARROW) {
-        tok = peek_next_tok(parser->tr);
+        tok = peek_next_tok(parser->lexer);
         
         ASTList return_types = {0};
-        Token *tok = peek_tok(parser->tr);
+        Token *tok = peek_tok(parser->lexer);
         for (;;) {
             AST *type = parse_type(parser);
             if (type) {
                 ast_list_add(&return_types, type);
-                tok = peek_tok(parser->tr);
+                tok = peek_tok(parser->lexer);
                 if (tok->kind == ',') {
-                    tok = peek_next_tok(parser->tr);
+                    tok = peek_next_tok(parser->lexer);
                 }
             } else {
                 break;
@@ -656,10 +656,10 @@ AST *parse_function_signature(Parser *parser) {
 
 AST *parse_decl_ident(Parser *parser, AST *ident, b32 end_of_statement) {
     AST *decl = 0;
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     switch (tok->kind) {
         case TOKEN_AUTO_DECL: {
-            tok = peek_next_tok(parser->tr);
+            tok = peek_next_tok(parser->lexer);
             if (tok->kind == '(') {
                 AST *func_sign = parse_function_signature(parser);
                 if (func_sign) {
@@ -679,7 +679,7 @@ AST *parse_decl_ident(Parser *parser, AST *ident, b32 end_of_statement) {
                     decl->decl.expr = expr;
                     decl->decl.is_immutable = FALSE;
                     
-                    tok = peek_tok(parser->tr);
+                    tok = peek_tok(parser->lexer);
                     if (end_of_statement && !parse_end_of_statement(parser, tok)) {
                         decl = 0;
                     }
@@ -687,20 +687,20 @@ AST *parse_decl_ident(Parser *parser, AST *ident, b32 end_of_statement) {
             }
         } break;
         case ':': {
-            eat_tok(parser->tr);
+            eat_tok(parser->lexer);
             AST *type = parse_type(parser);
             assert(type);
             decl = ast_new(parser, AST_DECL);
             decl->decl.ident = ident; 
             decl->decl.type = type;  
-            tok = peek_tok(parser->tr);
+            tok = peek_tok(parser->lexer);
             if (tok->kind == '=') {
-                tok = peek_next_tok(parser->tr);
+                tok = peek_next_tok(parser->lexer);
                 AST *expr = parse_expr(parser);
                 decl->decl.expr = expr;
             } 
             
-            tok = peek_tok(parser->tr);
+            tok = peek_tok(parser->lexer);
             if (end_of_statement && !parse_end_of_statement(parser, tok)) {
                 decl = 0;
             }
@@ -715,10 +715,10 @@ AST *parse_decl_ident(Parser *parser, AST *ident, b32 end_of_statement) {
 
 AST *parse_decl(Parser *parser) {
     AST *decl = 0;
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     if (expect_tok(parser, tok, TOKEN_IDENT)) {
         AST *ident = create_ident(parser, tok->value_str);
-        eat_tok(parser->tr);
+        eat_tok(parser->lexer);
         decl = parse_decl_ident(parser, ident, TRUE);
     }
     
@@ -726,7 +726,7 @@ AST *parse_decl(Parser *parser) {
 }
 
 AST *parser_parse_toplevel(Parser *parser) {
-    Token *tok = peek_tok(parser->tr);
+    Token *tok = peek_tok(parser->lexer);
     if (tok->kind == TOKEN_EOS) {
         return 0;
     }

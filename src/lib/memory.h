@@ -45,7 +45,7 @@ MemoryBlock *mem_alloc_block(uptr size);
 
 // Region-based memory management.
 // In most cases, memory allocation lifetime can be logically assigned to lifetime
-// of some parent object. For example, all tokens exist within tokenizer, AST exists 
+// of some parent object. For example, all tokens exist within lexer, AST exists 
 // within parser etc. 
 // Because of that, life of programmer can be made easier by using arena allocators.
 // By allocating on arena, freeing all memory can be done in single call, without need

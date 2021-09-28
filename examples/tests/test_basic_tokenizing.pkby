@@ -1,0 +1,19 @@
+// comment 
+
+/* multiline 
+comment */
+
+/* /* /* 
+*/ */
+*/
+
+if else while 
+
+1 2 3 3.0 1e5 .3 3.
+
+"string"
+
+"multiline 
+string"
+
+identifier

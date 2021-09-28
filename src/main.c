@@ -1,4 +1,4 @@
-#include "tokenizer.h"
+#include "lexer.h"
 #include "parser.h"
 #include "bytecode_builder.h"
 
@@ -77,8 +77,8 @@ void do_interp(const char *filename, const char *out_filename) {
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
         arena_alloc(&interp_arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
-    Tokenizer *tokenizer = create_tokenizer(er, ss, &in_file_st, in_file_id);
-    Parser *parser = create_parser(tokenizer, ss, er);
+    Lexer *lexer = create_tokenizer(er, ss, &in_file_st, in_file_id);
+    Parser *parser = create_parser(lexer, ss, er);
     BytecodeBuilder *builder = create_bytecode_builder(er);
     for (;;) {
         AST *toplevel = parser_parse_toplevel(parser);
@@ -89,7 +89,7 @@ void do_interp(const char *filename, const char *out_filename) {
         bytecode_builder_proccess_toplevel(builder, toplevel);
     }
     destroy_parser(parser);
-    destroy_tokenizer(tokenizer);
+    destroy_tokenizer(lexer);
     fs_close_file(in_file_id);
     
     if (!is_error_reported(er)) {

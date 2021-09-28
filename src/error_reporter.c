@@ -1,5 +1,5 @@
 #include "error_reporter.h"
-#include "tokenizer.h"
+#include "lexer.h"
 #include "ast.h"
 
 

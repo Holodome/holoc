@@ -1,4 +1,4 @@
-#include "tokenizer.h"
+#include "lexer.h"
 
 #include "lib/strings.h"
 
@@ -43,58 +43,58 @@ is_token_assign(u32 tok) {
         tok == TOKEN_IXOR || tok == TOKEN_ILSHIFT || tok == TOKEN_IRSHIFT; 
 }
 
-Tokenizer *
+Lexer *
 create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file) {
-    Tokenizer *tr = arena_bootstrap(Tokenizer, arena);
-    tr->st = st;
-    tr->curr_loc.symb = 1;
-    tr->curr_loc.line = 1;
-    tr->curr_loc.file = file;
-    tr->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
-    tr->scratch_buffer = arena_alloc(&tr->arena, tr->scratch_buffer_size);
-    tr->ss = ss;
-    tr->er = er;
+    Lexer *lexer = arena_bootstrap(Lexer, arena);
+    lexer->st = st;
+    lexer->curr_loc.symb = 1;
+    lexer->curr_loc.line = 1;
+    lexer->curr_loc.file = file;
+    lexer->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
+    lexer->scratch_buffer = arena_alloc(&lexer->arena, lexer->scratch_buffer_size);
+    lexer->ss = ss;
+    lexer->er = er;
     // create hashes
-    tr->keyword_count = ARRAY_SIZE(KEYWORD_STRS);
-    for (u32 i = 0; i < tr->keyword_count; ++i) {
-        tr->keyword_hashes[i] = hash_string(KEYWORD_STRS[i]);
+    lexer->keyword_count = ARRAY_SIZE(KEYWORD_STRS);
+    for (u32 i = 0; i < lexer->keyword_count; ++i) {
+        lexer->keyword_hashes[i] = hash_string(KEYWORD_STRS[i]);
     }
-    return tr;
+    return lexer;
 }
 
 void 
-destroy_tokenizer(Tokenizer *tr) {
-    arena_clear(&tr->arena);
+destroy_tokenizer(Lexer *lexer) {
+    arena_clear(&lexer->arena);
 }
 
 // @TODO(hl): @SPEED:
 // Do we always have to check for newlines?
 static b32
-advance(Tokenizer *tr, u32 n) {
+advance(Lexer *lexer, u32 n) {
     u32 line_idx = n;
     for (u32 i = 0; i < n; ++i) {
-        if (in_stream_soft_peek_at(tr->st, i) == '\n') {
-            ++tr->curr_loc.line;
+        if (in_stream_soft_peek_at(lexer->st, i) == '\n') {
+            ++lexer->curr_loc.line;
             line_idx = 0;
         } 
         ++line_idx;
     }
-    uptr advanced = in_stream_advance(tr->st, n);
-    tr->curr_loc.symb = line_idx;
+    uptr advanced = in_stream_advance(lexer->st, n);
+    lexer->curr_loc.symb = line_idx;
     return advanced == n;
 }
 
 static b32 
-parse(Tokenizer *tr, const char *str) {
+parse(Lexer *lexer, const char *str) {
     b32 result = FALSE;
     uptr len = str_len(str);
-    assert(len < tr->scratch_buffer_size);
+    assert(len < lexer->scratch_buffer_size);
     // @SPEED(hl): This can be done as direct compare with memory from 
     // stream, like in_stream_cmp(st, bf, bf_sz)
-    if (in_stream_peek(tr->st, tr->scratch_buffer, len) == len) {
-        result = mem_eq(tr->scratch_buffer, str, len);
+    if (in_stream_peek(lexer->st, lexer->scratch_buffer, len) == len) {
+        result = mem_eq(lexer->scratch_buffer, str, len);
         if (result) {
-            advance(tr, len);
+            advance(lexer, len);
         }
     }
     
@@ -102,84 +102,84 @@ parse(Tokenizer *tr, const char *str) {
 }
 
 static void 
-begin_scratch_buffer_write(Tokenizer *tokenizer) {
-    tokenizer->scratch_buffer_used = 0;
+begin_scratch_buffer_write(Lexer *lexer) {
+    lexer->scratch_buffer_used = 0;
 }
 
 static b32 
-scratch_buffer_write_and_advance(Tokenizer *tokenizer, u8 symb) {
+scratch_buffer_write_and_advance(Lexer *lexer, u8 symb) {
     b32 result = FALSE;
     // @NOTE(hl): Reserve ony byte for null-termination
-    if (tokenizer->scratch_buffer_used + 1 < tokenizer->scratch_buffer_size - 1) {
-        tokenizer->scratch_buffer[tokenizer->scratch_buffer_used++] = symb;
-        advance(tokenizer, 1);
+    if (lexer->scratch_buffer_used + 1 < lexer->scratch_buffer_size - 1) {
+        lexer->scratch_buffer[lexer->scratch_buffer_used++] = symb;
+        advance(lexer, 1);
         result = TRUE;
     } 
     return result;
 }
 
 static const char *
-end_scratch_buffer_write(Tokenizer *tokenizer) {
-    if (tokenizer->scratch_buffer_used + 1 < tokenizer->scratch_buffer_size) {
-        tokenizer->scratch_buffer[tokenizer->scratch_buffer_used++] = 0;
+end_scratch_buffer_write(Lexer *lexer) {
+    if (lexer->scratch_buffer_used + 1 < lexer->scratch_buffer_size) {
+        lexer->scratch_buffer[lexer->scratch_buffer_used++] = 0;
     }
-    return (char *)tokenizer->scratch_buffer;
+    return (char *)lexer->scratch_buffer;
 }
 
 Token *
-peek_tok(Tokenizer *tr) {
-    Token *token = tr->active_token;
+peek_tok(Lexer *lexer) {
+    Token *token = lexer->active_token;
     if (token) {
         return token;
     }
     
-    token = arena_alloc_struct(&tr->arena, Token);
-    tr->active_token = token;
+    token = arena_alloc_struct(&lexer->arena, Token);
+    lexer->active_token = token;
 
     for (;;) {
-        u8 symb = in_stream_peek_b_or_zero(tr->st);
+        u8 symb = in_stream_peek_b_or_zero(lexer->st);
         if (!symb) {
             token->kind = TOKEN_EOS;
             break;
         }
         
         if (is_space(symb)) {
-            advance(tr, 1);
+            advance(lexer, 1);
             continue;
-        } else if (parse(tr, "//")) {
+        } else if (parse(lexer, "//")) {
             for (;;) {
-                u8 peeked = in_stream_peek_b_or_zero(tr->st);
+                u8 peeked = in_stream_peek_b_or_zero(lexer->st);
                 if (!peeked || peeked == '\n') {
                     break;
                 }
-                advance(tr, 1);
+                advance(lexer, 1);
             }
             continue;
-        } else if (parse(tr, "/*")) {
-            SrcLoc comment_start_loc = tr->curr_loc;
+        } else if (parse(lexer, "/*")) {
+            SrcLoc comment_start_loc = lexer->curr_loc;
             u32 depth = 1;
             while (depth) {
-                if (parse(tr, "/*")) {
+                if (parse(lexer, "/*")) {
                     ++depth; 
-                } else if (parse(tr, "*/")) {
+                } else if (parse(lexer, "*/")) {
                     --depth;
-                } else if (!advance(tr, 1)) {
+                } else if (!advance(lexer, 1)) {
                     break;
                 }
             }
             
             if (depth) {
-                report_error(tr->er, comment_start_loc, "*/ expected to end comment");
+                report_error(lexer->er, comment_start_loc, "*/ expected to end comment");
             }
             continue;
         }
         
-        token->src_loc = tr->curr_loc;
+        token->src_loc = lexer->curr_loc;
         if (is_digit(symb)) {
-            begin_scratch_buffer_write(tr);
+            begin_scratch_buffer_write(lexer);
             b32 is_real_lit = FALSE;
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(tr->st);
+                u8 symb = in_stream_peek_b_or_zero(lexer->st);
                 if (is_int(symb)) {
                     // nop
                 } else if (is_real(symb)) {
@@ -188,12 +188,12 @@ peek_tok(Tokenizer *tr) {
                     break;
                 }
                 
-                if (!scratch_buffer_write_and_advance(tr, symb)) {
-                    report_error_tok(tr->er, token, "Too long number literal. Maximum length is %u", tr->scratch_buffer_size - 1);
+                if (!scratch_buffer_write_and_advance(lexer, symb)) {
+                    report_error_tok(lexer->er, token, "Too long number literal. Maximum length is %u", lexer->scratch_buffer_size - 1);
                     break;
                 }
             }
-            const char *lit = end_scratch_buffer_write(tr);
+            const char *lit = end_scratch_buffer_write(lexer);
             
             if (is_real_lit) {
                 f64 real = str_to_f64(lit);
@@ -207,52 +207,52 @@ peek_tok(Tokenizer *tr) {
             break;
             
         } else if (is_ident_start(symb)) {
-            begin_scratch_buffer_write(tr);
-            scratch_buffer_write_and_advance(tr, symb);
+            begin_scratch_buffer_write(lexer);
+            scratch_buffer_write_and_advance(lexer, symb);
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(tr->st);
+                u8 symb = in_stream_peek_b_or_zero(lexer->st);
                 if (!is_ident(symb)) {
                     break;
                 }
                 
-                if (!scratch_buffer_write_and_advance(tr, symb)) {
-                    report_error_tok(tr->er, token, "Too long ident name. Maximum length is %u", tr->scratch_buffer_size - 1);
+                if (!scratch_buffer_write_and_advance(lexer, symb)) {
+                    report_error_tok(lexer->er, token, "Too long ident name. Maximum length is %u", lexer->scratch_buffer_size - 1);
                     break;
                 }
             }
-            const char *lit = end_scratch_buffer_write(tr);
+            const char *lit = end_scratch_buffer_write(lexer);
             u64 lit_hash = hash_string(lit);  // @SPEED(hl): This can be futher optimized, if we bake in 
             // hashing into parsing
-            for (u32 kind = TOKEN_KEYWORD, i = 0; i < tr->keyword_count; ++i, ++kind) {
-                if (lit_hash == tr->keyword_hashes[i]) {
+            for (u32 kind = TOKEN_KEYWORD, i = 0; i < lexer->keyword_count; ++i, ++kind) {
+                if (lit_hash == lexer->keyword_hashes[i]) {
                     token->kind = kind;
                     break;
                 }
             }
             
             if (!token->kind) {
-                StringID id = string_storage_add(tr->ss, lit);
+                StringID id = string_storage_add(lexer->ss, lit);
                 token->kind = TOKEN_IDENT;
                 token->value_str = id;
             }
             break;
         } else if (symb == '\"') {
-            advance(tr, 1);
-            begin_scratch_buffer_write(tr);
+            advance(lexer, 1);
+            begin_scratch_buffer_write(lexer);
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(tr->st);
+                u8 symb = in_stream_peek_b_or_zero(lexer->st);
                 if (symb == '\"') {
                     break;
                 }
                 
-                if (!scratch_buffer_write_and_advance(tr, symb)) {
-                    report_error_tok(tr->er, token, "Too long string name. Maximum length is %u", tr->scratch_buffer_size - 1);
+                if (!scratch_buffer_write_and_advance(lexer, symb)) {
+                    report_error_tok(lexer->er, token, "Too long string name. Maximum length is %u", lexer->scratch_buffer_size - 1);
                     break;
                 }
             }
-            const char *lit = end_scratch_buffer_write(tr);
+            const char *lit = end_scratch_buffer_write(lexer);
             
-            StringID id = string_storage_add(tr->ss, lit);
+            StringID id = string_storage_add(lexer->ss, lit);
             token->kind = TOKEN_STR;
             token->value_str = id;
             break;
@@ -260,7 +260,7 @@ peek_tok(Tokenizer *tr) {
             // Because muttiple operators can be put together (+=-2),
             // check by descending length
             for (u32 kind = TOKEN_MULTISYMB, i = 0; i < ARRAY_SIZE(MULTISYMB_STRS); ++i, ++kind) {
-                if (parse(tr, MULTISYMB_STRS[i])) {
+                if (parse(lexer, MULTISYMB_STRS[i])) {
                     token->kind = kind;
                     break;
                 }
@@ -269,13 +269,13 @@ peek_tok(Tokenizer *tr) {
             // All unhandled cases before - single character 
             if (!token->kind) {
                 token->kind = symb;
-                advance(tr, 1);
+                advance(lexer, 1);
             }
             break;
         } else {
-            report_error_tok(tr->er, token, "Unexpected character");
+            report_error_tok(lexer->er, token, "Unexpected character");
             token->kind = TOKEN_ERROR;
-            advance(tr, 1);
+            advance(lexer, 1);
             break;
         }
     }
@@ -283,16 +283,16 @@ peek_tok(Tokenizer *tr) {
 }
 
 void 
-eat_tok(Tokenizer *tr) {
-    if (tr->active_token) {
-        tr->active_token = 0;
+eat_tok(Lexer *lexer) {
+    if (lexer->active_token) {
+        lexer->active_token = 0;
     }
 }
 
 Token *
-peek_next_tok(Tokenizer *tr) {
-    eat_tok(tr);
-    return peek_tok(tr);    
+peek_next_tok(Lexer *lexer) {
+    eat_tok(lexer);
+    return peek_tok(lexer);    
 }
 
 uptr 
