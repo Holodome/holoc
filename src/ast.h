@@ -48,14 +48,16 @@ typedef struct AST AST;
 // 1) Order
 // 2) Fast addition of individual elements (implies linked list)
 typedef struct ASTList {
-    AST *first;
-    AST *last;
+    struct AST *sentinel;
     
+    b32 DBG_is_initialized;
     u32 DBG_len;
 } ASTList;
 
 // @NOTE(hl): Shorthand for writing iterative for loops
-#define AST_LIST_ITER(_list, _it) for (AST *_it = (_list)->first; _it; _it = _it->next)
+#define AST_LIST_ITER_(_sentinel, _it) for (AST *_it = (_sentinel)->next; _it != (_sentinel); _it = _it->next)
+#define AST_LIST_ITER(_list, _it) AST_LIST_ITER_((_list)->sentinel, _it)
+ASTList create_ast_list(AST *sentinel);
 void ast_list_add(ASTList *list, AST *ast);
 
 //
@@ -195,6 +197,7 @@ struct AST {
     SrcLoc src_loc;
     // for use in linked lists
     AST *next;
+    AST *prev;
     union  {
         ASTBlock block;
         ASTLit lit;

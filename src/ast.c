@@ -80,12 +80,19 @@ const char *AST_BINARY_SYMBS[] = {
     "||",    
 };
 
+ASTList 
+create_ast_list(AST *sentinel) {
+    ASTList result = {0};
+    result.DBG_is_initialized = TRUE;
+    result.sentinel = sentinel;
+    CDLIST_INIT(result.sentinel);
+    return result;    
+}
+
 void ast_list_add(ASTList *list, AST *ast) {
+    assert(list->DBG_is_initialized);
     ++list->DBG_len;
-    LLIST_ADD(list->first, ast);
-    if (!list->last) {
-        list->last = ast;
-    }
+    CDLIST_ADD_LAST(list->sentinel, ast);
 }
 
 void fmt_ast_tree(StringStorage *ss, OutStream *st, AST *ast, u32 depth) {
