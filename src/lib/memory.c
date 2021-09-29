@@ -68,7 +68,7 @@ static uptr get_alignment_offset(MemoryArena *arena, uptr align) {
 }
 
 static uptr get_effective_size(MemoryArena *arena, uptr size) {
-    return size + get_alignment_offset(arena, MEMORY_ARENA_DEFAULT_ALIGNMENT);
+    return size + get_alignment_offset(arena, MEM_DEFAULT_ALIGNMENT);
 }
 
 void *arena_alloc(MemoryArena *arena, uptr size_init) {
@@ -83,7 +83,7 @@ void *arena_alloc(MemoryArena *arena, uptr size_init) {
                 (arena->current_block->used + size > arena->current_block->size)) {
             size = size_init;
             if (!arena->minimum_block_size) {
-                arena->minimum_block_size = MEMORY_ARENA_DEFAULT_MINIMAL_BLOCK_SIZE;
+                arena->minimum_block_size = MEM_DEFAULT_ALIGNMENT;
             }
 
             uptr block_size = size;
@@ -96,7 +96,7 @@ void *arena_alloc(MemoryArena *arena, uptr size_init) {
         }
 
         assert(arena->current_block->used + size < arena->current_block->size);
-        uptr align_offset = get_alignment_offset(arena, MEMORY_ARENA_DEFAULT_ALIGNMENT);
+        uptr align_offset = get_alignment_offset(arena, MEM_DEFAULT_ALIGNMENT);
         uptr block_offset = arena->current_block->used + align_offset;
         result = arena->current_block->base + block_offset;
         arena->current_block->used += size;

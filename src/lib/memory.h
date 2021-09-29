@@ -8,6 +8,55 @@
 #pragma once 
 #include "lib/general.h"
 
+#define MEM_ALLOC_UNDERFLOW_CHECK 0x1
+#define MEM_ALLOC_OVERFLOW_CHECK  0x2
+
+// @NOTE: current memory system allows dynamically created and growing arenas
+// Other option is to preallocate memory for whole game and allocate from it 
+// selectively using subarens (for example let game use 8G, 4G be assets, 2G game world etc.)
+// This is actually way more faster and effective and dynamic arenas
+// Dynamic arenas have some problems like memory fragmentation, but allow not to care about arena sizes
+// and tweak only default size
+// In end of development we may want to switch to preallocating memory for whole game to be more
+// effective and fast and let user specify amounth of memory that game can allocate
+// @NOTE: Also using individual arenas can help catch memory access bugs, like overflow or underflow
+#define MEM_DEFUALT_ARENA_BLOCK_SIZE (1024 * 1024)
+#define MEM_DEFAULT_ALIGNMENT 16
+CT_ASSERT(IS_POW2(MEM_DEFAULT_ALIGNMENT));
+#define MEM_DEFAULT_ALLOC_FLAGS 0
+// @NOTE: DEBUG STUFF
+// Flag if all block allocations should have guarded pages around them
+#define MEM_DO_BOUNDS_CHECKING 0
+#define MEM_BOUNDS_CHECKING_POLICY MEM_ALLOC_OVERFLOW_CHECK
+// Flag if all allocations are done in separate blocks each of which is guarded
+// This is highly ineffective and it is even not certain that we will be able to do so 
+// with a lot of allocations because we could simply run out of memory
+// Basically only this option enables us to do full bounds check, because bounds only for blocks
+// may not be able to catch a lot of memory access errors within blocks, and even allow overflows
+// up to alignment size
+// @TODO: there is a way to reliably do hard bounds checking selectively if we pass this down as a 
+// flag and don't record hard bounds-checked allocation in debug system
+// We may want to switch having this as an option in contrast to global flag if running out of 
+// memory becomes a problem
+// But really without hard checks bounds checking makes little sence
+#define MEM_DO_HARD_BOUNDS_CHECKING_INTERNAL 1
+#define MEM_DO_HARD_BOUNDS_CHECKING (MEM_DO_HARD_BOUNDS_CHECKING_INTERNAL && MEM_DO_BOUNDS_CHECKING)
+CT_ASSERT((u32)MEM_DO_HARD_BOUNDS_CHECKING <= MEM_DO_BOUNDS_CHECKING);
+
+#if MEM_DO_BOUNDS_CHECKING
+// @NOTE: There is no way to do both overflow and underflow check simulateously due
+// to page size limitations.
+// We don't raise errors in platform layer but do it here
+CT_ASSERT((u32)TO_BOOL(MEM_BOUNDS_CHECKING_POLICY & MEM_ALLOC_OVERFLOW_CHECK) + (u32)TO_BOOL(MEM_BOUNDS_CHECKING_POLICY & MEM_ALLOC_UNDERFLOW_CHECK) == 1);
+#undef MEM_DEFAULT_ALLOC_FLAGS
+#define MEM_DEFAULT_ALLOC_FLAGS MEM_BOUNDS_CHECKING_POLICY
+#endif 
+
+#if MEM_DO_HARD_BOUNDS_CHECKING
+#undef MEM_DEFAULT_ALIGNMENT
+#define MEM_DEFAULT_ALIGNMENT 1
+#endif 
+
 // standard library-like functions
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory
 // malloc
@@ -39,9 +88,6 @@ typedef struct MemoryBlock {
 
 MemoryBlock *mem_alloc_block(uptr size);
 // Blocks can be freed with mem_free call
-
-#define MEMORY_ARENA_DEFAULT_MINIMAL_BLOCK_SIZE MB(4)
-#define MEMORY_ARENA_DEFAULT_ALIGNMENT 16
 
 // Region-based memory management.
 // In most cases, memory allocation lifetime can be logically assigned to lifetime

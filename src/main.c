@@ -51,26 +51,59 @@ do_tokenizing(const char *filename) {
         IN_STREAM_DEFAULT_THRESHLOD);
     Lexer *lexer = create_lexer(er, ss, &in_file_st, in_file_id);
     u32 last_line_number = (u32)-1;
+    OutStream *out = get_stdout_stream();
     for (;;) {
         Token *tok = peek_tok(lexer);
         if (tok->kind != TOKEN_EOS) {
             char token_bf[1024];
             fmt_tok(token_bf, sizeof(token_bf), ss, tok);
             if (tok->src_loc.line != last_line_number) {
-                out_streamf(get_stdout_stream(), "\n");
+                out_streamf(out, "\n");
             }
             last_line_number = tok->src_loc.line;
-            out_streamf(get_stdout_stream(), "%s ", token_bf);
+            out_streamf(out, "%s ", token_bf);
             eat_tok(lexer);
         } else {
             break;
         }
     }
-    out_streamf(get_stdout_stream(), "\n");
+    out_streamf(out, "\n");
     destroy_lexer(lexer);
     fs_close_file(in_file_id);
     
     arena_clear(&interp_arena);
+}
+
+static void 
+do_ast_view(const char *filename) {
+    MemoryArena interp_arena = {0};
+    StringStorage *ss = create_string_storage(STRING_STORAGE_HASH_SIZE, &interp_arena);
+    ErrorReporter *er = create_error_reporter(get_stdout_stream(), get_stderr_stream(), &interp_arena);
+    
+    FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    InStream in_file_st = {0};
+    init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
+        arena_alloc(&interp_arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        IN_STREAM_DEFAULT_THRESHLOD);
+    Lexer *lexer = create_lexer(er, ss, &in_file_st, in_file_id);
+    Parser *parser = create_parser(lexer, ss, er);
+    for (;;) {
+        AST *toplevel = parser_parse_toplevel(parser);
+        if (!toplevel || is_error_reported(er)) {
+            break;
+        }
+        fmt_ast_tree(ss, get_stdout_stream(), toplevel, 0);
+    }
+    destroy_parser(parser);
+    destroy_lexer(lexer);
+    fs_close_file(in_file_id);
+    
+    arena_clear(&interp_arena);
+}
+
+static void 
+do_ast_to_src(const char *filename) {
+    
 }
 
 enum {
@@ -81,6 +114,7 @@ enum {
 };
 
 typedef struct {
+    b32 test;
     char **filenames;
     char *out_filename;
     char *mode_str;
@@ -107,6 +141,11 @@ int main(int argc, char **argv) {
             .narg = 1,
             .output_offset = STRUCT_OFFSET(ProgramSettings, mode_str),
             .type = CLARG_TYPE_STR,
+        },
+        {
+            .name = "-test",
+            .output_offset = STRUCT_OFFSET(ProgramSettings, test),
+            .type = CLARG_TYPE_BOOL
         }
     };
     ProgramSettings settings = {};
@@ -123,6 +162,7 @@ int main(int argc, char **argv) {
         settings.mode = PROGRAM_COMPILE;
     } else {
         erroutf("Unknown -mode: %s\n", settings.mode_str);
+        return 1;
     }
     
     assert(settings.filenames);
@@ -135,13 +175,15 @@ int main(int argc, char **argv) {
             do_tokenizing(filename);
         } break;
         case PROGRAM_AST: {
-            NOT_IMPLEMENTED;
+            do_ast_view(filename);
         } break;
         case PROGRAM_AST_TO_SRC: {
             NOT_IMPLEMENTED;
         } break;
+        INVALID_DEFAULT_CASE;
     }
-    outf("Exited without errors\n");
+    
+    outf("End of main\n");
     out_stream_flush(get_stdout_stream());
     out_stream_flush(get_stderr_stream());
     return 0;
