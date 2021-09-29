@@ -1,5 +1,6 @@
 #include "string_storage.h"
 #include "lib/strings.h"
+#include "lib/lists.h"
 
 StringStorage * 
 create_string_storage(u32 hash_size, MemoryArena *arena) {

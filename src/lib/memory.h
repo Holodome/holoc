@@ -15,7 +15,7 @@ void *mem_alloc(uptr size);
 // realloc
 void *mem_realloc(void *ptr, uptr old_size, uptr size);
 // strdup
-char *mem_alloc_str(char *str);
+char *mem_alloc_str(const char *str);
 // free
 void mem_free(void *ptr, uptr size);
 // memcpy

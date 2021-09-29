@@ -1,6 +1,7 @@
 #include "lib/memory.h"
 
 #include "lib/strings.h"
+#include "lib/lists.h"
 
 #include <string.h> // memset, memcpy, memmove
 #include <stdlib.h> // malloc, free
@@ -20,7 +21,7 @@ void *mem_realloc(void *ptr, uptr old_size, uptr size) {
     return new_ptr;
 }
 
-char *mem_alloc_str(char *str) {
+char *mem_alloc_str(const char *str) {
     uptr len = str_len(str) + 1;
     char *result = mem_alloc(len);
     mem_copy(result, str, len);

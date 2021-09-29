@@ -1,71 +1,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "bytecode_builder.h"
-
-enum {
-    PROGRAM_TOKEN_VIEW,
-    PROGRAM_AST_VIEW,
-    PROGRAM_BYTECODE_GEN,
-    PROGRAM_BYTECODE_EXEC,
-};
-
-const char *program_mode_strs[] = {
-    "token_view",
-    "ast_view",
-    "bytecode_gen",
-    "bytecode_exec"
-};
-
-typedef struct {
-    b32 is_valid;
-    
-    b32 print_help;
-    u32 mode;
-    char *filename;
-} ProgramSettings;
-
-static void settings_set_mode(ProgramSettings *settings, u32 mode) {
-    if (settings->mode) {
-        outf("WARN: Program mode already set ('%s'). Resetting it to '%s'\n", 
-            program_mode_strs[settings->mode], mode);
-    }
-    settings->mode = mode;
-} 
-
-static ProgramSettings parse_command_line_args(int argc, char **argv) {
-    ProgramSettings settings = {0};
-    
-    u32 cursor = 1;
-    while (cursor < argc) {
-        char *arg = argv[cursor];
-        if (str_eq(arg, "-token_view")) {
-            settings_set_mode(&settings, PROGRAM_TOKEN_VIEW);
-            ++cursor;
-        } else if (str_eq(arg, "-ast_view")) {
-            settings_set_mode(&settings, PROGRAM_AST_VIEW);
-            ++cursor;
-        } else if (str_eq(arg, "-help")) {
-            settings.print_help = TRUE;
-            ++cursor;   
-        } else {
-            if (arg[0] == '-') {
-                outf("Unexpected option '%s'\n", arg);
-                ++cursor;
-            } else {
-                settings.filename = mem_alloc_str(arg);
-                ++cursor;
-            }
-        }
-    }
-    
-    // validate
-    settings.is_valid = TRUE;
-    if (!settings.filename) {
-        outf("No input file provided\n");
-        settings.is_valid = FALSE;
-    }
-    return settings;
-}
+#include "lib/clarg_parse.h"
 
 void do_interp(const char *filename, const char *out_filename) {
     MemoryArena interp_arena = {0};
@@ -101,19 +37,61 @@ void do_interp(const char *filename, const char *out_filename) {
     arena_clear(&interp_arena);
 }
 
+enum {
+    PROGRAM_COMPILE,
+    PROGRAM_TOKENIZE,
+    PROGRAM_AST,
+    PROGRAM_AST_TO_SRC,
+};
+
+typedef struct {
+    char **filenames;
+    char *out_filename;
+    char *mode_str;
+    u32 mode;
+} ProgramSettings;
+
 int main(int argc, char **argv) {
     init_filesystem();
-    ProgramSettings settings = parse_command_line_args(argc, argv);
-    if (settings.print_help) {
-        // @TODO
-        outf("help\n");
-    }
-    if (!settings.is_valid) {
-        outf("Aborting\n");
-        return 1;
+    CLArgInfo arg_infos[] = {
+        {
+            .name = "Filenames",
+            .narg = CLARG_NARG,
+            .output_offset = STRUCT_OFFSET(ProgramSettings, filenames),
+            .type = CLARG_TYPE_STR
+        },
+        {
+            .name = "-out",
+            .narg = 1,
+            .output_offset = STRUCT_OFFSET(ProgramSettings, out_filename),
+            .type = CLARG_TYPE_STR
+        },
+        {
+            .name = "-mode",
+            .narg = 1,
+            .output_offset = STRUCT_OFFSET(ProgramSettings, mode_str),
+            .type = CLARG_TYPE_STR,
+        }
+    };
+    ProgramSettings settings = {};
+    clarg_parse(&settings, arg_infos, ARRAY_SIZE(arg_infos), argc, argv);
+    if (!settings.mode_str) {
+        settings.mode = PROGRAM_COMPILE;
+    } else if (str_eq(settings.mode_str, "tokenize")) {
+        settings.mode = PROGRAM_TOKENIZE;
+    } else if (str_eq(settings.mode_str, "ast")) {
+        settings.mode = PROGRAM_AST;
+    } else if (str_eq(settings.mode_str, "ast_to_src")) {
+        settings.mode = PROGRAM_AST_TO_SRC;
+    } else if (str_eq(settings.mode_str, "compile")) {
+        settings.mode = PROGRAM_COMPILE;
+    } else {
+        erroutf("Unknown -mode: %s\n", settings.mode_str);
     }
     
-    do_interp(settings.filename, "out.pkex");
+    assert(settings.filenames);
+    const char *filename = settings.filenames[0];
+    do_interp(filename, "out.pkex");
     
     outf("Exited without errors\n");
     out_stream_flush(get_stdout_stream());

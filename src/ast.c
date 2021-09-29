@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "lib/strings.h"
+#include "lib/lists.h"
 
 const char *AST_TYPE_STRS[] = {
     "None",
