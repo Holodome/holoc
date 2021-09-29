@@ -28,6 +28,8 @@ void os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
         file->handle = posix_handle;
     } else if (posix_handle == -1) {
         file->flags |= FILE_FLAG_HAS_ERRORS;
+        erroutf("Errno: %d", errno);
+        DBG_BREAKPOINT;
     }
 }
 

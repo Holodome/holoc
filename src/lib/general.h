@@ -31,13 +31,13 @@ typedef double f64;
 #define MB(_b) (KB(_b) << 10)
 #define IS_POW2(_n) (((_n) & (_n - 1)) == 0)
 
-#include <assert.h>
 #include <stdarg.h>
 #ifdef _MSC_VER
 #define DBG_BREAKPOINT __debugbreak()
 #else 
 #define DBG_BREAKPOINT __builtin_trap()
 #endif 
+#define assert(_expr) if (!(_expr)) { __builtin_trap(); }
 #define STRUCT_FIELD(_struct, _field) (((_struct *)0)->_field)
 #define STRUCT_OFFSET(_struct, _field) ((uptr)((u8 *)(&STRUCT_FIELD(_struct, _field))))
 #define NOT_IMPLEMENTED DBG_BREAKPOINT

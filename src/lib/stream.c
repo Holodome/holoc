@@ -1,8 +1,15 @@
 #include "lib/stream.h"
 #include "lib/memory.h"
 #include "lib/strings.h"
-#define STREAM_NEEDS_FLUSH(_st) ((_st)->mode == STREAM_FILE && (_st)->bf_idx >= (_st)->threshold)
 
+static b32
+out_st_needs_flush(OutStream *st) {
+    b32 result = FALSE;
+    if (st->mode == STREAM_FILE || st->mode == STREAM_STDERR || st->mode == STREAM_STDOUT) {
+        result = st->bf_idx >= st->threshold;
+    }
+    return result;
+}
 // When workign with binary data and size of sizngle data block is bigger than
 // threshold, data should be written directly
 static void out_stream_write_direct(OutStream *st, const void *data, uptr data_sz) {
@@ -34,12 +41,12 @@ uptr out_streamf(OutStream *st, const char *format, ...) {
 }
 
 uptr out_streamv(OutStream *st, const char *format, va_list args) {
-    assert(!STREAM_NEEDS_FLUSH(st));
+    assert(!out_st_needs_flush(st));
     u32 bytes_written = vfmt((char *)st->bf + st->bf_idx, st->bf_sz - st->bf_idx, format, args);
     st->bf_idx += bytes_written;
     // this should never be hit due to nature of fmt, but assert in case fmt breaks
     assert(st->bf_idx < st->bf_sz);
-    if (STREAM_NEEDS_FLUSH(st)) {
+    if (out_st_needs_flush(st)) {
         out_stream_flush(st);
     }
     return bytes_written;   
@@ -53,7 +60,7 @@ void out_streamb(OutStream *st, const void *b, uptr c) {
         }
         mem_copy(st->bf, b, c);
         st->bf_idx = c;
-        if (STREAM_NEEDS_FLUSH(st)) {
+        if (out_st_needs_flush(st)) {
             out_stream_flush(st);
         }
     } else {

@@ -114,8 +114,8 @@ typedef struct Lexer {
     Token *active_token;
 } Lexer;
 
-Lexer *create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file);
-void destroy_tokenizer(Lexer *lexer);
+Lexer *create_lexer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file);
+void destroy_lexer(Lexer *lexer);
 // Returns current token. Stores token until it's eaten
 Token *peek_tok(Lexer *lexer);
 // Tell lexer to return next token on next peek_tok call

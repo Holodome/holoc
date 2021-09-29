@@ -44,7 +44,7 @@ is_token_assign(u32 tok) {
 }
 
 Lexer *
-create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file) {
+create_lexer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file) {
     Lexer *lexer = arena_bootstrap(Lexer, arena);
     lexer->st = st;
     lexer->curr_loc.symb = 1;
@@ -63,7 +63,7 @@ create_tokenizer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file
 }
 
 void 
-destroy_tokenizer(Lexer *lexer) {
+destroy_lexer(Lexer *lexer) {
     arena_clear(&lexer->arena);
 }
 
