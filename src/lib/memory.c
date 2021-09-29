@@ -4,15 +4,6 @@
 #include "lib/lists.h"
 
 #include <string.h> // memset, memcpy, memmove
-#include <stdlib.h> // malloc, free
-
-void *mem_alloc(uptr size) {
-    void *result = 0;
-    result = malloc(size);
-    assert(result);
-    mem_zero(result, size);
-    return result;
-}
 
 void *mem_realloc(void *ptr, uptr old_size, uptr size) {
     void *new_ptr = mem_alloc(size);
@@ -26,10 +17,6 @@ char *mem_alloc_str(const char *str) {
     char *result = mem_alloc(len);
     mem_copy(result, str, len);
     return result;    
-}
-
-void mem_free(void *ptr, uptr size) {
-    free(ptr);
 }
 
 void mem_copy(void *dst, const void *src, uptr size) {
@@ -46,14 +33,6 @@ void mem_zero(void *dst, uptr size) {
 
 b32 mem_eq(const void *a, const void *b, uptr n) {
     return memcmp(a, b, n) == 0;
-}
-
-MemoryBlock *mem_alloc_block(uptr size) {
-    uptr total_size = size + sizeof(MemoryBlock);
-    MemoryBlock *block = mem_alloc(total_size);
-    block->size = size;
-    block->base = (u8 *)block + sizeof(MemoryBlock);
-    return block;
 }
 
 static uptr get_alignment_offset(MemoryArena *arena, uptr align) {
@@ -83,7 +62,7 @@ void *arena_alloc(MemoryArena *arena, uptr size_init) {
                 (arena->current_block->used + size > arena->current_block->size)) {
             size = size_init;
             if (!arena->minimum_block_size) {
-                arena->minimum_block_size = MEM_DEFAULT_ALIGNMENT;
+                arena->minimum_block_size = MEM_DEFUALT_ARENA_BLOCK_SIZE;
             }
 
             uptr block_size = size;
@@ -122,7 +101,7 @@ char *arena_alloc_str(MemoryArena *arena, const char *src) {
 void arena_free_last_block(MemoryArena *arena) {
     MemoryBlock *block = arena->current_block;
     LLIST_POP(arena->current_block);
-    mem_free(block, block->size + sizeof(MemoryBlock));
+    mem_free_block(block);
 }
 // Frees all blocks
 void arena_clear(MemoryArena *arena) {
@@ -167,3 +146,14 @@ void end_temp_memory(TemporaryMemory temp) {
     }
 }
 
+#if MEM_USE_STDLIB
+#include "lib/memory_stdlib.inl"
+#else 
+#if OS_WINDOWS
+#include "memory_win32.inl"
+#elif OS_POSIX 
+#include "memory_posix.inl"
+#else 
+#error !
+#endif 
+#endif 

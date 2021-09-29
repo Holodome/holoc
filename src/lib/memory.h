@@ -7,6 +7,9 @@
 // @NOTE All allocation functions set allocated memory to zero
 #pragma once 
 #include "lib/general.h"
+#include "lib/utils.h"
+
+#define MEM_USE_STDLIB 0
 
 #define MEM_ALLOC_UNDERFLOW_CHECK 0x1
 #define MEM_ALLOC_OVERFLOW_CHECK  0x2
@@ -87,6 +90,7 @@ typedef struct MemoryBlock {
 } MemoryBlock;
 
 MemoryBlock *mem_alloc_block(uptr size);
+void mem_free_block(MemoryBlock *block);
 // Blocks can be freed with mem_free call
 
 // Region-based memory management.

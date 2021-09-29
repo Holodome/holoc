@@ -1,9 +1,10 @@
 #include "general.h"
-#if OS_WINDOWS
 #include "memory.h"
 
+#include <windows.h>
 
 MemoryBlock *os_alloc_block(uptr size, u32 flags) {
+    // @TODO(hl): There probably is little point in page alignment and stuff, because allocation requst size differs. There should be api of getting size for allocation outside of platform, so numbers here don't have to be tweaked 
     uptr page_size = 4096;
     // @NOTE: size must account for alignment, so when 
     uptr request_size = align_forward_pow2(size + sizeof(MemoryBlock), MEM_DEFAULT_ALIGNMENT);

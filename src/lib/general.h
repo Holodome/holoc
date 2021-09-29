@@ -15,11 +15,13 @@
 #define OS_MACOS   0
 #define OS_IPHONE  0
 #define OS_LINUX   0
+#define OS_UNIX    0
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 #undef  OS_WINDOWS
 #define OS_WINDOWS 1
 #elif defined(__APPLE__)
+#define OS_POSIX 1
 #include <TargetConditionals.h>
 #if TARGET_IPHONE_SIMULATOR
 #undef  OS_IPHONE
@@ -34,19 +36,20 @@
 #error Unknown Apple platform
 #endif
 #elif defined(__linux__)
+#define OS_POSIX 1
 #undef OS_LINUX
 #define OS_LINUX 1
 #elif defined(__unix__)
-#error !
+#define OS_POSIX 1
+#undef OS_UNIX 
+#define OS_UNIX 1
 #else
 #error Unknown os
 #endif
 
-#if defined(_POSIX_VERSION)
-#define OS_POSIX 1
-#else
+#ifndef OS_POSIX
 #define OS_POSIX 0
-#endif 
+#endif
 
 #define COMPILER_MSVC  0
 #define COMPILER_LLVM  0
@@ -89,9 +92,7 @@ typedef double f64;
 #define TO_BOOL(_expr) ((_expr) ? TRUE : FALSE)
 #define ARRAY_SIZE(_a) ((uptr)(sizeof(_a) / sizeof(*(_a))))
 #define CT_ASSERT(_expr) _Static_assert(_expr, "Assertion " #_expr " failed")
-#define KB(_b) ((uptr)(_b) << 10)
-#define MB(_b) (KB(_b) << 10)
-#define IS_POW2(_n) ( ( (_n) & ((_n) - 1) ) == 0 )
+
 #include <stdarg.h>
 #define STRUCT_FIELD(_struct, _field) (((_struct *)0)->_field)
 #define STRUCT_OFFSET(_struct, _field) ((uptr)((u8 *)(&STRUCT_FIELD(_struct, _field))))
