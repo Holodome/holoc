@@ -77,7 +77,8 @@ static const u32 CRC32_LUT[] = {
     0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
 };
 
-u32 crc32(u32 crc, const char *bf, uptr bf_sz) {
+u32 crc32(u32 crc, const void *bf_init, uptr bf_sz) {
+    u8 *bf = (u8 *)bf_init;
     while (bf_sz--) {
         crc = (crc << 8) ^ CRC32_LUT[((crc >> 24) ^ *bf) & 0xFF];
     }  
@@ -104,7 +105,7 @@ static u64 *hash64_get_internal(Hash64 *hash, u64 key) {
     return result;
 }
 
-Hash64 create_hash64(u64 n, struct MemoryArena *arena) {
+Hash64 create_hash64(u32 n, struct MemoryArena *arena) {
     Hash64 hash = {0};
     hash.num_buckets = n;
     hash.keys = arena_alloc_array(arena, n, u64);

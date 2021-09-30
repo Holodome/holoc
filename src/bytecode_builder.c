@@ -95,7 +95,7 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
     out_stream_flush(get_stdout_stream());
     
     BytecodeBuilderVar *var = arena_alloc_struct(&builder->arena, BytecodeBuilderVar);
-    LLIST_ADD(builder->static_vars, var);
+    STACK_ADD(builder->static_vars, var);
     var->name = ident_ast->ident.name;
     var->storage = storage;
     var->type = decl_type;
@@ -105,7 +105,7 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
 static void add_func_def(BytecodeBuilder *builder, AST *decl) {
     assert(decl->kind == AST_FUNC_DECL);
     BytecodeBuilderFunction *function = arena_alloc_struct(&builder->arena, BytecodeBuilderFunction);
-    LLIST_ADD(builder->functions, function);
+    STACK_ADD(builder->functions, function);
     // Parse function name
     AST *func_name = decl->func_decl.name;
     assert(func_name->kind == AST_IDENT);

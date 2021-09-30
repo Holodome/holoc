@@ -23,7 +23,7 @@
 // In end of development we may want to switch to preallocating memory for whole game to be more
 // effective and fast and let user specify amounth of memory that game can allocate
 // @NOTE: Also using individual arenas can help catch memory access bugs, like overflow or underflow
-#define MEM_DEFUALT_ARENA_BLOCK_SIZE (1024 * 1024)
+#define MEM_DEFUALT_ARENA_BLOCK_SIZE MB(2)
 #define MEM_DEFAULT_ALIGNMENT 16
 CT_ASSERT(IS_POW2(MEM_DEFAULT_ALIGNMENT));
 #define MEM_DEFAULT_ALLOC_FLAGS 0
@@ -107,7 +107,9 @@ void mem_free_block(MemoryBlock *block);
 // Can be zero-initialized, then minimal_block_size is set to default value
 // How arena manages its blocks is not controlled by other parts of this program
 // Calling arena-based allocation functions makes the most optimal allocation in terms of saving memory
-// and user has no control over that.
+// and user has no control over that
+//
+// @NOTE(hl): One of the latter benefits of memory arenas is inside the multithreaded code
 typedef struct MemoryArena {
     MemoryBlock *current_block;
     uptr minimum_block_size;

@@ -71,7 +71,7 @@ void *arena_alloc(MemoryArena *arena, uptr size_init) {
             }
 
             MemoryBlock *new_block = mem_alloc_block(block_size);
-            LLIST_ADD(arena->current_block, new_block);
+            STACK_ADD(arena->current_block, new_block);
         }
 
         assert(arena->current_block->used + size < arena->current_block->size);
@@ -100,7 +100,7 @@ char *arena_alloc_str(MemoryArena *arena, const char *src) {
 
 void arena_free_last_block(MemoryArena *arena) {
     MemoryBlock *block = arena->current_block;
-    LLIST_POP(arena->current_block);
+    STACK_POP(arena->current_block);
     mem_free_block(block);
 }
 // Frees all blocks

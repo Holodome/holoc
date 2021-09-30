@@ -189,3 +189,43 @@ uptr erroutv(const char *msg, va_list args) {
     out_stream_flush(st);
     return result;
 }
+
+
+Text text(const char *data, u32 len) {
+    Text text;
+    text.data = data;
+    text.len = len;
+    return text;
+}
+
+b32 text_eq(Text a, Text b) {
+    b32 result = FALSE;
+    if (a.len == b.len) {
+        result = mem_eq(a.data, b.data, a.len);
+    }
+    return result;
+}
+
+b32 text_startswith(Text a, Text b) {
+    b32 result = FALSE;
+    if (a.len >= b.len) {
+        result = mem_eq(a.data, b.data, b.len);
+    }
+    return result;
+}
+
+b32 text_endswith(Text a, Text b) {
+    b32 result = FALSE;
+    if (a.len >= b.len) {
+        result = mem_eq(a.data + (a.len - b.len), b.data, b.len);
+    }
+    return result;
+}
+
+Text text_substr(Text a, u32 start, u32 end) {
+    assert(end >= start);
+    Text result = a;
+    result.data += start;
+    result.len = end - start;
+    return result;
+}

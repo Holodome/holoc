@@ -1,19 +1,21 @@
 // Author: Holodome
 // Date: 25.08.2021 
 // File: pkby/src/lib/hashing.h
-// Version: 0
+// Version: 1
 // 
 #pragma once
 #include "general.h"
 
-#define LLIST_ADD(_list, _node) \
+// @NOTE(hl): Although it was previously named LLIST_*,
+// this implementations are more stack-based
+#define STACK_ADD(_list, _node) \
 do { \
-    (_node)->next = (_list); \
-    (_list) = (_node); \
+(_node)->next = (_list); \
+(_list) = (_node); \
 } while (0); 
-#define LLIST_POP(_list) \
+#define STACK_POP(_list) \
 do { \
-    (_list) = (_list)->next; \
+(_list) = (_list)->next; \
 } while (0);
 
 #define CDLIST_INIT(_list) \

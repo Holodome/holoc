@@ -52,9 +52,15 @@ uptr erroutv(const char *msg, va_list args);
 // but here Text is synonymous to string.
 // But cstrings should be called strings, and 'strings' are called text
 typedef struct Text {
-    char *data;
-    uptr len;
+    const char *data;
+    u32 len;
 } Text;
+
+Text text(const char *data, u32 len);
+b32 text_eq(Text a, Text b);
+b32 text_startswith(Text a, Text b);
+b32 text_endswith(Text a, Text b);
+Text text_substr(Text a, u32 start, u32 end);
 
 typedef struct TextUTF8 {
     u8 *data;

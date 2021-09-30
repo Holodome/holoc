@@ -106,6 +106,8 @@ do_ast_to_src(const char *filename) {
     
 }
 
+#include "tests.inl"
+
 enum {
     PROGRAM_COMPILE,
     PROGRAM_TOKENIZE,
@@ -163,6 +165,11 @@ int main(int argc, char **argv) {
     } else {
         erroutf("Unknown -mode: %s\n", settings.mode_str);
         return 1;
+    }
+    
+    if (settings.test) {
+        do_test();
+        return 0;
     }
     
     assert(settings.filenames);

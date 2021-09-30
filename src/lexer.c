@@ -54,10 +54,8 @@ create_lexer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file) {
     lexer->scratch_buffer = arena_alloc(&lexer->arena, lexer->scratch_buffer_size);
     lexer->ss = ss;
     lexer->er = er;
-    // create hashes
-    lexer->keyword_count = ARRAY_SIZE(KEYWORD_STRS);
-    for (u32 i = 0; i < lexer->keyword_count; ++i) {
-        lexer->keyword_hashes[i] = hash_string(KEYWORD_STRS[i]);
+    for (u32 i = 0; i < ARRAY_SIZE(KEYWORD_STRS); ++i) {
+        lexer->keyword_ids[i] = string_storage_add(lexer->ss, KEYWORD_STRS[i]);
     }
     return lexer;
 }
@@ -102,28 +100,25 @@ parse(Lexer *lexer, const char *str) {
 }
 
 static void 
-begin_scratch_buffer_write(Lexer *lexer) {
+begin_lit_write(Lexer *lexer) {
     lexer->scratch_buffer_used = 0;
+    string_storage_begin_write(lexer->ss);
 }
 
-static b32 
-scratch_buffer_write_and_advance(Lexer *lexer, u8 symb) {
-    b32 result = FALSE;
-    // @NOTE(hl): Reserve ony byte for null-termination
-    if (lexer->scratch_buffer_used + 1 < lexer->scratch_buffer_size - 1) {
-        lexer->scratch_buffer[lexer->scratch_buffer_used++] = symb;
-        advance(lexer, 1);
-        result = TRUE;
+static void
+lit_write(Lexer *lexer, u8 symb) {
+    if (lexer->scratch_buffer_used + 1 > lexer->scratch_buffer_size) {
+        string_storage_write(lexer->ss, lexer->scratch_buffer, lexer->scratch_buffer_size);
+        lexer->scratch_buffer_used = 0;
     } 
-    return result;
+    lexer->scratch_buffer[lexer->scratch_buffer_used++] = symb;
+    advance(lexer, 1);
 }
 
-static const char *
-end_scratch_buffer_write(Lexer *lexer) {
-    if (lexer->scratch_buffer_used + 1 < lexer->scratch_buffer_size) {
-        lexer->scratch_buffer[lexer->scratch_buffer_used++] = 0;
-    }
-    return (char *)lexer->scratch_buffer;
+static StringID
+end_lit_write(Lexer *lexer) {
+    string_storage_write(lexer->ss, lexer->scratch_buffer, lexer->scratch_buffer_used);
+    return string_storage_end_write(lexer->ss);
 }
 
 Token *
@@ -176,7 +171,7 @@ peek_tok(Lexer *lexer) {
         
         token->src_loc = lexer->curr_loc;
         if (is_digit(symb)) {
-            begin_scratch_buffer_write(lexer);
+            begin_lit_write(lexer);
             b32 is_real_lit = FALSE;
             for (;;) {
                 u8 symb = in_stream_peek_b_or_zero(lexer->st);
@@ -188,73 +183,60 @@ peek_tok(Lexer *lexer) {
                     break;
                 }
                 
-                if (!scratch_buffer_write_and_advance(lexer, symb)) {
-                    report_error_tok(lexer->er, token, "Too long number literal. Maximum length is %u", lexer->scratch_buffer_size - 1);
-                    break;
-                }
+                lit_write(lexer, symb);
             }
-            const char *lit = end_scratch_buffer_write(lexer);
-            
+            StringID str_id = end_lit_write(lexer);
+            // @NOTE(hl): This is stupid, just because we decided that strings can have arbitrary size
+            string_storage_get(lexer->ss, str_id, lexer->scratch_buffer, lexer->scratch_buffer_size);
             if (is_real_lit) {
-                f64 real = str_to_f64(lit);
+                f64 real = str_to_f64((char *)lexer->scratch_buffer);
                 token->value_real = real;
                 token->kind = TOKEN_REAL;
             } else {
-                i64 iv = str_to_i64(lit);
+                i64 iv = str_to_i64((char *)lexer->scratch_buffer);
                 token->value_int = iv;
                 token->kind = TOKEN_INT;
             }
             break;
             
         } else if (is_ident_start(symb)) {
-            begin_scratch_buffer_write(lexer);
-            scratch_buffer_write_and_advance(lexer, symb);
+            begin_lit_write(lexer);
+            lit_write(lexer, symb);
             for (;;) {
                 u8 symb = in_stream_peek_b_or_zero(lexer->st);
                 if (!is_ident(symb)) {
                     break;
                 }
                 
-                if (!scratch_buffer_write_and_advance(lexer, symb)) {
-                    report_error_tok(lexer->er, token, "Too long ident name. Maximum length is %u", lexer->scratch_buffer_size - 1);
-                    break;
-                }
+                lit_write(lexer, symb);
             }
-            const char *lit = end_scratch_buffer_write(lexer);
-            u64 lit_hash = hash_string(lit);  // @SPEED(hl): This can be futher optimized, if we bake in 
-            // hashing into parsing
-            for (u32 kind = TOKEN_KEYWORD, i = 0; i < lexer->keyword_count; ++i, ++kind) {
-                if (lit_hash == lexer->keyword_hashes[i]) {
-                    token->kind = kind;
-                    break;
+            StringID str_id = end_lit_write(lexer);
+            for (u32 i = 0; i < MAX_KEYWORD_TOKEN_COUNT; ++i) {
+                if (str_id.value == lexer->keyword_ids[i].value) {
+                    token->kind = TOKEN_KEYWORD + i;
                 }
             }
             
             if (!token->kind) {
-                StringID id = string_storage_add(lexer->ss, lit);
                 token->kind = TOKEN_IDENT;
-                token->value_str = id;
+                token->value_str = str_id;
             }
             break;
         } else if (symb == '\"') {
             advance(lexer, 1);
-            begin_scratch_buffer_write(lexer);
+            begin_lit_write(lexer);
             for (;;) {
                 u8 symb = in_stream_peek_b_or_zero(lexer->st);
                 if (symb == '\"') {
                     break;
                 }
                 
-                if (!scratch_buffer_write_and_advance(lexer, symb)) {
-                    report_error_tok(lexer->er, token, "Too long string name. Maximum length is %u", lexer->scratch_buffer_size - 1);
-                    break;
-                }
+                lit_write(lexer, symb);
             }
-            const char *lit = end_scratch_buffer_write(lexer);
+            StringID str_id = end_lit_write(lexer);
             
-            StringID id = string_storage_add(lexer->ss, lit);
             token->kind = TOKEN_STR;
-            token->value_str = id;
+            token->value_str = str_id;
             break;
         } else if (is_punct(symb)) {
             // Because muttiple operators can be put together (+=-2),
@@ -341,10 +323,12 @@ fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token) {
                 result = fmt(buf, buf_sz, "<EOS>");
             } break;
             case TOKEN_IDENT: {
-                result = fmt(buf, buf_sz, "<ident>%s", string_storage_get(ss, token->value_str));
+                result = fmt(buf, buf_sz, "<ident>");
+                result += string_storage_get(ss, token->value_str, (u8 *)buf + result, buf_sz - result);
             } break;
             case TOKEN_STR: {
-                result = fmt(buf, buf_sz, "<str>%s", string_storage_get(ss, token->value_str));
+                result = fmt(buf, buf_sz, "<str>");
+                result += string_storage_get(ss, token->value_str, (u8 *)buf + result, buf_sz - result);
             } break;
             case TOKEN_INT: {
                 result = fmt(buf, buf_sz, "<int>%lld", token->value_int);

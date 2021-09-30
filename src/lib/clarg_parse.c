@@ -110,7 +110,9 @@ clarg_parse(void *out_bf, CLArgInfo *infos, u32 ninfos, u32 argc, char ** const 
         }
         
         if (info->narg == 0) {
-            NOT_IMPLEMENTED;
+            assert(info->type == CLARG_TYPE_BOOL);
+            *(u8 *)out = TRUE;
+            ++ctx.cursor;
         } else if (info->narg == 1) {
             if (!ctx_has_space_for(&ctx, 1)) {
                 NOT_IMPLEMENTED;

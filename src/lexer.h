@@ -103,13 +103,11 @@ typedef struct Lexer {
     // Buffer for internal use. When parsing multiline symbols, 
     // this buffer is used for it. Basically size of scratch buffer defines maximum length 
     // of identifier.
-    // @TODO(hl): There is special case for parsing big strings - we need to think how we would handle that
     u32 scratch_buffer_size;
     u32 scratch_buffer_used; 
     u8 *scratch_buffer;
     
-    u32 keyword_count;
-    u64 keyword_hashes[MAX_KEYWORD_TOKEN_COUNT];
+    StringID keyword_ids[MAX_KEYWORD_TOKEN_COUNT];
     
     Token *active_token;
 } Lexer;
