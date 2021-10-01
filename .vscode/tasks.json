@@ -9,6 +9,9 @@
             "linux": {
                 "command": "${workspaceFolder}/build.sh"
             },
+            "osx": {
+                "command": "${workspaceFolder}/build.sh"  
+            },
             "options": {
                 "cwd": "${workspaceFolder}/"
             },

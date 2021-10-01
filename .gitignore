@@ -487,5 +487,6 @@ build/
 *.log
 *.vars
 
-.vscode/
 .DS_Store
+
+*.pkex

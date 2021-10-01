@@ -9,9 +9,9 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceFolder}/build/lang",
-            "args": ["../test.pkby"],
+            "args": ["examples/test.pkby", "-mode", "ast"],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "lldb"
