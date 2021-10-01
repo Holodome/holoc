@@ -17,8 +17,8 @@
 // (in contrast lower-level file API does not do console error reporting)
 #pragma once
 #include "lib/general.h"
-#include "lib/files.h"
-#include "lib/memory.h"
+#include "platform/files.h"
+#include "platform/memory.h"
 
 typedef struct {
     u64 value;
@@ -44,12 +44,12 @@ uptr fmt_filepath(char *bf, uptr bf_sz, Filepath *filepath);
 // Initialize storage for filesystem
 void init_filesystem(void);
 // id.value != 0
-b32 fs_is_file_valid(FileID id);
+bool fs_is_file_valid(FileID id);
 // @NOTE The only way to create new FileID. So all files that need to be accounted in filesystem
 // need to be abtained through this routine
 FileID fs_open_file(const char *name, u32 mode);
 // @NOTE The only way to delete the id
-b32 fs_close_file(FileID id);
+bool fs_close_file(FileID id);
 
 // Return handle for file if it is open, 0 otherwise
 OSFileHandle *fs_get_handle(FileID id);

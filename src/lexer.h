@@ -7,10 +7,9 @@
 #pragma once 
 
 #include "lib/general.h"
-#include "lib/memory.h"
+#include "platform/memory.h"
 #include "lib/stream.h" 
-#include "error_reporter.h"
-#include "string_storage.h"
+#include "compiler_ctx.h"
 
 // @NOTE(hl): These limits are set for easier manipulation in case of future updates and usages
 // of this code.
@@ -72,10 +71,11 @@ enum {
     TOKEN_IMOD, // %=
     TOKEN_LOGICAL_AND, // &&
     TOKEN_LOGICAL_OR, // ||
+    TOKEN_DOUBLE_COLON, // ::
 };
 
 // Does token mean assignment (e.g. =, +=, etc.)
-b32 is_token_assign(u32 tok);
+bool is_token_assign(u32 tok);
 
 typedef struct Token {
     u32 kind;
@@ -95,9 +95,8 @@ typedef struct Token {
 //  With freeing of lexer, all of its tokens are freed too.
 typedef struct Lexer {
     MemoryArena arena;
-    InStream *st;
-    ErrorReporter *er;
-    StringStorage *ss;
+    InStream *stream;
+    CompilerCtx *ctx;
     
     SrcLoc curr_loc;
     // Buffer for internal use. When parsing multiline symbols, 
@@ -112,7 +111,7 @@ typedef struct Lexer {
     Token *active_token;
 } Lexer;
 
-Lexer *create_lexer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file);
+Lexer *create_lexer(CompilerCtx *ctx, InStream *stream, FileID file);
 void destroy_lexer(Lexer *lexer);
 // Returns current token. Stores token until it's eaten
 Token *peek_tok(Lexer *lexer);
@@ -123,4 +122,4 @@ void eat_tok(Lexer *lexer);
 Token *peek_next_tok(Lexer *lexer);
 
 uptr fmt_tok_kind(char *buf, uptr buf_sz, u32 kind);
-uptr fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token);
+uptr fmt_tok(CompilerCtx *ctx, char *buf, uptr buf_sz, Token *token);

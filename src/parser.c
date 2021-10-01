@@ -1,9 +1,8 @@
 #include "parser.h"
 
-Parser *create_parser(Lexer *lexer, StringStorage *ss, ErrorReporter *er) {
+Parser *create_parser(CompilerCtx *ctx, Lexer *lexer) {
     Parser *parser = arena_bootstrap(Parser, arena);
-    parser->er = er;
-    parser->ss = ss;
+    parser->ctx = ctx;
     parser->lexer = lexer;
     return parser;
 }
@@ -16,21 +15,21 @@ static void report_unexpected_token(Parser *parser, Token *tok, u32 expected) {
     char expected_str[128], got_str[128];
     fmt_tok_kind(expected_str, sizeof(expected_str), expected);
     fmt_tok_kind(got_str, sizeof(got_str), tok->kind);
-    report_error_tok(parser->er, tok, "Token %s expected (got %s %#x)",
+    report_error_tok(parser->ctx->er, tok, "Token %s expected (got %s %#x)",
         expected_str, got_str, tok->kind);
 }
 
-static b32 expect_tok(Parser *parser, Token *tok, u32 kind) {
-    b32 result = TRUE;
+static bool expect_tok(Parser *parser, Token *tok, u32 kind) {
+    bool result = true;
     if (tok->kind != kind) {
         report_unexpected_token(parser, tok, kind);
-        result = FALSE;
+        result = false;
     }
     return result;
 }
 
-static b32 parse_end_of_statement(Parser *parser, Token *tok) {
-    b32 result = expect_tok(parser, tok, ';');
+static bool parse_end_of_statement(Parser *parser, Token *tok) {
+    bool result = expect_tok(parser, tok, ';');
     if (result) {
         eat_tok(parser->lexer);
     }
@@ -74,7 +73,7 @@ ASTList parse_comma_separated_idents(Parser *parser) {
 }
 
 AST *parse_decl(Parser *parser);
-AST *parse_decl_ident(Parser *parser, AST *ident, b32 end_of_statement);
+AST *parse_decl_ident(Parser *parser, AST *ident, bool end_of_statement);
 AST *parse_block(Parser *parser);
 
 /* 
@@ -104,7 +103,7 @@ static AST *parse_binary_subxepr(Parser *parser, u32 prec, u32 bin_kind, AST *le
         bin->binary.right = right; 
         result = bin;
     } else {
-        report_error_tok(parser->er, peek_tok(parser->lexer), "Expected expression");
+        report_error_tok(parser->ctx->er, peek_tok(parser->lexer), "Expected expression");
     }
     return result; 
 }
@@ -116,262 +115,262 @@ static AST *parse_binary_subxepr(Parser *parser, u32 prec, u32 bin_kind, AST *le
 AST *parse_expr_precedence(Parser *parser, u32 precedence) {
     AST *expr = 0;
     switch (precedence) {
-        case 0: {
-            Token *tok = peek_tok(parser->lexer);
+    case 0: {
+        Token *tok = peek_tok(parser->lexer);
+        switch (tok->kind) {
+        case TOKEN_IDENT: {
+            eat_tok(parser->lexer);
+            AST *ident = create_ident(parser, tok->value_str);
+            expr = ident;
+            tok = peek_tok(parser->lexer);
+            // @TODO What if some mangling done to function name???
+            // finder better place for function call
+            if (tok->kind == '(') {
+                eat_tok(parser->lexer);
+                AST *function_call = ast_new(parser, AST_FUNC_CALL);
+                function_call->func_call.callable = ident;
+                ASTList arguments = parse_comma_separated_idents(parser);
+                if (expect_tok(parser, peek_tok(parser->lexer), ')')) {
+                    eat_tok(parser->lexer);
+                    expr = function_call;
+                }
+                function_call->func_call.arguments = arguments;
+            }
+        } break;
+        case TOKEN_INT: {
+            eat_tok(parser->lexer);
+            AST *lit = create_int_lit(parser, tok->value_int);
+            expr = lit;
+        } break;
+        case TOKEN_REAL: {
+            NOT_IMPLEMENTED;
+        } break;
+    }
+} break;
+case 1: {
+    expr = parse_expr_precedence(parser, precedence - 1);
+    Token *tok = peek_tok(parser->lexer);
+    switch (tok->kind) {
+    case '(': {
+        eat_tok(parser->lexer);
+        AST *temp = parse_expr(parser);
+        tok = peek_tok(parser->lexer);
+        if (expect_tok(parser, tok, ')')) {
+            expr = temp;
+            eat_tok(parser->lexer);
+        }
+    } break;
+    case '.': {
+        NOT_IMPLEMENTED;
+    } break;
+    case '[': {
+        NOT_IMPLEMENTED;
+    } break;
+    }
+} break;
+case 2: {
+    Token *tok = peek_tok(parser->lexer);
+    switch (tok->kind) {
+    case '+': {
+        eat_tok(parser->lexer);
+        AST *unary = ast_new(parser, AST_UNARY);
+        unary->unary.kind = AST_UNARY_PLUS;
+        unary->unary.expr = parse_expr(parser);
+        expr = unary;
+    } break;
+    case '-': {
+        eat_tok(parser->lexer);
+        AST *unary = ast_new(parser, AST_UNARY);
+        unary->unary.kind = AST_UNARY_MINUS;
+        unary->unary.expr = parse_expr(parser);
+        expr = unary;
+    } break;
+    case '!': {
+        eat_tok(parser->lexer);
+        AST *unary = ast_new(parser, AST_UNARY);
+        unary->unary.kind = AST_UNARY_LOGICAL_NOT;
+        unary->unary.expr = parse_expr(parser);
+        expr = unary;
+    } break;
+    case '~': {
+        eat_tok(parser->lexer);
+        AST *unary = ast_new(parser, AST_UNARY);
+        unary->unary.kind = AST_UNARY_NOT;
+        unary->unary.expr = parse_expr(parser);
+        expr = unary;
+    } break;
+    }
+        
+        if (!expr) {
+            expr = parse_expr_precedence(parser, precedence - 1);
+        }
+    } break;
+    case 3: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == '*' || tok->kind == '/' || tok->kind == '%') {
+            u32 bin_kind = 0;
             switch (tok->kind) {
-                case TOKEN_IDENT: {
-                    eat_tok(parser->lexer);
-                    AST *ident = create_ident(parser, tok->value_str);
-                    expr = ident;
-                    tok = peek_tok(parser->lexer);
-                    // @TODO What if some mangling done to function name???
-                    // finder better place for function call
-                    if (tok->kind == '(') {
-                        eat_tok(parser->lexer);
-                        AST *function_call = ast_new(parser, AST_FUNC_CALL);
-                        function_call->func_call.callable = ident;
-                        ASTList arguments = parse_comma_separated_idents(parser);
-                        if (expect_tok(parser, peek_tok(parser->lexer), ')')) {
-                            eat_tok(parser->lexer);
-                            expr = function_call;
-                        }
-                        function_call->func_call.arguments = arguments;
-                    }
-                } break;
-                case TOKEN_INT: {
-                    eat_tok(parser->lexer);
-                    AST *lit = create_int_lit(parser, tok->value_int);
-                    expr = lit;
-                } break;
-                case TOKEN_REAL: {
-                    NOT_IMPLEMENTED;
-                } break;
+            case '*': {
+                bin_kind = AST_BINARY_MUL;
+            } break;
+            case '/': {
+                bin_kind = AST_BINARY_DIV;
+            } break;
+            case '%': {
+                bin_kind = AST_BINARY_MOD;
+            } break;
             }
-        } break;
-        case 1: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            Token *tok = peek_tok(parser->lexer);
-            switch (tok->kind) {
-                case '(': {
-                    eat_tok(parser->lexer);
-                    AST *temp = parse_expr(parser);
-                    tok = peek_tok(parser->lexer);
-                    if (expect_tok(parser, tok, ')')) {
-                        expr = temp;
-                        eat_tok(parser->lexer);
-                    }
-                } break;
-                case '.': {
-                    NOT_IMPLEMENTED;
-                } break;
-                case '[': {
-                    NOT_IMPLEMENTED;
-                } break;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 4: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == '+' || tok->kind == '-') {
+            u32 bin_kind = 0;
+            if (tok->kind == '+') {
+                bin_kind = AST_BINARY_ADD;
+            } else if (tok->kind == '-') {
+                bin_kind = AST_BINARY_SUB;
             }
-        } break;
-        case 2: {
-            Token *tok = peek_tok(parser->lexer);
-            switch (tok->kind) {
-                case '+': {
-                    eat_tok(parser->lexer);
-                    AST *unary = ast_new(parser, AST_UNARY);
-                    unary->unary.kind = AST_UNARY_PLUS;
-                    unary->unary.expr = parse_expr(parser);
-                    expr = unary;
-                } break;
-                case '-': {
-                    eat_tok(parser->lexer);
-                    AST *unary = ast_new(parser, AST_UNARY);
-                    unary->unary.kind = AST_UNARY_MINUS;
-                    unary->unary.expr = parse_expr(parser);
-                    expr = unary;
-                } break;
-                case '!': {
-                    eat_tok(parser->lexer);
-                    AST *unary = ast_new(parser, AST_UNARY);
-                    unary->unary.kind = AST_UNARY_LOGICAL_NOT;
-                    unary->unary.expr = parse_expr(parser);
-                    expr = unary;
-                } break;
-                case '~': {
-                    eat_tok(parser->lexer);
-                    AST *unary = ast_new(parser, AST_UNARY);
-                    unary->unary.kind = AST_UNARY_NOT;
-                    unary->unary.expr = parse_expr(parser);
-                    expr = unary;
-                } break;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 5: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == TOKEN_LSHIFT || tok->kind == TOKEN_RSHIFT) {
+            u32 bin_kind = 0;
+            if (tok->kind == TOKEN_RSHIFT) {
+                bin_kind = AST_BINARY_RSHIFT;
+            } else if (tok->kind == TOKEN_LSHIFT) {
+                bin_kind = AST_BINARY_SUB;
             }
-            
-            if (!expr) {
-                expr = parse_expr_precedence(parser, precedence - 1);
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 6: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == '<' || tok->kind == '>' || tok->kind == TOKEN_LE || tok->kind == TOKEN_GE) {
+            u32 bin_kind = 0;
+            if (tok->kind == TOKEN_LE) {
+                bin_kind = AST_BINARY_LE;
+            } else if (tok->kind == TOKEN_GE) {
+                bin_kind = AST_BINARY_GE;
+            } else if (tok->kind == '<') {
+                bin_kind = AST_BINARY_L;
+            } else if (tok->kind == '>') {
+                bin_kind = AST_BINARY_G;
             }
-        } break;
-        case 3: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 7: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == TOKEN_EQ || tok->kind == TOKEN_NEQ) {
+            u32 bin_kind = 0;
+            if (tok->kind == TOKEN_EQ) {
+                bin_kind = AST_BINARY_EQ;
+            } else if (tok->kind == TOKEN_NEQ) {
+                bin_kind = AST_BINARY_NEQ;
             }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == '*' || tok->kind == '/' || tok->kind == '%') {
-                u32 bin_kind = 0;
-                switch (tok->kind) {
-                    case '*': {
-                        bin_kind = AST_BINARY_MUL;
-                    } break;
-                    case '/': {
-                        bin_kind = AST_BINARY_DIV;
-                    } break;
-                    case '%': {
-                        bin_kind = AST_BINARY_MOD;
-                    } break;
-                }
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 4: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == '+' || tok->kind == '-') {
-                u32 bin_kind = 0;
-                if (tok->kind == '+') {
-                    bin_kind = AST_BINARY_ADD;
-                } else if (tok->kind == '-') {
-                    bin_kind = AST_BINARY_SUB;
-                }
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 5: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == TOKEN_LSHIFT || tok->kind == TOKEN_RSHIFT) {
-                u32 bin_kind = 0;
-                if (tok->kind == TOKEN_RSHIFT) {
-                    bin_kind = AST_BINARY_RSHIFT;
-                } else if (tok->kind == TOKEN_LSHIFT) {
-                    bin_kind = AST_BINARY_SUB;
-                }
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 6: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == '<' || tok->kind == '>' || tok->kind == TOKEN_LE || tok->kind == TOKEN_GE) {
-                u32 bin_kind = 0;
-                if (tok->kind == TOKEN_LE) {
-                    bin_kind = AST_BINARY_LE;
-                } else if (tok->kind == TOKEN_GE) {
-                    bin_kind = AST_BINARY_GE;
-                } else if (tok->kind == '<') {
-                    bin_kind = AST_BINARY_L;
-                } else if (tok->kind == '>') {
-                    bin_kind = AST_BINARY_G;
-                }
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 7: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == TOKEN_EQ || tok->kind == TOKEN_NEQ) {
-                u32 bin_kind = 0;
-                if (tok->kind == TOKEN_EQ) {
-                    bin_kind = AST_BINARY_EQ;
-                } else if (tok->kind == TOKEN_NEQ) {
-                    bin_kind = AST_BINARY_NEQ;
-                }
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 8: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == '&') {
-                u32 bin_kind = AST_BINARY_AND;
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 9: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == '&') {
-                u32 bin_kind = AST_BINARY_XOR;
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 10: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == '&') {
-                u32 bin_kind = AST_BINARY_OR;
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 11: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == TOKEN_LOGICAL_AND) {
-                u32 bin_kind = AST_BINARY_LOGICAL_AND;
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        case 12: {
-            expr = parse_expr_precedence(parser, precedence - 1);
-            if (!expr) {
-                goto end;
-            }
-            Token *tok = peek_tok(parser->lexer);
-            while (tok->kind == TOKEN_LOGICAL_OR) {
-                u32 bin_kind = AST_BINARY_LOGICAL_OR;
-                eat_tok(parser->lexer);
-                expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
-                tok = peek_tok(parser->lexer);
-            }
-        } break;
-        default: assert(FALSE);
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 8: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == '&') {
+            u32 bin_kind = AST_BINARY_AND;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 9: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == '&') {
+            u32 bin_kind = AST_BINARY_XOR;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 10: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == '&') {
+            u32 bin_kind = AST_BINARY_OR;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 11: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == TOKEN_LOGICAL_AND) {
+            u32 bin_kind = AST_BINARY_LOGICAL_AND;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    case 12: {
+        expr = parse_expr_precedence(parser, precedence - 1);
+        if (!expr) {
+            goto end;
+        }
+        Token *tok = peek_tok(parser->lexer);
+        while (tok->kind == TOKEN_LOGICAL_OR) {
+            u32 bin_kind = AST_BINARY_LOGICAL_OR;
+            eat_tok(parser->lexer);
+            expr = parse_binary_subxepr(parser, precedence, bin_kind, expr);
+            tok = peek_tok(parser->lexer);
+        }
+    } break;
+    default: assert(false);
     }
 end:
     return expr;
@@ -399,36 +398,36 @@ static u32 assign_token_to_binary_kind(u32 tok) {
     // @TODO This can be optimized if we structure the ast binary enum 
     // to have kinds in the same order as corresponding token kinds
     switch (tok) {
-        case TOKEN_IADD: {
-            result = AST_BINARY_ADD;
-        } break;
-        case TOKEN_ISUB: {
-            result = AST_BINARY_SUB;
-        } break;
-        case TOKEN_IMUL: {
-            result = AST_BINARY_MUL;
-        } break;
-        case TOKEN_IDIV: {
-            result = AST_BINARY_DIV;
-        } break;
-        case TOKEN_IMOD: {
-            result = AST_BINARY_MOD;
-        } break;
-        case TOKEN_IAND: {
-            result = AST_BINARY_AND;
-        } break;
-        case TOKEN_IOR: {
-            result = AST_BINARY_OR;
-        } break;
-        case TOKEN_IXOR: {
-            result = AST_BINARY_XOR;
-        } break;
-        case TOKEN_ILSHIFT: {
-            result = AST_BINARY_LSHIFT;
-        } break;
-        case TOKEN_IRSHIFT: {
-            result = AST_BINARY_RSHIFT;
-        } break;
+    case TOKEN_IADD: {
+        result = AST_BINARY_ADD;
+    } break;
+    case TOKEN_ISUB: {
+        result = AST_BINARY_SUB;
+    } break;
+    case TOKEN_IMUL: {
+        result = AST_BINARY_MUL;
+    } break;
+    case TOKEN_IDIV: {
+        result = AST_BINARY_DIV;
+    } break;
+    case TOKEN_IMOD: {
+        result = AST_BINARY_MOD;
+    } break;
+    case TOKEN_IAND: {
+        result = AST_BINARY_AND;
+    } break;
+    case TOKEN_IOR: {
+        result = AST_BINARY_OR;
+    } break;
+    case TOKEN_IXOR: {
+        result = AST_BINARY_XOR;
+    } break;
+    case TOKEN_ILSHIFT: {
+        result = AST_BINARY_LSHIFT;
+    } break;
+    case TOKEN_IRSHIFT: {
+        result = AST_BINARY_RSHIFT;
+    } break;
     }
     return result;
 }
@@ -437,7 +436,7 @@ AST *parse_assign_ident(Parser *parser, AST *ident) {
     AST *assign = 0;
     Token *tok = peek_tok(parser->lexer);
     if (!is_token_assign(tok->kind)) {
-        report_error_tok(parser->er, tok, "Expected assign operator");
+        report_error_tok(parser->ctx->er, tok, "Expected assign operator");
         return 0;    
     }
     
@@ -523,7 +522,7 @@ AST *parse_statement(Parser *parser) {
         ASTList return_vars = create_ast_list(ast_new(parser, AST_NONE));
         while (tok->kind != ';') {
             AST *expr = parse_expr(parser);
-            if (!expr || is_error_reported(parser->er)) {
+            if (!expr || is_error_reported(parser->ctx->er)) {
                 break;
             }
             ast_list_add(&return_vars, expr);
@@ -566,7 +565,7 @@ AST *parse_statement(Parser *parser) {
             statement = print_st;
         }
     } else {
-        statement = parse_decl_ident(parser, ident, TRUE);
+        statement = parse_decl_ident(parser, ident, true);
     }
     
     return statement;
@@ -588,7 +587,7 @@ AST *parse_block(Parser *parser) {
             break;
         }
         
-        if (is_error_reported(parser->er)) {
+        if (is_error_reported(parser->ctx->er)) {
             break;
         }
         ast_list_add(&statements, statement);
@@ -617,14 +616,14 @@ AST *parse_function_signature(Parser *parser) {
         if (expect_tok(parser, tok, TOKEN_IDENT)) {
             AST *ident = create_ident(parser, tok->value_str);
             eat_tok(parser->lexer);
-            AST *decl = parse_decl_ident(parser, ident, FALSE);
+            AST *decl = parse_decl_ident(parser, ident, false);
             ast_list_add(&args, ident);
             tok = peek_tok(parser->lexer);
         } else {
             break;
         }
     }
-    if (is_error_reported(parser->er)) {
+    if (is_error_reported(parser->ctx->er)) {
         return 0;
     }
     
@@ -654,60 +653,62 @@ AST *parse_function_signature(Parser *parser) {
     return sign;
 }
 
-AST *parse_decl_ident(Parser *parser, AST *ident, b32 end_of_statement) {
+AST *parse_decl_ident(Parser *parser, AST *ident, bool end_of_statement) {
     AST *decl = 0;
     Token *tok = peek_tok(parser->lexer);
     switch (tok->kind) {
-        case TOKEN_AUTO_DECL: {
-            tok = peek_next_tok(parser->lexer);
-            if (tok->kind == '(') {
-                AST *func_sign = parse_function_signature(parser);
-                if (func_sign) {
-                    AST *func_block = parse_block(parser);
-                    if (func_block) {
-                        decl = ast_new(parser, AST_FUNC_DECL);
-                        decl->func_decl.name = ident;
-                        decl->func_decl.sign = func_sign;
-                        decl->func_decl.block = func_block;
-                    }
-                }
-            } else {
-                AST *expr = parse_expr(parser);
-                if (expr) {
-                    decl = ast_new(parser, AST_DECL);
-                    decl->decl.ident = ident;
-                    decl->decl.expr = expr;
-                    decl->decl.is_immutable = FALSE;
-                    
-                    tok = peek_tok(parser->lexer);
-                    if (end_of_statement && !parse_end_of_statement(parser, tok)) {
-                        decl = 0;
-                    }
+    case TOKEN_DOUBLE_COLON: {
+        tok = peek_next_tok(parser->lexer);
+        if (expect_tok(parser, tok, '(')) {
+            AST *func_sign = parse_function_signature(parser);
+            if (func_sign) {
+                AST *func_block = parse_block(parser);
+                if (func_block) {
+                    decl = ast_new(parser, AST_FUNC_DECL);
+                    decl->func_decl.name = ident;
+                    decl->func_decl.sign = func_sign;
+                    decl->func_decl.block = func_block;
                 }
             }
-        } break;
-        case ':': {
-            eat_tok(parser->lexer);
-            AST *type = parse_type(parser);
-            assert(type);
+        }
+    } break;
+    case TOKEN_AUTO_DECL: {
+        tok = peek_next_tok(parser->lexer);
+        AST *expr = parse_expr(parser);
+        if (expr) {
             decl = ast_new(parser, AST_DECL);
-            decl->decl.ident = ident; 
-            decl->decl.type = type;  
-            tok = peek_tok(parser->lexer);
-            if (tok->kind == '=') {
-                tok = peek_next_tok(parser->lexer);
-                AST *expr = parse_expr(parser);
-                decl->decl.expr = expr;
-            } 
+            decl->decl.ident = ident;
+            decl->decl.expr = expr;
+            decl->decl.is_immutable = false;
             
             tok = peek_tok(parser->lexer);
             if (end_of_statement && !parse_end_of_statement(parser, tok)) {
                 decl = 0;
             }
-        } break;
-        default: {
-            report_error_tok(parser->er, tok, "Expected := or :: or : in declaration");
-        } break;
+        }
+    } break;
+    case ':': {
+        eat_tok(parser->lexer);
+        AST *type = parse_type(parser);
+        assert(type);
+        decl = ast_new(parser, AST_DECL);
+        decl->decl.ident = ident; 
+        decl->decl.type = type;  
+        tok = peek_tok(parser->lexer);
+        if (tok->kind == '=') {
+            tok = peek_next_tok(parser->lexer);
+            AST *expr = parse_expr(parser);
+            decl->decl.expr = expr;
+        } 
+        
+        tok = peek_tok(parser->lexer);
+        if (end_of_statement && !parse_end_of_statement(parser, tok)) {
+            decl = 0;
+        }
+    } break;
+    default: {
+        report_error_tok(parser->ctx->er, tok, "Expected := or :: or : in declaration");
+    } break;
     }
     
     return decl;
@@ -719,7 +720,7 @@ AST *parse_decl(Parser *parser) {
     if (expect_tok(parser, tok, TOKEN_IDENT)) {
         AST *ident = create_ident(parser, tok->value_str);
         eat_tok(parser->lexer);
-        decl = parse_decl_ident(parser, ident, TRUE);
+        decl = parse_decl_ident(parser, ident, true);
     }
     
     return decl;

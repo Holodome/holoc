@@ -45,17 +45,17 @@ roll_back_to_location(StringStorage *ss, u64 loc) {
 }
 
 StringStorage * 
-create_string_storage(u32 hash_size, MemoryArena *arena) {
+create_string_storage(MemoryArena *arena) {
     StringStorage *storage = arena_alloc_struct(arena, StringStorage);
     storage->arena = arena;
-    storage->hash = create_hash64(hash_size, arena);
+    storage->hash = create_hash64(STRING_STORAGE_HASH_SIZE, arena);
     return storage;
 }
 
 void 
 string_storage_begin_write(StringStorage *storage) {
     assert(!storage->is_inside_write);
-    storage->is_inside_write = TRUE;
+    storage->is_inside_write = true;
     StringStorageBuffer *bf = get_buffer_for_writing(storage, sizeof(u32));
     storage->current_write_start = ((u64)storage->buffer_count << 32) | bf->used;
     storage->current_write_crc = 0;
@@ -87,7 +87,7 @@ string_storage_write(StringStorage *storage, const void *bf, u32 bf_sz) {
 StringID 
 string_storage_end_write(StringStorage *ss) {
     assert(ss->is_inside_write);
-    ss->is_inside_write = FALSE;
+    ss->is_inside_write = false;
     StringID id = {0};
     StringStorageBuffer *bf = get_buffer_for_writing(ss, 1);
     bf->storage[bf->used++] = 0;
@@ -103,7 +103,7 @@ string_storage_end_write(StringStorage *ss) {
         StringStorageBuffer *start_bf = get_buffer_by_idx(ss, start_write_bf);
         *((u32 *)(start_bf->storage + start_write_bf_idx)) = ss->current_write_len;
         id.value = ss->current_write_start;
-        ss->is_inside_write = FALSE;
+        ss->is_inside_write = false;
     
     }
     return id;

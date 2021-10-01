@@ -1,9 +1,9 @@
-#include "lib/files.h"
+#include "platform/files.h"
 
 #include <stdio.h>
 
 #include "lib/strings.h"
-#include "lib/memory.h"
+#include "platform/memory.h"
 #include "lib/hashing.h"
 
 #include <sys/syslimits.h>
@@ -12,7 +12,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-void os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
+void 
+os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
     file->flags = 0;
     file->handle = 0;
     
@@ -33,15 +34,17 @@ void os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
     }
 }
 
-b32 os_close_file(OSFileHandle *id) {
-    b32 result = close(id->handle) == 0;
+bool 
+os_close_file(OSFileHandle *id) {
+    bool result = close(id->handle) == 0;
     if (result) {
         id->flags |= FILE_FLAG_IS_CLOSED;
     }
     return result;
 }
 
-uptr os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
+uptr 
+os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
     uptr result = 0;
     if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
@@ -57,7 +60,8 @@ uptr os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz) 
     return result;
 }
 
-uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz) {
+uptr 
+os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz) {
     uptr result = 0;
     if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
@@ -73,15 +77,18 @@ uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz) {
     return result;
 }
 
-uptr os_write_stdout(void *bf, uptr bf_sz) {
+uptr 
+os_write_stdout(void *bf, uptr bf_sz) {
     return write(1, bf, bf_sz);
 }
 
-uptr os_write_stderr(void *bf, uptr bf_sz) {
+uptr 
+os_write_stderr(void *bf, uptr bf_sz) {
     return write(2, bf, bf_sz);
 }
 
-uptr os_get_file_size(OSFileHandle *id) {
+uptr 
+os_get_file_size(OSFileHandle *id) {
     uptr result = 0;
     if (os_is_file_valid(id)) {
         int posix_handle = id->handle;
@@ -90,6 +97,7 @@ uptr os_get_file_size(OSFileHandle *id) {
     return result;
 }
 
-b32 os_is_file_valid(OSFileHandle *id) {
+bool 
+os_is_file_valid(OSFileHandle *id) {
     return id->handle != 0 && !(id->flags & FILE_FLAG_NOT_OPERATABLE);
 }

@@ -57,13 +57,13 @@ typedef struct {
     StringStorageBuffer *first_free_buffer;
     u32 buffer_count; // @NOTE(hl): Used to get buffer index
     
-    b32 is_inside_write;
+    bool is_inside_write;
     u64 current_write_start;
     u32 current_write_len;
     u32 current_write_crc;
 } StringStorage;
 
-StringStorage *create_string_storage(u32 hash_size, MemoryArena *arena);
+StringStorage *create_string_storage(MemoryArena *arena);
 void string_storage_begin_write(StringStorage *storage);
 void string_storage_write(StringStorage *storage, const void *bf, u32 bf_sz);
 StringID string_storage_end_write(StringStorage *ss);

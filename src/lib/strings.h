@@ -12,16 +12,16 @@ uptr vfmt(char *buf, uptr buf_size, const char *format, va_list args);
 __attribute__((__format__ (__printf__, 3, 4)))
 uptr fmt(char *buf, uptr buf_size, const char *format, ...);
       
-b32 is_ascii(u32 symb);
-b32 is_space(u32 symb);
-b32 is_nextline(u32 symb);
-b32 is_digit(u32 symb);
-b32 is_alpha(u32 symb);
-b32 is_ident(u32 symb);
-b32 is_ident_start(u32 symb);
-b32 is_punct(u32 symb);
-b32 is_real(u32 symb);
-b32 is_int(u32 symb);
+bool is_ascii(u32 symb);
+bool is_space(u32 symb);
+bool is_nextline(u32 symb);
+bool is_digit(u32 symb);
+bool is_alpha(u32 symb);
+bool is_ident(u32 symb);
+bool is_ident_start(u32 symb);
+bool is_punct(u32 symb);
+bool is_real(u32 symb);
+bool is_int(u32 symb);
 
 f64 str_to_f64(const char *str);
 i64 str_to_i64(const char *str);
@@ -30,9 +30,9 @@ i64 str_to_i64(const char *str);
 // Return number of copied bytes
 uptr str_cp(char *bf, uptr bf_sz, const char *str);
 // Returns true if two given strings are equal, false otherwise
-b32 str_eq(const char *a, const char *b);
+bool str_eq(const char *a, const char *b);
 // Returns true if first n characters of both strings are equal or strings are equal
-b32 str_eqn(const char *a, const char *b, uptr n);
+bool str_eqn(const char *a, const char *b, uptr n);
 // Returns string length
 uptr str_len(const char *str);
 
@@ -57,9 +57,9 @@ typedef struct Text {
 } Text;
 
 Text text(const char *data, u32 len);
-b32 text_eq(Text a, Text b);
-b32 text_startswith(Text a, Text b);
-b32 text_endswith(Text a, Text b);
+bool text_eq(Text a, Text b);
+bool text_startswith(Text a, Text b);
+bool text_endswith(Text a, Text b);
 Text text_substr(Text a, u32 start, u32 end);
 
 typedef struct TextUTF8 {

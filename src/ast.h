@@ -50,7 +50,7 @@ typedef struct AST AST;
 typedef struct ASTList {
     struct AST *sentinel;
     
-    b32 DBG_is_initialized;
+    bool DBG_is_initialized;
     u32 DBG_len;
 } ASTList;
 
@@ -141,7 +141,7 @@ typedef struct {
     AST *ident;
     AST *expr;
     AST *type;
-    b32 is_immutable;
+    bool is_immutable;
 } ASTDecl;
 
 typedef struct {
@@ -185,6 +185,7 @@ enum {
     AST_TYPE_FLOAT,
     AST_TYPE_BOOL,
     AST_TYPE_STR,
+    AST_TYPE_PROC,
     AST_TYPE_COUNT
 };
 
@@ -217,5 +218,5 @@ struct AST {
     };
 };
 
-// Prints ast tree as text tree-like structure.
-void fmt_ast_tree(StringStorage *ss, OutStream *stream, AST *ast, u32 depth);
+struct CompilerCtx;
+void fmt_ast_tree(struct CompilerCtx *ctx, OutStream *stream, AST *ast, u32 depth);

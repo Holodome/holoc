@@ -36,7 +36,8 @@ void report_warningv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, v
 void report_warning(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...);
 void report_warning_tok(ErrorReporter *reporter, struct Token *token, const char *msg, ...);
 void report_warning_ast(ErrorReporter *reporter, struct AST *ast, const char *msg, ...);
-b32 is_error_reported(ErrorReporter *reporter);
+bool is_error_reported(ErrorReporter *reporter);
+void print_reporter_summary(ErrorReporter *reporter);
 // Pretty printing error messages to the error stream
 void report_error_generalv(const char *msg, va_list args);
 void report_error_general(const char *msg, ...);

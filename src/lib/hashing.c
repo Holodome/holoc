@@ -1,7 +1,8 @@
 #include "lib/hashing.h"
-#include "lib/memory.h"
+#include "platform/memory.h"
 
-u32 hash_string(const char *str) {
+u32 
+hash_string(const char *str) {
     u32 result = 5381;
     // djb2 algorithm - suitable for general-purpose string hashing
     while (*str) {
@@ -77,7 +78,8 @@ static const u32 CRC32_LUT[] = {
     0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
 };
 
-u32 crc32(u32 crc, const void *bf_init, uptr bf_sz) {
+u32 
+crc32(u32 crc, const void *bf_init, uptr bf_sz) {
     u8 *bf = (u8 *)bf_init;
     while (bf_sz--) {
         crc = (crc << 8) ^ CRC32_LUT[((crc >> 24) ^ *bf++) & 0xFF];
@@ -85,7 +87,8 @@ u32 crc32(u32 crc, const void *bf_init, uptr bf_sz) {
     return crc;
 }
 
-static u64 *hash64_get_internal(Hash64 *hash, u64 key) {
+static u64 *
+hash64_get_internal(Hash64 *hash, u64 key) {
     if (key == 0) {
         return 0;
     }
@@ -105,7 +108,8 @@ static u64 *hash64_get_internal(Hash64 *hash, u64 key) {
     return result;
 }
 
-Hash64 create_hash64(u32 n, struct MemoryArena *arena) {
+Hash64 
+create_hash64(u32 n, struct MemoryArena *arena) {
     Hash64 hash = {0};
     hash.num_buckets = n;
     hash.keys = arena_alloc_array(arena, n, u64);
@@ -113,17 +117,19 @@ Hash64 create_hash64(u32 n, struct MemoryArena *arena) {
     return hash;
 }
 
-b32 hash64_set(Hash64 *hash, u64 key, u64 value) {
-    b32 result = FALSE;
+bool 
+hash64_set(Hash64 *hash, u64 key, u64 value) {
+    bool result = false;
     u64 *value_ptr = hash64_get_internal(hash, key);
     if (value_ptr) {
         *value_ptr = value;
-        result = TRUE;
+        result = true;
     }
     return result;
 }
 
-u64 hash64_get(Hash64 *hash, u64 key, u64 default_value) {
+u64 
+hash64_get(Hash64 *hash, u64 key, u64 default_value) {
     u64 result = default_value;
     u64 *value_ptr = hash64_get_internal(hash, key);
     if (value_ptr && *value_ptr) {

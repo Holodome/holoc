@@ -4,9 +4,9 @@
 // Version: 0
 #pragma once 
 #include "bytecode.h"
-#include "lib/memory.h"
+#include "platform/memory.h"
 #include "ast.h"
-#include "error_reporter.h"
+#include "compiler_ctx.h"
 
 #define BYTECODE_BUILDER_CODE_PAGE_SIZE KB(4)
 
@@ -41,7 +41,7 @@ typedef struct BytecodeBuilderBlockInfo {
 
 typedef struct {
     MemoryArena arena;
-    ErrorReporter *er;
+    CompilerCtx *ctx;
     
     BytecodeBuilderVar *static_vars;
     BytecodeBuilderFunction *functions;
@@ -52,7 +52,7 @@ typedef struct {
     BytecodeBuilderBlockInfo *block_info_free_list;
 } BytecodeBuilder;
 
-BytecodeBuilder *create_bytecode_builder(ErrorReporter *reporter);
+BytecodeBuilder *create_bytecode_builder(CompilerCtx *ctx);
 void destroy_bytecode_builder(BytecodeBuilder *builder); 
 void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel);
 void bytecode_builder_emit_code(BytecodeBuilder *builder, OSFileHandle *out);

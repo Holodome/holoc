@@ -1,6 +1,6 @@
 #include "lib/strings.h"
 
-#include "lib/memory.h"
+#include "platform/memory.h"
 #include "lib/stream.h"
 
 #include <stdlib.h>
@@ -19,35 +19,35 @@ uptr fmt(char *buf, uptr buf_size, const char *format, ...) {
     return result;
 }
 
-b32 is_ascii(u32 symb) {
+bool is_ascii(u32 symb) {
     return symb <= 0x7F;
 }
 
-b32 is_space(u32 symb) {
+bool is_space(u32 symb) {
     return symb == ' ' || symb == '\r' || symb == '\n';
 }
 
-b32 is_nextline(u32 symb) {
+bool is_nextline(u32 symb) {
     return (symb == '\n' || symb == '\r');  
 }
 
-b32 is_digit(u32 symb) {
+bool is_digit(u32 symb) {
     return ('0' <= symb && symb <= '9');
 }
 
-b32 is_alpha(u32 symb) {
+bool is_alpha(u32 symb) {
     return ('a' <= symb && symb <= 'z') || ('A' <= symb && symb <= 'Z');
 }
 
-b32 is_ident_start(u32 symb) {
+bool is_ident_start(u32 symb) {
     return is_alpha(symb) || symb == '_';
 }
 
-b32 is_ident(u32 symb) {
+bool is_ident(u32 symb) {
     return is_alpha(symb) || is_digit(symb) || symb == '_';
 }
 
-b32 is_punct(u32 symb) {
+bool is_punct(u32 symb) {
     return symb == '!' || symb == '\"' || symb == '#' || symb == '$' || symb == '%' || symb == '&' 
         || symb == '\'' || symb == '(' || symb == ')' || symb == '*' || symb == '+' || symb == ',' 
         || symb == '-' || symb == '.' || symb == '/' || symb == ':' || symb == ';' || symb == '<' 
@@ -56,11 +56,11 @@ b32 is_punct(u32 symb) {
         || symb == '}' || symb == '~';
 }
 
-b32 is_real(u32 symb) {
+bool is_real(u32 symb) {
     return is_digit(symb) || symb == '-' || symb == '+' || symb == 'e' || symb == 'E' || symb == '.';
 }
 
-b32 is_int(u32 symb) {
+bool is_int(u32 symb) {
     return is_digit(symb) || symb == '-' || symb == '+';
 }
 
@@ -82,21 +82,21 @@ uptr str_cp(char *bf, uptr bf_sz, const char *str) {
     return bytes_to_copy;
 }
 
-b32 str_eq(const char *a, const char *b) {
+bool str_eq(const char *a, const char *b) {
     while (*a && *b && *a == *b) {
         ++a;
         ++b;
     }
-    b32 result = *a == 0 && *b == 0;
+    bool result = *a == 0 && *b == 0;
     return result;
 }
 
-b32 str_eqn(const char *a, const char *b, uptr n) {
+bool str_eqn(const char *a, const char *b, uptr n) {
     while (*a && *b && (*a == *b) && n--) {
         ++a;
         ++b;
     }
-    b32 result = n == 0;
+    bool result = n == 0;
     return result;
 }
 
@@ -169,9 +169,9 @@ uptr outf(const char *msg, ...) {
 }
 
 uptr outv(const char *msg, va_list args) {
-    OutStream *st = get_stdout_stream();
-    uptr result = out_streamv(st, msg, args);
-    out_stream_flush(st);
+    OutStream *stream = get_stdout_stream();
+    uptr result = out_streamv(stream, msg, args);
+    out_stream_flush(stream);
     return result;
 }
 
@@ -184,9 +184,9 @@ uptr erroutf(const char *msg, ...) {
 }
 
 uptr erroutv(const char *msg, va_list args) {
-    OutStream *st = get_stderr_stream();
-    uptr result = out_streamv(st, msg, args);
-    out_stream_flush(st);
+    OutStream *stream = get_stderr_stream();
+    uptr result = out_streamv(stream, msg, args);
+    out_stream_flush(stream);
     return result;
 }
 
@@ -198,24 +198,24 @@ Text text(const char *data, u32 len) {
     return text;
 }
 
-b32 text_eq(Text a, Text b) {
-    b32 result = FALSE;
+bool text_eq(Text a, Text b) {
+    bool result = false;
     if (a.len == b.len) {
         result = mem_eq(a.data, b.data, a.len);
     }
     return result;
 }
 
-b32 text_startswith(Text a, Text b) {
-    b32 result = FALSE;
+bool text_startswith(Text a, Text b) {
+    bool result = false;
     if (a.len >= b.len) {
         result = mem_eq(a.data, b.data, b.len);
     }
     return result;
 }
 
-b32 text_endswith(Text a, Text b) {
-    b32 result = FALSE;
+bool text_endswith(Text a, Text b) {
+    bool result = false;
     if (a.len >= b.len) {
         result = mem_eq(a.data + (a.len - b.len), b.data, b.len);
     }

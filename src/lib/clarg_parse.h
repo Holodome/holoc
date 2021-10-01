@@ -7,7 +7,7 @@
 // @NOTE(hl): This API is not needed to be super fast, as it is executed only once at the start of the program
 #pragma once
 #include "general.h"
-#include "lib/memory.h"
+#include "platform/memory.h"
 
 #define CLARG_NARG ((u32)-1)
 

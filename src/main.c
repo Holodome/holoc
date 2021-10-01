@@ -1,3 +1,4 @@
+#include "compiler_ctx.h"
 #include "lexer.h"
 #include "parser.h"
 #include "bytecode_builder.h"
@@ -5,58 +6,55 @@
 
 static void
 do_compile(const char *filename, const char *out_filename) {
-    MemoryArena interp_arena = {0};
-    StringStorage *ss = create_string_storage(STRING_STORAGE_HASH_SIZE, &interp_arena);
-    ErrorReporter *er = create_error_reporter(get_stdout_stream(), get_stderr_stream(), &interp_arena);
+    CompilerCtx *ctx = create_compiler_ctx();
     
     FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
     InStream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
-        arena_alloc(&interp_arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
-    Lexer *lexer = create_lexer(er, ss, &in_file_st, in_file_id);
-    Parser *parser = create_parser(lexer, ss, er);
-    BytecodeBuilder *builder = create_bytecode_builder(er);
+    Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
+    Parser *parser = create_parser(ctx, lexer);
+    BytecodeBuilder *builder = create_bytecode_builder(ctx);
     for (;;) {
         AST *toplevel = parser_parse_toplevel(parser);
-        if (!toplevel || is_error_reported(er)) {
+        if (!toplevel || is_error_reported(ctx->er)) {
             break;
         }
-        fmt_ast_tree(ss, get_stdout_stream(), toplevel, 0);
+        fmt_ast_tree(ctx, get_stdout_stream(), toplevel, 0);
         bytecode_builder_proccess_toplevel(builder, toplevel);
     }
     destroy_parser(parser);
     destroy_lexer(lexer);
     fs_close_file(in_file_id);
     
-    if (!is_error_reported(er)) {
+    if (!is_error_reported(ctx->er)) {
         FileID out_file = fs_open_file(out_filename, FILE_MODE_WRITE);
         bytecode_builder_emit_code(builder, fs_get_handle(out_file));
         fs_close_file(out_file);
     }
     destroy_bytecode_builder(builder);
-    arena_clear(&interp_arena);
+    print_reporter_summary(ctx->er);
+    destroy_compiler_ctx(ctx);
 }
 
 static void
 do_tokenizing(const char *filename) {
-    MemoryArena interp_arena = {0};
-    StringStorage *ss = create_string_storage(STRING_STORAGE_HASH_SIZE, &interp_arena);
-    ErrorReporter *er = create_error_reporter(get_stdout_stream(), get_stderr_stream(), &interp_arena);
-    
+    CompilerCtx *ctx = create_compiler_ctx();
+
     FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
     InStream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
-        arena_alloc(&interp_arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
-    Lexer *lexer = create_lexer(er, ss, &in_file_st, in_file_id);
+    Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
     u32 last_line_number = (u32)-1;
     OutStream *out = get_stdout_stream();
     for (;;) {
         Token *tok = peek_tok(lexer);
         if (tok->kind != TOKEN_EOS) {
             char token_bf[1024];
-            fmt_tok(token_bf, sizeof(token_bf), ss, tok);
+            fmt_tok(ctx, token_bf, sizeof(token_bf), tok);
             if (tok->src_loc.line != last_line_number) {
                 out_streamf(out, "\n");
             }
@@ -70,35 +68,33 @@ do_tokenizing(const char *filename) {
     out_streamf(out, "\n");
     destroy_lexer(lexer);
     fs_close_file(in_file_id);
-    
-    arena_clear(&interp_arena);
+    print_reporter_summary(ctx->er);
+    destroy_compiler_ctx(ctx);
 }
 
 static void 
 do_ast_view(const char *filename) {
-    MemoryArena interp_arena = {0};
-    StringStorage *ss = create_string_storage(STRING_STORAGE_HASH_SIZE, &interp_arena);
-    ErrorReporter *er = create_error_reporter(get_stdout_stream(), get_stderr_stream(), &interp_arena);
-    
+    CompilerCtx *ctx = create_compiler_ctx();
+
     FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
     InStream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
-        arena_alloc(&interp_arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
-    Lexer *lexer = create_lexer(er, ss, &in_file_st, in_file_id);
-    Parser *parser = create_parser(lexer, ss, er);
+    Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
+    Parser *parser = create_parser(ctx, lexer);
     for (;;) {
         AST *toplevel = parser_parse_toplevel(parser);
-        if (!toplevel || is_error_reported(er)) {
+        if (!toplevel || is_error_reported(ctx->er)) {
             break;
         }
-        fmt_ast_tree(ss, get_stdout_stream(), toplevel, 0);
+        fmt_ast_tree(ctx, get_stdout_stream(), toplevel, 0);
     }
     destroy_parser(parser);
     destroy_lexer(lexer);
     fs_close_file(in_file_id);
-    
-    arena_clear(&interp_arena);
+    print_reporter_summary(ctx->er);
+    destroy_compiler_ctx(ctx);
 }
 
 static void 
@@ -116,7 +112,7 @@ enum {
 };
 
 typedef struct {
-    b32 test;
+    bool test;
     char **filenames;
     char *out_filename;
     char *mode_str;
@@ -175,19 +171,19 @@ int main(int argc, char **argv) {
     assert(settings.filenames);
     const char *filename = settings.filenames[0];
     switch (settings.mode) {
-        case PROGRAM_COMPILE: {
-            do_compile(filename, "out.pkex");
-        } break;
-        case PROGRAM_TOKENIZE: {
-            do_tokenizing(filename);
-        } break;
-        case PROGRAM_AST: {
-            do_ast_view(filename);
-        } break;
-        case PROGRAM_AST_TO_SRC: {
-            NOT_IMPLEMENTED;
-        } break;
-        INVALID_DEFAULT_CASE;
+    case PROGRAM_COMPILE: {
+        do_compile(filename, "out.pkex");
+    } break;
+    case PROGRAM_TOKENIZE: {
+        do_tokenizing(filename);
+    } break;
+    case PROGRAM_AST: {
+        do_ast_view(filename);
+    } break;
+    case PROGRAM_AST_TO_SRC: {
+        NOT_IMPLEMENTED;
+    } break;
+    INVALID_DEFAULT_CASE;
     }
     
     outf("End of main\n");

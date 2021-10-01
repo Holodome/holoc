@@ -11,12 +11,12 @@ typedef struct {
     u32 cursor;
 } CLArgCtx;
 
-static b32 
+static bool 
 ctx_is_not_finished(CLArgCtx *ctx) {
     return ctx->cursor < ctx->argc;
 }
 
-static b32 
+static bool 
 ctx_has_space_for(CLArgCtx *ctx, u32 n) {
     return ctx->cursor + n < ctx->argc;
 }
@@ -37,21 +37,21 @@ find_info(CLArgCtx *ctx, const char *opt) {
 static void 
 write_arg(void *out, u32 type, const char *opt) {
     switch (type) {
-        case CLARG_TYPE_F64: {
-            f64 value = str_to_f64(opt);
-            *((f64 *)out) = value;
-        } break;
-        case CLARG_TYPE_I64: {
-            i64 value = str_to_i64(opt);
-            *((i64 *)out) = value;
-        } break;
-        case CLARG_TYPE_STR: {
-            char *str = mem_alloc_str(opt);
-            *((char **)out) = str;
-        } break;
-        default: {
-            NOT_IMPLEMENTED;
-        } break;
+    case CLARG_TYPE_F64: {
+        f64 value = str_to_f64(opt);
+        *((f64 *)out) = value;
+    } break;
+    case CLARG_TYPE_I64: {
+        i64 value = str_to_i64(opt);
+        *((i64 *)out) = value;
+    } break;
+    case CLARG_TYPE_STR: {
+        char *str = mem_alloc_str(opt);
+        *((char **)out) = str;
+    } break;
+    default: {
+        NOT_IMPLEMENTED;
+    } break;
     }
 }
 
@@ -111,7 +111,7 @@ clarg_parse(void *out_bf, CLArgInfo *infos, u32 ninfos, u32 argc, char ** const 
         
         if (info->narg == 0) {
             assert(info->type == CLARG_TYPE_BOOL);
-            *(u8 *)out = TRUE;
+            *(u8 *)out = true;
             ++ctx.cursor;
         } else if (info->narg == 1) {
             if (!ctx_has_space_for(&ctx, 1)) {

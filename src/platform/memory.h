@@ -1,6 +1,6 @@
 // Author: Holodome
 // Date: 21.08.2021 
-// File: pkby/src/lib/memory.h
+// File: pkby/src/platform/memory.h
 // Version: 0
 //
 // Defines memory-related functions, as well as block and arena allocator.
@@ -77,7 +77,7 @@ void mem_move(void *dst, const void *src, uptr size);
 // memset
 void mem_zero(void *dst, uptr size);
 // memcmp
-b32 mem_eq(const void *a, const void *b, uptr n);
+bool mem_eq(const void *a, const void *b, uptr n);
 
 // Memory blocks are used in arena-like allocators
 // Used to batch several allocations together instead of making multiple os callss
@@ -153,5 +153,5 @@ void end_temp_memory(TemporaryMemory temp);
 // Here it should be used primarily for prototyping, as its execution time is not constant (due to need to zero memory) 
 // When clear is set to true, all allocations overwrite previous ones.
 // When clear is not zero, allocations pile up 
-void tmp_alloc_set_clear(b32 clear);
+void tmp_alloc_set_clear(bool clear);
 void *tmp_alloc(uptr size);

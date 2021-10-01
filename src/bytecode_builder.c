@@ -3,9 +3,9 @@
 #include "lib/hashing.h"
 #include "lib/lists.h"
 
-BytecodeBuilder *create_bytecode_builder(ErrorReporter *reporter) {
+BytecodeBuilder *create_bytecode_builder(CompilerCtx *ctx) {
     BytecodeBuilder *builder = arena_bootstrap(BytecodeBuilder, arena);
-    builder->er = reporter;
+    builder->ctx = ctx;
     return builder;
 }
 
@@ -22,40 +22,40 @@ static BytecodeBuilderVar *lookup_var(BytecodeBuilder *builder, StringID id) {
 static u32 infer_type(BytecodeBuilder *builder, AST *expr) {
     u32 type = AST_TYPE_NONE;
     switch (expr->kind) {
-        case AST_BINARY: {
-            u32 left_type = infer_type(builder, expr->binary.left);
-            u32 right_type = infer_type(builder, expr->binary.right);
-            if (left_type == AST_TYPE_FLOAT || right_type == AST_TYPE_FLOAT) {
-                type = AST_TYPE_FLOAT;
-            } else {
-                type = AST_TYPE_INT;
-            }
+    case AST_BINARY: {
+        u32 left_type = infer_type(builder, expr->binary.left);
+        u32 right_type = infer_type(builder, expr->binary.right);
+        if (left_type == AST_TYPE_FLOAT || right_type == AST_TYPE_FLOAT) {
+            type = AST_TYPE_FLOAT;
+        } else {
+            type = AST_TYPE_INT;
+        }
+    } break;
+    case AST_UNARY: {
+        u32 subexpr_type = infer_type(builder, expr->unary.expr);
+        type = subexpr_type;
+    } break;
+    case AST_LIT: {
+        switch (expr->lit.kind) {
+        case AST_LIT_INT: {
+            type = AST_TYPE_INT;
         } break;
-        case AST_UNARY: {
-            u32 subexpr_type = infer_type(builder, expr->unary.expr);
-            type = subexpr_type;
-        } break;
-        case AST_LIT: {
-            switch (expr->lit.kind) {
-                case AST_LIT_INT: {
-                    type = AST_TYPE_INT;
-                } break;
-                case AST_LIT_REAL: {
-                    type = AST_TYPE_FLOAT;
-                } break;
-                INVALID_DEFAULT_CASE;
-            }
-        } break;
-        case AST_IDENT: {
-            BytecodeBuilderVar *var = lookup_var(builder, expr->ident.name);
-            if (var) {
-                type = var->type;
-            } else {
-                report_error_ast(builder->er, expr, "Use of undeclared identifier '%s'",
-                    expr->ident.name);
-            }
+        case AST_LIT_REAL: {
+            type = AST_TYPE_FLOAT;
         } break;
         INVALID_DEFAULT_CASE;
+        }
+    } break;
+    case AST_IDENT: {
+        BytecodeBuilderVar *var = lookup_var(builder, expr->ident.name);
+        if (var) {
+            type = var->type;
+        } else {
+            report_error_ast(builder->ctx->er, expr, "Use of undeclared identifier '%s'",
+                expr->ident.name);
+        }
+    } break;
+    INVALID_DEFAULT_CASE;
     }
     return type;
 }
@@ -66,7 +66,7 @@ static u64 compile_time_expr_evaluate(BytecodeBuilder *builder, AST *expr, u32 t
     if (expr->lit.kind == AST_LIT_INT && type == AST_TYPE_INT) {
         result = expr->lit.value_int;
     } else {
-        assert(FALSE);
+        assert(false);
     }
     return result;
 }
@@ -87,7 +87,7 @@ static void add_static_variable(BytecodeBuilder *builder, AST *decl) {
     if (!decl_type) {
         decl_type = infer_type(builder, decl->decl.expr);
         if (!decl_type) {
-            report_error_ast(builder->er, decl, "Failed to infer type for declaration");
+            report_error_ast(builder->ctx->er, decl, "Failed to infer type for declaration");
         }
     }
     storage = compile_time_expr_evaluate(builder, decl->decl.expr, decl_type);
@@ -126,25 +126,25 @@ static void add_func_def(BytecodeBuilder *builder, AST *decl) {
     AST *block = decl->func_decl.block;
     AST_LIST_ITER(&block->block.statements, statement) {
         switch (statement->kind) {
-            case AST_ASSIGN: {
-                
-            } break;
-            case AST_IF: {
-                
-            } break;
-            case AST_RETURN: {
-                
-            } break;
-            case AST_WHILE: {
-                
-            } break;
-            case AST_PRINT: {
-                
-            } break;
-            case AST_DECL: {
-                
-            } break;
-        }
+        case AST_ASSIGN: {
+            
+        } break;
+        case AST_IF: {
+            
+        } break;
+        case AST_RETURN: {
+            
+        } break;
+        case AST_WHILE: {
+            
+        } break;
+        case AST_PRINT: {
+            
+        } break;
+        case AST_DECL: {
+            
+        } break;
+    }
     }
 }
 
@@ -154,13 +154,13 @@ void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel)
     }
     
     switch (toplevel->kind) {
-        case AST_DECL: {
-            add_static_variable(builder, toplevel);        
-        } break;
-        case AST_FUNC_DECL: {
-            add_func_def(builder, toplevel);        
-        } break;
-        INVALID_DEFAULT_CASE;
+    case AST_DECL: {
+        add_static_variable(builder, toplevel);        
+    } break;
+    case AST_FUNC_DECL: {
+        add_func_def(builder, toplevel);        
+    } break;
+    INVALID_DEFAULT_CASE;
     }
 }
 

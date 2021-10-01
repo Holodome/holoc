@@ -1,5 +1,4 @@
 #include "lib/filesystem.h"
-#include "lib/memory.h"
 #include "lib/hashing.h"
 #include "error_reporter.h"
 #include "lib/strings.h"
@@ -9,7 +8,7 @@
 typedef struct FSFileSlot {
     u64 hash;
     char *name; // @TODO Filepath should be here
-    b32 is_open;
+    bool is_open;
     u32 file_mode;
     uptr file_size_cached;
     OSFileHandle handle;
@@ -39,7 +38,8 @@ typedef struct {
 
 static FS *fs;
 
-void init_filesystem(void) {
+void 
+init_filesystem(void) {
     fs = arena_bootstrap(FS, arena);
     fs->nfile_slots = FS_HASH_SIZE;
     fs->file_hash = create_hash64(fs->nfile_slots, &fs->arena);
@@ -51,11 +51,13 @@ void init_filesystem(void) {
     fs->nfilepath_slots_used++;
 }
 
-b32 is_file_id_valid(FileID id) {
+bool 
+is_file_id_valid(FileID id) {
     return id.value != 0;
 }
 
-static FSFileSlot *get_slot(u64 hash) {
+static FSFileSlot *
+get_slot(u64 hash) {
     FSFileSlot *slot = 0;
     u64 default_value = (u64)-1;
     u64 idx = hash64_get(&fs->file_hash, hash, default_value);
@@ -66,24 +68,28 @@ static FSFileSlot *get_slot(u64 hash) {
     return slot;
 }
 
-static u64 get_hash_for_filename(const char *filename) {
+static u64 
+get_hash_for_filename(const char *filename) {
     // @TOOD Use filepaths
     return hash_string(filename);
 }
 
-static u64 get_new_file_slot_idx(void) {
+static u64 
+get_new_file_slot_idx(void) {
     assert(fs->nfile_slots_used < fs->nfile_slots);
     return fs->nfile_slots_used++;
 }
 
-static void open_slot_file(FSFileSlot *slot) {
+static void 
+open_slot_file(FSFileSlot *slot) {
     if (!slot->is_open) {
         os_open_file(&slot->handle, slot->name, slot->file_mode);
-        slot->is_open = TRUE;
+        slot->is_open = true;
     }
 }
 
-FileID fs_get_id_for_filename(const char *filename) {
+FileID 
+fs_get_id_for_filename(const char *filename) {
     FileID result = {0};
     // @TODO Construct filepath
     u64 filename_hash = get_hash_for_filename(filename);
@@ -94,7 +100,8 @@ FileID fs_get_id_for_filename(const char *filename) {
     return result;
 }
 
-OSFileHandle *fs_get_handle(FileID id) {
+OSFileHandle *
+fs_get_handle(FileID id) {
     OSFileHandle *handle = 0;
     // @TODO Construct filepath
     FSFileSlot *slot = get_slot(id.value);
@@ -104,7 +111,8 @@ OSFileHandle *fs_get_handle(FileID id) {
     return handle;
 }
 
-FileID fs_open_file(const char *name, u32 mode) {
+FileID 
+fs_open_file(const char *name, u32 mode) {
     FileID result = {0};
     // Check if it already open
     u64 hash = get_hash_for_filename(name);
@@ -129,8 +137,9 @@ FileID fs_open_file(const char *name, u32 mode) {
     return result;    
 }
 
-b32 fs_close_file(FileID id) {
-    b32 result = FALSE;
+bool 
+fs_close_file(FileID id) {
+    bool result = false;
     FSFileSlot *slot = get_slot(id.value);
     if (!slot) {
         char bf[1024] = {0};
@@ -138,7 +147,7 @@ b32 fs_close_file(FileID id) {
         report_error_general("No file open for file id %llu (%s)", id.value, bf);
     } else {
         os_close_file(&slot->handle);
-        slot->is_open = FALSE;
+        slot->is_open = false;
         hash64_set(&fs->file_hash, slot->hash, -1);
         slot->hash = 0;
         // @TODO Think about policy for closed files - do we want to have some of their contents
@@ -147,7 +156,8 @@ b32 fs_close_file(FileID id) {
     return result;
 }
 
-uptr fs_get_file_size(FileID id) {
+uptr 
+fs_get_file_size(FileID id) {
     uptr result = 0;
     FSFileSlot *slot = get_slot(id.value);
     if (slot) {
@@ -159,7 +169,8 @@ uptr fs_get_file_size(FileID id) {
     return result;    
 }
 
-uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
+uptr 
+fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
     uptr result = 0;
     FSFileSlot *slot = get_slot(id.value);
     if (slot) {
@@ -168,7 +179,8 @@ uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
     return result;    
 }
 
-void DBG_dump_file(const char *filename, const void *data, u64 data_size) {
+void 
+DBG_dump_file(const char *filename, const void *data, u64 data_size) {
     OSFileHandle handle = {0};
     os_open_file(&handle, filename, FILE_MODE_WRITE);
     os_write_file(&handle, 0, data, data_size);

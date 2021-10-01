@@ -4,18 +4,16 @@
 // Version: 0
 #pragma once 
 #include "lib/general.h"
-#include "error_reporter.h"
-#include "string_storage.h"
+#include "compiler_ctx.h"
 #include "lexer.h"
 #include "ast.h"
 
 typedef struct {
     MemoryArena arena;
-    StringStorage *ss;
-    ErrorReporter *er;
+    CompilerCtx *ctx;
     Lexer *lexer;
 } Parser;
 
-Parser *create_parser(Lexer *lexer, StringStorage *ss, ErrorReporter *er);
+Parser *create_parser(CompilerCtx *ctx, Lexer *lexer);
 void destroy_parser(Parser *parser);
 AST *parser_parse_toplevel(Parser *parser);

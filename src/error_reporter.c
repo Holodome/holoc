@@ -2,8 +2,8 @@
 #include "lexer.h"
 #include "ast.h"
 
-
-ErrorReporter *create_error_reporter(OutStream *out, OutStream *errout, MemoryArena *arena) {
+ErrorReporter *
+create_error_reporter(OutStream *out, OutStream *errout, MemoryArena *arena) {
     ErrorReporter *er = arena_alloc_struct(arena, ErrorReporter);
     er->arena = arena;
     er->out = out;
@@ -11,11 +11,13 @@ ErrorReporter *create_error_reporter(OutStream *out, OutStream *errout, MemoryAr
     return er;
 }
 
-b32 is_error_reported(ErrorReporter *reporter) {
+bool 
+is_error_reported(ErrorReporter *reporter) {
     return reporter->error_count != 0;
 }
 
-void report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list args) {
+void 
+report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list args) {
     // const FileData *file_data = get_file_data(reporter->file_id);
     // @TODO capture source index and read only n first bytes instead of whole file
     FileID id = src_loc.file;
@@ -57,34 +59,48 @@ void report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_
     DBG_BREAKPOINT;
 }
 
-void report_error(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...) {
+void 
+report_error(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_errorv(reporter, src_loc, msg, args);
 }
 
-void report_error_tok(ErrorReporter *reporter, Token *tok, const char *msg, ...) {
+void 
+report_error_tok(ErrorReporter *reporter, Token *tok, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_errorv(reporter, tok->src_loc, msg, args);
 }
 
-void report_error_ast(ErrorReporter *reporter, AST *ast, const char *msg, ...) {
+void 
+report_error_ast(ErrorReporter *reporter, AST *ast, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_errorv(reporter, ast->src_loc, msg, args);
 }
 
-void report_error_generalv(const char *msg, va_list args) {
-    OutStream *st = get_stderr_stream();
-    out_streamf(st, "\033[31merror\033[0m: ");
-    out_streamv(st, msg, args);
-    out_streamf(st, "\n");
-    out_stream_flush(st);
+void 
+report_error_generalv(const char *msg, va_list args) {
+    OutStream *stream = get_stderr_stream();
+    out_streamf(stream, "\033[31merror\033[0m: ");
+    out_streamv(stream, msg, args);
+    out_streamf(stream, "\n");
+    out_stream_flush(stream);
 }
 
-void report_error_general(const char *msg, ...) {
+void 
+report_error_general(const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_error_generalv(msg, args);
+}
+
+void 
+print_reporter_summary(ErrorReporter *reporter) {
+    if (is_error_reported(reporter)) {
+        erroutf("Compilation failed. %u errors encountered\n", reporter->error_count);
+    } else {
+        outf("Compilation successfull\n");
+    }
 }

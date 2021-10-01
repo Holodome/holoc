@@ -38,3 +38,6 @@
 #endif
 void assert_msg(const char *expr, const char *filename, int line, const char *function);
 
+#define NOT_IMPLEMENTED DBG_BREAKPOINT
+#define INVALID_DEFAULT_CASE assert(!"InvalidDefaultCase")
+#define UNREACHABLE assert(!"Unreachable")

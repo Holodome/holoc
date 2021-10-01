@@ -1,4 +1,4 @@
-#include "lib/memory.h"
+#include "platform/memory.h"
 
 #include "lib/strings.h"
 #include "lib/lists.h"
@@ -31,7 +31,7 @@ void mem_zero(void *dst, uptr size) {
     memset(dst, 0, size);
 }
 
-b32 mem_eq(const void *a, const void *b, uptr n) {
+bool mem_eq(const void *a, const void *b, uptr n) {
     return memcmp(a, b, n) == 0;
 }
 
@@ -107,7 +107,7 @@ void arena_free_last_block(MemoryArena *arena) {
 void arena_clear(MemoryArena *arena) {
     while (arena->current_block) {
         // In case arena itself is stored in last block
-        b32 is_last_block = (arena->current_block->next == 0);
+        bool is_last_block = (arena->current_block->next == 0);
         arena_free_last_block(arena);
         if (is_last_block) {
             break;
@@ -147,7 +147,7 @@ void end_temp_memory(TemporaryMemory temp) {
 }
 
 #if MEM_USE_STDLIB
-#include "lib/memory_stdlib.inl"
+#include "lib/memory_libc.inl"
 #else 
 #if OS_WINDOWS
 #include "memory_win32.inl"

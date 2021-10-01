@@ -28,15 +28,15 @@ static const char *MULTISYMB_STRS[] = {
     "&=",
     "|=",
     "^=",
-    "%=",
     "/=",
     "*=",
     "%=",
     "&&",
-    "||"
+    "||",
+    "::"
 };  
 
-b32 
+bool 
 is_token_assign(u32 tok) {
     return tok == '=' || tok == TOKEN_IADD || tok == TOKEN_ISUB || tok == TOKEN_IMUL ||
         tok == TOKEN_IDIV || tok == TOKEN_IMOD || tok == TOKEN_IAND || tok == TOKEN_IOR ||
@@ -44,18 +44,17 @@ is_token_assign(u32 tok) {
 }
 
 Lexer *
-create_lexer(ErrorReporter *er, StringStorage *ss, InStream *st, FileID file) {
+create_lexer(CompilerCtx *ctx, InStream *stream, FileID file) {
     Lexer *lexer = arena_bootstrap(Lexer, arena);
-    lexer->st = st;
+    lexer->stream = stream;
     lexer->curr_loc.symb = 1;
     lexer->curr_loc.line = 1;
     lexer->curr_loc.file = file;
     lexer->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
     lexer->scratch_buffer = arena_alloc(&lexer->arena, lexer->scratch_buffer_size);
-    lexer->ss = ss;
-    lexer->er = er;
+    lexer->ctx = ctx;
     for (u32 i = 0; i < ARRAY_SIZE(KEYWORD_STRS); ++i) {
-        lexer->keyword_ids[i] = string_storage_add(lexer->ss, KEYWORD_STRS[i]);
+        lexer->keyword_ids[i] = string_storage_add(lexer->ctx->ss, KEYWORD_STRS[i]);
     }
     return lexer;
 }
@@ -67,29 +66,29 @@ destroy_lexer(Lexer *lexer) {
 
 // @TODO(hl): @SPEED:
 // Do we always have to check for newlines?
-static b32
+static bool
 advance(Lexer *lexer, u32 n) {
-    u32 line_idx = n;
+    u32 line_idx = lexer->curr_loc.symb;
     for (u32 i = 0; i < n; ++i) {
-        if (in_stream_soft_peek_at(lexer->st, i) == '\n') {
+        if (in_stream_soft_peek_at(lexer->stream, i) == '\n') {
             ++lexer->curr_loc.line;
             line_idx = 0;
         } 
         ++line_idx;
     }
-    uptr advanced = in_stream_advance(lexer->st, n);
+    uptr advanced = in_stream_advance(lexer->stream, n);
     lexer->curr_loc.symb = line_idx;
     return advanced == n;
 }
 
-static b32 
+static bool 
 parse(Lexer *lexer, const char *str) {
-    b32 result = FALSE;
+    bool result = false;
     uptr len = str_len(str);
     assert(len < lexer->scratch_buffer_size);
     // @SPEED(hl): This can be done as direct compare with memory from 
-    // stream, like in_stream_cmp(st, bf, bf_sz)
-    if (in_stream_peek(lexer->st, lexer->scratch_buffer, len) == len) {
+    // stream, like in_stream_cmp(stream, bf, bf_sz)
+    if (in_stream_peek(lexer->stream, lexer->scratch_buffer, len) == len) {
         result = mem_eq(lexer->scratch_buffer, str, len);
         if (result) {
             advance(lexer, len);
@@ -102,13 +101,13 @@ parse(Lexer *lexer, const char *str) {
 static void 
 begin_lit_write(Lexer *lexer) {
     lexer->scratch_buffer_used = 0;
-    string_storage_begin_write(lexer->ss);
+    string_storage_begin_write(lexer->ctx->ss);
 }
 
 static void
 lit_write(Lexer *lexer, u8 symb) {
     if (lexer->scratch_buffer_used + 1 > lexer->scratch_buffer_size) {
-        string_storage_write(lexer->ss, lexer->scratch_buffer, lexer->scratch_buffer_size);
+        string_storage_write(lexer->ctx->ss, lexer->scratch_buffer, lexer->scratch_buffer_size);
         lexer->scratch_buffer_used = 0;
     } 
     lexer->scratch_buffer[lexer->scratch_buffer_used++] = symb;
@@ -117,8 +116,8 @@ lit_write(Lexer *lexer, u8 symb) {
 
 static StringID
 end_lit_write(Lexer *lexer) {
-    string_storage_write(lexer->ss, lexer->scratch_buffer, lexer->scratch_buffer_used);
-    return string_storage_end_write(lexer->ss);
+    string_storage_write(lexer->ctx->ss, lexer->scratch_buffer, lexer->scratch_buffer_used);
+    return string_storage_end_write(lexer->ctx->ss);
 }
 
 Token *
@@ -132,7 +131,7 @@ peek_tok(Lexer *lexer) {
     lexer->active_token = token;
 
     for (;;) {
-        u8 symb = in_stream_peek_b_or_zero(lexer->st);
+        u8 symb = in_stream_peek_b_or_zero(lexer->stream);
         if (!symb) {
             token->kind = TOKEN_EOS;
             break;
@@ -143,7 +142,7 @@ peek_tok(Lexer *lexer) {
             continue;
         } else if (parse(lexer, "//")) {
             for (;;) {
-                u8 peeked = in_stream_peek_b_or_zero(lexer->st);
+                u8 peeked = in_stream_peek_b_or_zero(lexer->stream);
                 if (!peeked || peeked == '\n') {
                     break;
                 }
@@ -164,7 +163,7 @@ peek_tok(Lexer *lexer) {
             }
             
             if (depth) {
-                report_error(lexer->er, comment_start_loc, "*/ expected to end comment");
+                report_error(lexer->ctx->er, comment_start_loc, "*/ expected to end comment");
             }
             continue;
         }
@@ -172,13 +171,13 @@ peek_tok(Lexer *lexer) {
         token->src_loc = lexer->curr_loc;
         if (is_digit(symb)) {
             begin_lit_write(lexer);
-            b32 is_real_lit = FALSE;
+            bool is_real_lit = false;
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(lexer->st);
+                u8 symb = in_stream_peek_b_or_zero(lexer->stream);
                 if (is_int(symb)) {
                     // nop
                 } else if (is_real(symb)) {
-                    is_real_lit = TRUE;
+                    is_real_lit = true;
                 } else {
                     break;
                 }
@@ -187,7 +186,7 @@ peek_tok(Lexer *lexer) {
             }
             StringID str_id = end_lit_write(lexer);
             // @NOTE(hl): This is stupid, just because we decided that strings can have arbitrary size
-            string_storage_get(lexer->ss, str_id, lexer->scratch_buffer, lexer->scratch_buffer_size);
+            string_storage_get(lexer->ctx->ss, str_id, lexer->scratch_buffer, lexer->scratch_buffer_size);
             if (is_real_lit) {
                 f64 real = str_to_f64((char *)lexer->scratch_buffer);
                 token->value_real = real;
@@ -203,7 +202,7 @@ peek_tok(Lexer *lexer) {
             begin_lit_write(lexer);
             lit_write(lexer, symb);
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(lexer->st);
+                u8 symb = in_stream_peek_b_or_zero(lexer->stream);
                 if (!is_ident(symb)) {
                     break;
                 }
@@ -226,7 +225,7 @@ peek_tok(Lexer *lexer) {
             advance(lexer, 1);
             begin_lit_write(lexer);
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(lexer->st);
+                u8 symb = in_stream_peek_b_or_zero(lexer->stream);
                 if (symb == '\"') {
                     break;
                 }
@@ -255,7 +254,7 @@ peek_tok(Lexer *lexer) {
             }
             break;
         } else {
-            report_error_tok(lexer->er, token, "Unexpected character");
+            report_error_tok(lexer->ctx->er, token, "Unexpected character");
             token->kind = TOKEN_ERROR;
             advance(lexer, 1);
             break;
@@ -288,28 +287,28 @@ fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
         result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[kind - TOKEN_KEYWORD]);
     } else if (IS_TOKEN_GENERAL(kind)) {
         switch (kind) {
-            case TOKEN_EOS: {
-                result = fmt(buf, buf_sz, "<EOS>");
-            } break;
-            case TOKEN_IDENT: {
-                result = fmt(buf, buf_sz, "<ident>");
-            } break;
-            case TOKEN_STR: {
-                result = fmt(buf, buf_sz, "<str>");
-            } break;
-            case TOKEN_INT: {
-                result = fmt(buf, buf_sz, "<int>");
-            } break;
-            case TOKEN_REAL: {
-                result = fmt(buf, buf_sz, "<real>");
-            } break;
+        case TOKEN_EOS: {
+            result = fmt(buf, buf_sz, "<EOS>");
+        } break;
+        case TOKEN_IDENT: {
+            result = fmt(buf, buf_sz, "<ident>");
+        } break;
+        case TOKEN_STR: {
+            result = fmt(buf, buf_sz, "<str>");
+        } break;
+        case TOKEN_INT: {
+            result = fmt(buf, buf_sz, "<int>");
+        } break;
+        case TOKEN_REAL: {
+            result = fmt(buf, buf_sz, "<real>");
+        } break;
         }
     }
     return result;    
 }
 
 uptr 
-fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token) {
+fmt_tok(CompilerCtx *ctx, char *buf, uptr buf_sz, Token *token) {
     uptr result = 0;
     if (IS_TOKEN_ASCII(token->kind)) {
         result = fmt(buf, buf_sz, "%c", token->kind);
@@ -319,23 +318,23 @@ fmt_tok(char *buf, uptr buf_sz, StringStorage *ss, Token *token) {
         result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[token->kind - TOKEN_KEYWORD]);
     } else if (IS_TOKEN_GENERAL(token->kind)) {
         switch (token->kind) {
-            case TOKEN_EOS: {
-                result = fmt(buf, buf_sz, "<EOS>");
-            } break;
-            case TOKEN_IDENT: {
-                result = fmt(buf, buf_sz, "<ident>");
-                result += string_storage_get(ss, token->value_str, (u8 *)buf + result, buf_sz - result);
-            } break;
-            case TOKEN_STR: {
-                result = fmt(buf, buf_sz, "<str>");
-                result += string_storage_get(ss, token->value_str, (u8 *)buf + result, buf_sz - result);
-            } break;
-            case TOKEN_INT: {
-                result = fmt(buf, buf_sz, "<int>%lld", token->value_int);
-            } break;
-            case TOKEN_REAL: {
-                result = fmt(buf, buf_sz, "<real>%f", token->value_real);
-            } break;
+        case TOKEN_EOS: {
+            result = fmt(buf, buf_sz, "<EOS>");
+        } break;
+        case TOKEN_IDENT: {
+            result = fmt(buf, buf_sz, "<ident>");
+            result += string_storage_get(ctx->ss, token->value_str, (u8 *)buf + result, buf_sz - result);
+        } break;
+        case TOKEN_STR: {
+            result = fmt(buf, buf_sz, "<str>");
+            result += string_storage_get(ctx->ss, token->value_str, (u8 *)buf + result, buf_sz - result);
+        } break;
+        case TOKEN_INT: {
+            result = fmt(buf, buf_sz, "<int>%lld", token->value_int);
+        } break;
+        case TOKEN_REAL: {
+            result = fmt(buf, buf_sz, "<real>%f", token->value_real);
+        } break;
         }
     }
     return result;
