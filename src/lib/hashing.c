@@ -80,7 +80,7 @@ static const u32 CRC32_LUT[] = {
 u32 crc32(u32 crc, const void *bf_init, uptr bf_sz) {
     u8 *bf = (u8 *)bf_init;
     while (bf_sz--) {
-        crc = (crc << 8) ^ CRC32_LUT[((crc >> 24) ^ *bf) & 0xFF];
+        crc = (crc << 8) ^ CRC32_LUT[((crc >> 24) ^ *bf++) & 0xFF];
     }  
     return crc;
 }

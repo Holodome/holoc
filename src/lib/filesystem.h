@@ -59,3 +59,10 @@ uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id);
 
 FileID fs_get_stdout(void);
 FileID fs_get_stderr(void);
+
+/* 
+@NOTE(hl): Debugging tool when we need to inspect some binary (or even string) data
+In current debuggers, inspection of buffers of any kind is complicated.
+This may help solve this problem, but still not the best solution
+*/
+void DBG_dump_file(const char *filename, const void *data, u64 data_size);

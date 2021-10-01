@@ -167,3 +167,10 @@ uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
     }
     return result;    
 }
+
+void DBG_dump_file(const char *filename, const void *data, u64 data_size) {
+    OSFileHandle handle = {0};
+    os_open_file(&handle, filename, FILE_MODE_WRITE);
+    os_write_file(&handle, 0, data, data_size);
+    os_close_file(&handle);    
+}

@@ -448,8 +448,8 @@ AST *parse_assign_ident(Parser *parser, AST *ident) {
         AST *expr = parse_expr(parser);
         
         assign = ast_new(parser, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = expr;
+        assign->assign.lvalue = ident;
+        assign->assign.rvalue = expr;
     } else {
         u32 binary_kind = assign_token_to_binary_kind(tok->kind);
         assert(binary_kind);
@@ -458,8 +458,8 @@ AST *parse_assign_ident(Parser *parser, AST *ident) {
         binary->binary.left = ident;
         binary->binary.right = parse_expr(parser);
         assign = ast_new(parser, AST_ASSIGN);
-        assign->assign.ident = ident;
-        assign->assign.expr = binary;
+        assign->assign.lvalue = ident;
+        assign->assign.rvalue = binary;
     }
     
     tok = peek_tok(parser->lexer);

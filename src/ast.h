@@ -72,7 +72,7 @@ enum {
     AST_LIT_NONE,  
     AST_LIT_INT,  
     AST_LIT_REAL,
-    AST_LIT_STRING,
+    AST_LIT_STR,
     AST_LIT_COUNT,
 };
 
@@ -86,8 +86,8 @@ typedef struct {
 } ASTLit;
 
 typedef struct {
-    AST *ident;
-    AST *expr;
+    AST *lvalue;
+    AST *rvalue;
 } ASTAssign;
 
 typedef struct {
@@ -219,7 +219,3 @@ struct AST {
 
 // Prints ast tree as text tree-like structure.
 void fmt_ast_tree(StringStorage *ss, OutStream *stream, AST *ast, u32 depth);
-// Prints ast expression as code, trying to reverse get the input
-// Used in debugging expression parsing 
-// @NOTE Can be modified to format whole ast tree as source code
-void fmt_ast_as_code(OutStream *stream, AST *ast);

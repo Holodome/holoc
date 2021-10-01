@@ -68,6 +68,7 @@ string_storage_write(StringStorage *storage, const void *bf, u32 bf_sz) {
     assert(storage->is_inside_write);
     u32 bf_sz_init = bf_sz;
     u8 *bf_cursror = (u8 *)bf;
+    storage->current_write_crc = crc32(storage->current_write_crc, bf, bf_sz);
     while (bf_sz) {
         StringStorageBuffer *bf = get_buffer_for_writing(storage, 1);
         u32 bf_size_remaing = STRING_STORAGE_BUFFER_SIZE - bf->used;
@@ -76,7 +77,6 @@ string_storage_write(StringStorage *storage, const void *bf, u32 bf_sz) {
             size_to_write = bf_sz;
         }
         mem_copy(bf->storage + bf->used, bf_cursror, size_to_write);
-        storage->current_write_crc = crc32(storage->current_write_crc, bf_cursror, size_to_write);
         bf->used += size_to_write;
         bf_sz -= size_to_write;
         bf_cursror += size_to_write;
@@ -87,17 +87,20 @@ string_storage_write(StringStorage *storage, const void *bf, u32 bf_sz) {
 StringID 
 string_storage_end_write(StringStorage *ss) {
     assert(ss->is_inside_write);
+    ss->is_inside_write = FALSE;
     StringID id = {0};
     StringStorageBuffer *bf = get_buffer_for_writing(ss, 1);
     bf->storage[bf->used++] = 0;
     u64 hash_default = (u64)-1;
-    if (hash64_get(&ss->hash, ss->current_write_start, hash_default) != hash_default) {
+    u64 hash_value = hash64_get(&ss->hash, ss->current_write_crc, hash_default);
+    if (hash_value != hash_default) {
         roll_back_to_location(ss, ss->current_write_start);
+        id.value = hash_value;
     } else {
-        hash64_set(&ss->hash, ss->current_write_start, ss->current_write_start);
-        u32 start_write_bf_idx = ss->current_write_start >> 32;
-        u32 start_write_bf = ss->current_write_start & 0xFFFFFFFF;
-        StringStorageBuffer *start_bf = get_buffer_by_idx(ss, start_write_bf_idx);
+        hash64_set(&ss->hash, ss->current_write_crc, ss->current_write_start);
+        u32 start_write_bf = ss->current_write_start >> 32;
+        u32 start_write_bf_idx = ss->current_write_start & 0xFFFFFFFF;
+        StringStorageBuffer *start_bf = get_buffer_by_idx(ss, start_write_bf);
         *((u32 *)(start_bf->storage + start_write_bf_idx)) = ss->current_write_len;
         id.value = ss->current_write_start;
         ss->is_inside_write = FALSE;
@@ -110,11 +113,11 @@ u32
 string_storage_get(StringStorage *ss, StringID id, void *bf, uptr bf_sz) {
     u32 result = 0;
     if (id.value) {
-        u32 start_write_bf_idx = id.value >> 32;
-        u32 start_write_bf = id.value & 0xFFFFFFFF;
-        u32 buffer_idx = start_write_bf_idx;
+        u32 start_write_bf = id.value >> 32;
+        u32 start_write_bf_idx = id.value & 0xFFFFFFFF;
+        u32 buffer_idx = start_write_bf;
         StringStorageBuffer *sbf = get_buffer_by_idx(ss, buffer_idx);
-        u32 string_length = *(u32 *)(sbf->storage + start_write_bf_idx);
+        u32 string_length = *(u32 *)(sbf->storage + start_write_bf_idx) + 1;
         result = string_length;
         u8 *text_cursor = sbf->storage + start_write_bf_idx + sizeof(u32);
         u8 *bf_cursor = (u8 *)bf;
