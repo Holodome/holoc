@@ -64,22 +64,21 @@ string_storage_begin_write(StringStorage *storage) {
 }
 
 void
-string_storage_write(StringStorage *storage, const void *bf, u32 bf_sz) {
+string_storage_write(StringStorage *storage, const void *src, u32 src_sz) {
     assert(storage->is_inside_write);
-    u32 bf_sz_init = bf_sz;
-    u8 *bf_cursror = (u8 *)bf;
-    storage->current_write_crc = crc32(storage->current_write_crc, bf, bf_sz);
-    while (bf_sz) {
+    u8 *src_cursror = (u8 *)src;
+    storage->current_write_crc = crc32(storage->current_write_crc, src, src_sz);
+    while (src_sz) {
         StringStorageBuffer *bf = get_buffer_for_writing(storage, 1);
         u32 bf_size_remaing = STRING_STORAGE_BUFFER_SIZE - bf->used;
         u32 size_to_write = bf_size_remaing;
-        if (bf_sz < size_to_write) {
-            size_to_write = bf_sz;
+        if (src_sz < size_to_write) {
+            size_to_write = src_sz;
         }
-        mem_copy(bf->storage + bf->used, bf_cursror, size_to_write);
+        mem_copy(bf->storage + bf->used, src_cursror, size_to_write);
         bf->used += size_to_write;
-        bf_sz -= size_to_write;
-        bf_cursror += size_to_write;
+        src_sz -= size_to_write;
+        src_cursror += size_to_write;
         storage->current_write_len += size_to_write;
     }
 }

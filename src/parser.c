@@ -617,6 +617,8 @@ AST *parse_function_signature(Parser *parser) {
             AST *ident = create_ident(parser, tok->value_str);
             eat_tok(parser->lexer);
             AST *decl = parse_decl_ident(parser, ident, false);
+            // @TODO
+            (void)decl;
             ast_list_add(&args, ident);
             tok = peek_tok(parser->lexer);
         } else {
@@ -635,7 +637,7 @@ AST *parse_function_signature(Parser *parser) {
     if (tok->kind == TOKEN_ARROW) {
         tok = peek_next_tok(parser->lexer);
         
-        Token *tok = peek_tok(parser->lexer);
+        tok = peek_tok(parser->lexer);
         for (;;) {
             AST *type = parse_type(parser);
             if (type) {

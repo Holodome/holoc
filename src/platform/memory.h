@@ -63,6 +63,7 @@ CT_ASSERT((u32)TO_BOOL(MEM_BOUNDS_CHECKING_POLICY & MEM_ALLOC_OVERFLOW_CHECK) + 
 // standard library-like functions
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory
 // malloc
+ATTR((malloc))
 void *mem_alloc(uptr size);
 // realloc
 void *mem_realloc(void *ptr, uptr old_size, uptr size);
@@ -89,6 +90,7 @@ typedef struct MemoryBlock {
     struct MemoryBlock *next;
 } MemoryBlock;
 
+ATTR((malloc))
 MemoryBlock *mem_alloc_block(uptr size);
 void mem_free_block(MemoryBlock *block);
 // Blocks can be freed with mem_free call

@@ -10,6 +10,7 @@ void *mem_alloc(uptr size) {
 }
 
 void mem_free(void *ptr, uptr size) {
+    (void)size;
     free(ptr);
 }
 

@@ -6,12 +6,23 @@ get_new_scope(SymbolTable *table) {
     SymbolTableScope *scope = table->scope_freelist;
     if (scope) {
         STACK_POP(table->scope_freelist);
-        scope->entries = 0;
-        scope->next = 0;
+        mem_zero(scope, sizeof(*scope));
     } else {
         scope = arena_alloc_struct(table->arena, SymbolTableScope);
     }
     return scope;
+}
+
+static SymbolTableEntry *
+get_new_entry(SymbolTable *table) {
+    SymbolTableEntry *entry = table->entry_freelist;
+    if (entry) {
+        STACK_POP(table->entry_freelist);
+        mem_zero(entry, sizeof(*entry));
+    } else {
+        entry = arena_alloc_struct(table->arena, SymbolTableEntry);
+    }
+    return entry;
 }
 
 static void 
@@ -50,6 +61,11 @@ symbol_table_pop_scope(SymbolTable *st) {
 void 
 symbol_table_add_entry(SymbolTable *st, StringID str, u32 ast_type, SrcLoc loc) {
     SymbolTableScope *scope = st->scope_stack;
+    SymbolTableEntry *entry = get_new_entry(st);
+    STACK_ADD(scope->entries, entry);
+    entry->ast_type = ast_type;
+    entry->declare_loc = loc;
+    entry->str = str;
 }
 
 SymbolTableEntry *

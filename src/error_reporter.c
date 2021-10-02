@@ -36,7 +36,8 @@ report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list 
         ++line_start;
     }
     const char *line_end = line_start;
-    while (*line_end != '\n' && (line_end - file_contents) < file_size) {
+    uptr line_end_offset = line_end - file_contents;
+    while (*line_end != '\n' && line_end_offset < file_size) {
         ++line_end;
     }
     int line_len = line_end - line_start;

@@ -91,7 +91,7 @@ clarg_parse(void *out_bf, CLArgInfo *infos, u32 ninfos, u32 argc, char ** const 
             u32 narg_start_cursor = ctx.cursor;
             ++ctx.cursor;
             while (ctx_is_not_finished(&ctx)) {
-                char *opt = argv[ctx.cursor];
+                opt = argv[ctx.cursor];
                 if (find_info(&ctx, opt)) {
                     break;
                 }

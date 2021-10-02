@@ -10,22 +10,12 @@ u64 f32_to_sort_key(f32 value) {
     return (u64)result;
 }
 
-u64 f64_to_sort_key(f64 value) {
-    u64 result = *(u64 *)&value;
-    if (result & 0x8000000000000000llu) {
-        result = ~result;
-    } else {
-        result |= 0x8000000000000000llu;
-    }
-    return result;
-}
-
-void radix_sort(SortEntry *entries, SortEntry *temp, uptr count) {
+void radix_sort(SortEntry *entries, SortEntry *sort_temp, uptr n) {
     SortEntry *src = entries;
-    SortEntry *dst = temp;
+    SortEntry *dst = sort_temp;
     for (u32 byte_idx = 0; byte_idx < 32; byte_idx += 8) {
         u32 sort_key_offsets[256] = {0};
-        for (u32 i = 0; i < count; ++i) {
+        for (u32 i = 0; i < n; ++i) {
             u32 radix_value = src[i].key;
             u32 radix_piece = (radix_value >> byte_idx) & 0xFF;
             ++sort_key_offsets[radix_piece];
@@ -38,7 +28,7 @@ void radix_sort(SortEntry *entries, SortEntry *temp, uptr count) {
             total += count;
         }
         
-        for (u32 i = 0; i < count; ++i) {
+        for (u32 i = 0; i < n; ++i) {
             u32 radix_value = src[i].key;
             u32 radix_piece = (radix_value >> byte_idx) & 0xFF;
             dst[sort_key_offsets[radix_piece]++] = src[i];

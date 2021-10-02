@@ -173,7 +173,7 @@ peek_tok(Lexer *lexer) {
             begin_lit_write(lexer);
             bool is_real_lit = false;
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(lexer->stream);
+                symb = in_stream_peek_b_or_zero(lexer->stream);
                 if (is_int(symb)) {
                     // nop
                 } else if (is_real(symb)) {
@@ -202,7 +202,7 @@ peek_tok(Lexer *lexer) {
             begin_lit_write(lexer);
             lit_write(lexer, symb);
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(lexer->stream);
+                symb = in_stream_peek_b_or_zero(lexer->stream);
                 if (!is_ident(symb)) {
                     break;
                 }
@@ -225,7 +225,7 @@ peek_tok(Lexer *lexer) {
             advance(lexer, 1);
             begin_lit_write(lexer);
             for (;;) {
-                u8 symb = in_stream_peek_b_or_zero(lexer->stream);
+                symb = in_stream_peek_b_or_zero(lexer->stream);
                 if (symb == '\"') {
                     break;
                 }

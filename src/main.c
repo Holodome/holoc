@@ -99,7 +99,7 @@ do_ast_view(const char *filename) {
 
 static void 
 do_ast_to_src(const char *filename) {
-    
+    (void)filename;
 }
 
 #include "tests.inl"

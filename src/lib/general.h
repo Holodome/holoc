@@ -95,7 +95,8 @@ typedef u8 bool;
 #define ARRAY_SIZE(_a) ((uptr)(sizeof(_a) / sizeof(*(_a))))
 
 #ifndef __cplusplus
-#define CT_ASSERT(_expr) _Static_assert(_expr, "Assertion " #_expr " failed")
+#define CT_ASSERT(_expr) char __ctassert ## __LINE__ [!!(_expr)]
+// #define CT_ASSERT(_expr) _Static_assert(_expr, "Assertion " #_expr " failed")
 #else 
 #define CT_ASSERT(_expr) static_assert(_expr, "Assertion " #_expr " failed")
 #endif 

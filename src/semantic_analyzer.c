@@ -2,12 +2,12 @@
 
 static void 
 process_decl(CompilerCtx *ctx) {
-    
+    (void)ctx;
 }
 
 static void 
 process_func_decl(CompilerCtx *ctx) {
-    
+    (void)ctx;
 }
 
 void 

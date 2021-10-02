@@ -15,7 +15,8 @@ void destroy_bytecode_builder(BytecodeBuilder *builder) {
 
 static BytecodeBuilderVar *lookup_var(BytecodeBuilder *builder, StringID id) {
     BytecodeBuilderVar *result = 0;
-    
+    (void)builder;
+    (void)id;
     return result;
 }
 
@@ -61,6 +62,7 @@ static u32 infer_type(BytecodeBuilder *builder, AST *expr) {
 }
 
 static u64 compile_time_expr_evaluate(BytecodeBuilder *builder, AST *expr, u32 type) {
+    (void)builder;
     u64 result = 0;
     assert(expr->kind == AST_LIT);
     if (expr->lit.kind == AST_LIT_INT && type == AST_TYPE_INT) {
@@ -149,6 +151,7 @@ static void add_func_def(BytecodeBuilder *builder, AST *decl) {
 }
 
 void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel) {
+    (void)builder;
     if (!toplevel) {
         UNREACHABLE;
     }
@@ -165,6 +168,7 @@ void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel)
 }
 
 void bytecode_builder_emit_code(BytecodeBuilder *builder, OSFileHandle *out) {
+    (void)builder;
     assert(os_is_file_valid(out));
     
     BytecodeExecutableHeader header = {0};

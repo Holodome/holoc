@@ -63,7 +63,7 @@ const char *AST_BINARY_STRS[] = {
 };
 
 const char *AST_BINARY_SYMBS[] = {
-    "None"
+    "None",
     "+",
     "-",
     "*",
