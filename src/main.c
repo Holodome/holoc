@@ -3,6 +3,7 @@
 #include "parser.h"
 #include "bytecode_builder.h"
 #include "lib/clarg_parse.h"
+#include "semantic_analyzer.h"
 
 static void
 do_compile(const char *filename, const char *out_filename) {
@@ -21,6 +22,7 @@ do_compile(const char *filename, const char *out_filename) {
         if (!toplevel || is_error_reported(ctx->er)) {
             break;
         }
+        do_semantic_analysis(ctx, toplevel);
         fmt_ast_tree(ctx, get_stdout_stream(), toplevel, 0);
         bytecode_builder_proccess_toplevel(builder, toplevel);
     }

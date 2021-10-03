@@ -1,17 +1,20 @@
 #include "parser.h"
 
-Parser *create_parser(CompilerCtx *ctx, Lexer *lexer) {
+Parser *
+create_parser(CompilerCtx *ctx, Lexer *lexer) {
     Parser *parser = arena_bootstrap(Parser, arena);
     parser->ctx = ctx;
     parser->lexer = lexer;
     return parser;
 }
 
-void destroy_parser(Parser *parser) {
+void 
+destroy_parser(Parser *parser) {
     arena_clear(&parser->arena);
 }
 
-static void report_unexpected_token(Parser *parser, Token *tok, u32 expected) {
+static void 
+report_unexpected_token(Parser *parser, Token *tok, u32 expected) {
     char expected_str[128], got_str[128];
     fmt_tok_kind(expected_str, sizeof(expected_str), expected);
     fmt_tok_kind(got_str, sizeof(got_str), tok->kind);
@@ -19,7 +22,8 @@ static void report_unexpected_token(Parser *parser, Token *tok, u32 expected) {
         expected_str, got_str, tok->kind);
 }
 
-static bool expect_tok(Parser *parser, Token *tok, u32 kind) {
+static bool 
+expect_tok(Parser *parser, Token *tok, u32 kind) {
     bool result = true;
     if (tok->kind != kind) {
         report_unexpected_token(parser, tok, kind);
@@ -28,7 +32,8 @@ static bool expect_tok(Parser *parser, Token *tok, u32 kind) {
     return result;
 }
 
-static bool parse_end_of_statement(Parser *parser, Token *tok) {
+static bool 
+parse_end_of_statement(Parser *parser, Token *tok) {
     bool result = expect_tok(parser, tok, ';');
     if (result) {
         eat_tok(parser->lexer);
@@ -36,29 +41,40 @@ static bool parse_end_of_statement(Parser *parser, Token *tok) {
     return result;
 }
 
-static AST *ast_new(Parser *parser, u32 kind) {
+static AST *
+ast_new(Parser *parser, u32 kind) {
     AST *ast = arena_alloc_struct(&parser->arena, AST);
     ast->kind = kind;
     // @TODO more explicit way of taking source location?
     ast->src_loc = peek_tok(parser->lexer)->src_loc;
+    ++parser->DBG_asts_allocated;
     return ast;
 }
 
+static AST *
+copy_srcloc(AST *a, AST *b) {
+    a->src_loc = b->src_loc;
+    return a;
+}
+
 // @TODO(hl): @LEAK: We can optimize memory usage if use hash table for string ids
-static AST *create_ident(Parser *parser, StringID id) {
+static AST *
+create_ident(Parser *parser, StringID id) {
     AST *ident = ast_new(parser, AST_IDENT);
     ident->ident.name = id;
     return ident;
 }
 
-static AST *create_int_lit(Parser *parser, i64 value) {
+static AST *
+create_int_lit(Parser *parser, i64 value) {
     AST *literal = ast_new(parser, AST_LIT);
     literal->lit.kind = AST_LIT_INT;
     literal->lit.value_int = value;
     return literal;
 }
 
-ASTList parse_comma_separated_idents(Parser *parser) {
+ASTList
+parse_comma_separated_idents(Parser *parser) {
     ASTList idents = create_ast_list(ast_new(parser, AST_NONE));
     Token *tok = peek_tok(parser->lexer);
     while (tok->kind == TOKEN_IDENT) {
@@ -93,7 +109,9 @@ AST *parse_block(Parser *parser);
 #define MAX_OPEARTOR_PRECEDENCE 12
 
 AST *parse_expr_precedence(Parser *parser, u32 precedence);
-static AST *parse_binary_subxepr(Parser *parser, u32 prec, u32 bin_kind, AST *left) {
+
+static AST *
+parse_binary_subxepr(Parser *parser, u32 prec, u32 bin_kind, AST *left) {
     AST *result = 0;
     AST *right = parse_expr_precedence(parser, prec - 1);
     if (right) {
@@ -112,15 +130,16 @@ static AST *parse_binary_subxepr(Parser *parser, u32 prec, u32 bin_kind, AST *le
 // Currently this is made by making 
 // @TODO remove recursion for precedence iteration
 #define parse_expr(_interp) parse_expr_precedence(_interp, MAX_OPEARTOR_PRECEDENCE)
-AST *parse_expr_precedence(Parser *parser, u32 precedence) {
+AST *
+parse_expr_precedence(Parser *parser, u32 precedence) {
     AST *expr = 0;
     switch (precedence) {
     case 0: {
         Token *tok = peek_tok(parser->lexer);
         switch (tok->kind) {
         case TOKEN_IDENT: {
-            eat_tok(parser->lexer);
             AST *ident = create_ident(parser, tok->value_str);
+            eat_tok(parser->lexer);
             expr = ident;
             tok = peek_tok(parser->lexer);
             // @TODO What if some mangling done to function name???
@@ -376,7 +395,8 @@ end:
     return expr;
 }
 
-static AST *parse_type(Parser *parser) {
+static AST *
+parse_type(Parser *parser) {
     AST *type = 0;
     Token *tok = peek_tok(parser->lexer);
     if (tok->kind == TOKEN_KW_INT) {
@@ -393,7 +413,8 @@ static AST *parse_type(Parser *parser) {
     return type;
 }
 
-static u32 assign_token_to_binary_kind(u32 tok) {
+static u32 
+assign_token_to_binary_kind(u32 tok) {
     u32 result = 0;
     // @TODO This can be optimized if we structure the ast binary enum 
     // to have kinds in the same order as corresponding token kinds
@@ -468,7 +489,8 @@ AST *parse_assign_ident(Parser *parser, AST *ident) {
     return assign;
 }
 
-AST *parse_if_compound(Parser *parser) {
+AST *
+parse_if_compound(Parser *parser) {
     Token *tok = peek_tok(parser->lexer);
     if (tok->kind != TOKEN_KW_IF) {
         return 0;
@@ -504,7 +526,8 @@ AST *parse_if_compound(Parser *parser) {
     return if_st;
 }
 
-AST *parse_statement(Parser *parser) {
+AST *
+parse_statement(Parser *parser) {
     AST *statement = 0;
     Token *tok = peek_tok(parser->lexer);
     // Common path for assign and decl
@@ -571,7 +594,8 @@ AST *parse_statement(Parser *parser) {
     return statement;
 }
 
-AST *parse_block(Parser *parser) {
+AST *
+parse_block(Parser *parser) {
     AST *block = 0;
     Token *tok = peek_tok(parser->lexer);
     if (expect_tok(parser, tok, '{')) {
@@ -604,7 +628,8 @@ AST *parse_block(Parser *parser) {
     return block;
 }
 
-AST *parse_function_signature(Parser *parser) {
+AST *
+parse_function_signature(Parser *parser) {
     Token *tok = peek_tok(parser->lexer);
     if (!expect_tok(parser, tok, '(')) {
         return 0;
@@ -655,7 +680,8 @@ AST *parse_function_signature(Parser *parser) {
     return sign;
 }
 
-AST *parse_decl_ident(Parser *parser, AST *ident, bool end_of_statement) {
+AST *
+parse_decl_ident(Parser *parser, AST *ident, bool end_of_statement) {
     AST *decl = 0;
     Token *tok = peek_tok(parser->lexer);
     switch (tok->kind) {
@@ -716,7 +742,8 @@ AST *parse_decl_ident(Parser *parser, AST *ident, bool end_of_statement) {
     return decl;
 }
 
-AST *parse_decl(Parser *parser) {
+AST *
+parse_decl(Parser *parser) {
     AST *decl = 0;
     Token *tok = peek_tok(parser->lexer);
     if (expect_tok(parser, tok, TOKEN_IDENT)) {
@@ -728,7 +755,8 @@ AST *parse_decl(Parser *parser) {
     return decl;
 }
 
-AST *parser_parse_toplevel(Parser *parser) {
+AST *
+parser_parse_toplevel(Parser *parser) {
     Token *tok = peek_tok(parser->lexer);
     if (tok->kind == TOKEN_EOS) {
         return 0;

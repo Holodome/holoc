@@ -12,6 +12,8 @@ typedef struct {
     MemoryArena arena;
     CompilerCtx *ctx;
     Lexer *lexer;
+    
+    u32 DBG_asts_allocated;
 } Parser;
 
 Parser *create_parser(CompilerCtx *ctx, Lexer *lexer);

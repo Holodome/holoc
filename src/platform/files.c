@@ -23,7 +23,7 @@ os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
     } else if (mode == FILE_MODE_WRITE) {
         posix_mode |= O_WRONLY | O_TRUNC | O_CREAT;
     } 
-    int permissions = 0777;
+    int permissions = 0500;
     int posix_handle = open(filename, posix_mode, permissions);
     if (posix_handle > 0) {
         file->handle = posix_handle;

@@ -18,6 +18,7 @@ typedef struct SymbolTableEntry {
     StringID str;
     u32 ast_type;
     SrcLoc declare_loc;
+    bool is_initialized;
     
     struct SymbolTableEntry *next;
 } SymbolTableEntry;

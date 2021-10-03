@@ -40,6 +40,7 @@ create_symbol_table(MemoryArena *arena) {
     SymbolTable *st = arena_alloc_struct(arena, SymbolTable);
     st->arena = arena;
     st->global_scope = get_new_scope(st);
+    st->scope_stack = st->global_scope;
     return st;
 }
 
@@ -81,6 +82,7 @@ symbol_table_lookup(SymbolTable *st, StringID str) {
                 break;
             }        
         }
+        scope = scope->next;
     }
     return entry;
 }
