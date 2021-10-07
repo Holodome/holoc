@@ -6,35 +6,24 @@ This project is a journey into exploring world of programming languages and is n
 
 ## Idea
 
-Idea behind this project as whole is to learn how to write compilers for programming languages. This includes a few of different steps: tokenizing text-based input, formalizing tokenized data, compiling to whatever format will be used and then executing compiled code. 
-
-Each of program steps tries to be written in a modular manner that is suitable for later usage in futher projects. That invloves spending some time on designing the API - thing that learning project could as well leave overboard.
-
-This project does a lot of what could be named by some as reinventing the wheel - all of that is done in educational purposes, to see how things from the standard library work under the hood.
 
 ## Features
 
-> List may change
-
-* Memory allocator with allocation tracking
-* Compilation to bytecode
-* Bytecode execution
-* Metaprogramming features (ability to to separate compilation step result of which is used in actual program)
-* Ability to link to C libraries
-* Compiler does not use c standard library, but it is possible to link to 
-* Garbage collection
 
 ## Inspiration
 
-First of all, this project is not positioning itself as completely original product. Thus, some acknowledgements have to be made.
-
-* [Jonathan Blow](https://www.youtube.com/user/jblow888) - inspiration about syntax and language design
-* [Casey Muratori](https://www.youtube.com/c/MollyRocket) - huge influence on code style 
-* [Niklas Gray](https://www.gamasutra.com/blogs/author/NiklasGray/1016727/) - his articles on data structures pretty much reflect author's point of view (see 'Minimalist container library in C' and 'Data Structures')
+This project was inspired by Jonathan Blow talks on language and compiler design.
 
 ## Goal
 
-The goal here can be split into several parts. 
-First of all, compiling and executing code should be possible. Secondly, it is to write an example project using this language that can show off its benefits (or features). Because on early stages of development it is not clear what whole set of features will look like, it is complicated to describe the project. 
+Exploring all steps of compiler design with aim to make some toy program (like game).
+Goal in design is to focus on metaprogramming features.
 
-One possibility could make use of some multy-platform library that can be used to make games, because author of this project has some expirience in that sphere.
+## Resources
+
+As it turns out, compiler programming is hugely popular both within academia and commercial programming.
+Because of that, there are a lot of papers and books written on different themes.
+
+* [Discussion: Making Programming Language Parsers, etc](https://youtu.be/MnctEW1oL-E)
+* Compilers: Principles, Techniques, and Tools (2nd Edition) (Dragon book)
+* [Simple and Efficient Construction of Static Single Assignment Form](https://pp.info.uni-karlsruhe.de/uploads/publikationen/braun13cc.pdf)

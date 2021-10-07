@@ -3,11 +3,11 @@
 
 #include <windows.h>
 
-MemoryBlock *os_alloc_block(uptr size, u32 flags) {
+Memory_Block *os_alloc_block(uptr size, u32 flags) {
     // @TODO(hl): There probably is little point in page alignment and stuff, because allocation requst size differs. There should be api of getting size for allocation outside of platform, so numbers here don't have to be tweaked 
     uptr page_size = 4096;
     // @NOTE: size must account for alignment, so when 
-    uptr request_size = align_forward_pow2(size + sizeof(MemoryBlock), MEM_DEFAULT_ALIGNMENT);
+    uptr request_size = align_forward_pow2(size + sizeof(Memory_Block), MEM_DEFAULT_ALIGNMENT);
     uptr request_size_page_aligned = align_forward_pow2(request_size, page_size);
     
     uptr total_size;
@@ -23,7 +23,7 @@ MemoryBlock *os_alloc_block(uptr size, u32 flags) {
         base_offset = align_backward_pow2(request_size_page_aligned - size, MEM_DEFAULT_ALIGNMENT);
         protect_offset = request_size_page_aligned;
     } else if (flags & MEM_ALLOC_UNDERFLOW_CHECK) {
-        // Page 1: MemoryBlock
+        // Page 1: Memory_Block
         // Page 2: Protected
         // Pages 2+: Memory
         // @NOTE this layout is so verbose because memory block should be in head of everything
@@ -33,8 +33,8 @@ MemoryBlock *os_alloc_block(uptr size, u32 flags) {
         protect_offset = page_size;
     } else {
         total_size = request_size_page_aligned;
-        usable_size = total_size - sizeof(MemoryBlock);
-        base_offset = sizeof(MemoryBlock);
+        usable_size = total_size - sizeof(Memory_Block);
+        base_offset = sizeof(Memory_Block);
     }
     assert(usable_size >= size);
     assert((total_size & (page_size - 1)) == 0);
@@ -42,7 +42,7 @@ MemoryBlock *os_alloc_block(uptr size, u32 flags) {
     LPVOID memory = VirtualAlloc(0, total_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     assert(memory);
     
-    MemoryBlock *block = (MemoryBlock *)memory;
+    Memory_Block *block = (Memory_Block *)memory;
     block->size = usable_size;
     block->base = (u8 *)memory + base_offset;
     if (flags & (MEM_ALLOC_OVERFLOW_CHECK | MEM_ALLOC_UNDERFLOW_CHECK)) {

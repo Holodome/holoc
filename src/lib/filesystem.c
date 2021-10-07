@@ -11,7 +11,7 @@ typedef struct FSFileSlot {
     bool is_open;
     u32 file_mode;
     uptr file_size_cached;
-    OSFileHandle handle;
+    OS_File_Handle handle;
 } FSFileSlot;
 
 typedef struct FSFilepathSlot {
@@ -22,7 +22,7 @@ typedef struct FSFilepathSlot {
 } FSFilepathSlot;
 
 typedef struct {
-    MemoryArena arena;
+    Memory_Arena arena;
     
     Hash64 file_hash;
     u64 nfile_slots;
@@ -100,9 +100,9 @@ fs_get_id_for_filename(const char *filename) {
     return result;
 }
 
-OSFileHandle *
+OS_File_Handle *
 fs_get_handle(FileID id) {
-    OSFileHandle *handle = 0;
+    OS_File_Handle *handle = 0;
     // @TODO Construct filepath
     FSFileSlot *slot = get_slot(id.value);
     if (slot && slot->hash) {
@@ -181,7 +181,7 @@ fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
 
 void 
 DBG_dump_file(const char *filename, const void *data, u64 data_size) {
-    OSFileHandle handle = {0};
+    OS_File_Handle handle = {0};
     os_open_file(&handle, filename, FILE_MODE_WRITE);
     os_write_file(&handle, 0, data, data_size);
     os_close_file(&handle);    

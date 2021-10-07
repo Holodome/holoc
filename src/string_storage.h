@@ -36,36 +36,32 @@ Access time for buffer is O(n), but if buffer sizes big enough are chosed, this 
 // @TODO(hl): Do we want to store some metadata with the string (like length,hash)
 typedef struct {
     u64 value;
-} StringID;
+} String_ID;
 
-typedef struct StringStorageBuffer {
+typedef struct String_Storage_Buffer {
     u8 storage[STRING_STORAGE_BUFFER_SIZE];
     u16 used;
     
-    struct StringStorageBuffer *next;
-} StringStorageBuffer;
+    struct String_Storage_Buffer *next;
+} String_Storage_Buffer;
 
 typedef struct {
-    u32 length;
-} StringMetaData;
-
-typedef struct {
-    MemoryArena *arena;
+    Memory_Arena *arena;
 
     Hash64 hash;
-    StringStorageBuffer *first_buffer;
-    StringStorageBuffer *first_free_buffer;
+    String_Storage_Buffer *first_buffer;
+    String_Storage_Buffer *first_free_buffer;
     u32 buffer_count; // @NOTE(hl): Used to get buffer index
     
     bool is_inside_write;
     u64 current_write_start;
     u32 current_write_len;
     u32 current_write_crc;
-} StringStorage;
+} String_Storage;
 
-StringStorage *create_string_storage(MemoryArena *arena);
-void string_storage_begin_write(StringStorage *storage);
-void string_storage_write(StringStorage *storage, const void *bf, u32 bf_sz);
-StringID string_storage_end_write(StringStorage *ss);
-u32 string_storage_get(StringStorage *ss, StringID id, void *bf, uptr bf_sz);
-StringID string_storage_add(StringStorage *storage, const char *str);
+String_Storage *create_string_storage(Memory_Arena *arena);
+void string_storage_begin_write(String_Storage *storage);
+void string_storage_write(String_Storage *storage, const void *bf, u32 bf_sz);
+String_ID string_storage_end_write(String_Storage *ss);
+u32 string_storage_get(String_Storage *ss, String_ID id, void *bf, uptr bf_sz);
+String_ID string_storage_add(String_Storage *storage, const char *str);

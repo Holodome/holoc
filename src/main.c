@@ -3,14 +3,14 @@
 #include "parser.h"
 #include "bytecode_builder.h"
 #include "lib/clarg_parse.h"
-#include "semantic_analyzer.h"
+#include "ir.h"
 
 static void
 do_compile(const char *filename, const char *out_filename) {
-    CompilerCtx *ctx = create_compiler_ctx();
+    Compiler_Ctx *ctx = create_compiler_ctx();
     
     FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
-    InStream in_file_st = {0};
+    In_Stream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
         arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
@@ -22,9 +22,9 @@ do_compile(const char *filename, const char *out_filename) {
         if (!toplevel || is_error_reported(ctx->er)) {
             break;
         }
-        do_semantic_analysis(ctx, toplevel);
+        // do_semantic_analysis(ctx, toplevel);
         fmt_ast_tree(ctx, get_stdout_stream(), toplevel, 0);
-        bytecode_builder_proccess_toplevel(builder, toplevel);
+        // bytecode_builder_proccess_toplevel(builder, toplevel);
     }
     destroy_parser(parser);
     destroy_lexer(lexer);
@@ -42,16 +42,16 @@ do_compile(const char *filename, const char *out_filename) {
 
 static void
 do_tokenizing(const char *filename) {
-    CompilerCtx *ctx = create_compiler_ctx();
+    Compiler_Ctx *ctx = create_compiler_ctx();
 
     FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
-    InStream in_file_st = {0};
+    In_Stream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
         arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
     Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
     u32 last_line_number = (u32)-1;
-    OutStream *out = get_stdout_stream();
+    Out_Stream *out = get_stdout_stream();
     for (;;) {
         Token *tok = peek_tok(lexer);
         if (tok->kind != TOKEN_EOS) {
@@ -76,10 +76,10 @@ do_tokenizing(const char *filename) {
 
 static void 
 do_ast_view(const char *filename) {
-    CompilerCtx *ctx = create_compiler_ctx();
+    Compiler_Ctx *ctx = create_compiler_ctx();
 
     FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
-    InStream in_file_st = {0};
+    In_Stream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
         arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
@@ -99,11 +99,6 @@ do_ast_view(const char *filename) {
     destroy_compiler_ctx(ctx);
 }
 
-static void 
-do_ast_to_src(const char *filename) {
-    (void)filename;
-}
-
 #include "tests.inl"
 
 enum {
@@ -121,9 +116,35 @@ typedef struct {
     u32 mode;
 } ProgramSettings;
 
+static void 
+print_ir(const char *filename) {
+    Compiler_Ctx *ctx = create_compiler_ctx();
+
+    FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    In_Stream in_file_st = {0};
+    init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
+        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        IN_STREAM_DEFAULT_THRESHLOD);
+    Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
+    Parser *parser = create_parser(ctx, lexer);
+    IR *ir = create_ir(ctx, &ctx->arena);
+    for (;;) {
+        AST *toplevel = parser_parse_toplevel(parser);
+        if (!toplevel || is_error_reported(ctx->er)) {
+            break;
+        }
+        ir_process_toplevel(ir, toplevel);
+    }
+    destroy_parser(parser);
+    destroy_lexer(lexer);
+    fs_close_file(in_file_id);
+    print_reporter_summary(ctx->er);
+    destroy_compiler_ctx(ctx);
+}
+
 int main(int argc, char **argv) {
     init_filesystem();
-    CLArgInfo arg_infos[] = {
+    CL_Arg_Info arg_infos[] = {
         {
             .name = "Filenames",
             .narg = CLARG_NARG,
@@ -156,8 +177,8 @@ int main(int argc, char **argv) {
         settings.mode = PROGRAM_TOKENIZE;
     } else if (str_eq(settings.mode_str, "ast")) {
         settings.mode = PROGRAM_AST;
-    } else if (str_eq(settings.mode_str, "ast_to_src")) {
-        settings.mode = PROGRAM_AST_TO_SRC;
+    // } else if (str_eq(settings.mode_str, "ast_to_src")) {
+    //     settings.mode = PROGRAM_AST_TO_SRC;
     } else if (str_eq(settings.mode_str, "compile")) {
         settings.mode = PROGRAM_COMPILE;
     } else {
@@ -181,9 +202,6 @@ int main(int argc, char **argv) {
     } break;
     case PROGRAM_AST: {
         do_ast_view(filename);
-    } break;
-    case PROGRAM_AST_TO_SRC: {
-        NOT_IMPLEMENTED;
     } break;
     INVALID_DEFAULT_CASE;
     }

@@ -1,7 +1,7 @@
 #include "parser.h"
 
 Parser *
-create_parser(CompilerCtx *ctx, Lexer *lexer) {
+create_parser(Compiler_Ctx *ctx, Lexer *lexer) {
     Parser *parser = arena_bootstrap(Parser, arena);
     parser->ctx = ctx;
     parser->lexer = lexer;
@@ -59,7 +59,7 @@ copy_srcloc(AST *a, AST *b) {
 
 // @TODO(hl): @LEAK: We can optimize memory usage if use hash table for string ids
 static AST *
-create_ident(Parser *parser, StringID id) {
+create_ident(Parser *parser, String_ID id) {
     AST *ident = ast_new(parser, AST_IDENT);
     ident->ident.name = id;
     return ident;
@@ -73,9 +73,9 @@ create_int_lit(Parser *parser, i64 value) {
     return literal;
 }
 
-ASTList
+AST_List
 parse_comma_separated_idents(Parser *parser) {
-    ASTList idents = create_ast_list(ast_new(parser, AST_NONE));
+    AST_List idents = create_ast_list(ast_new(parser, AST_NONE));
     Token *tok = peek_tok(parser->lexer);
     while (tok->kind == TOKEN_IDENT) {
         AST *ident = create_ident(parser, tok->value_str);
@@ -148,7 +148,7 @@ parse_expr_precedence(Parser *parser, u32 precedence) {
                 eat_tok(parser->lexer);
                 AST *function_call = ast_new(parser, AST_FUNC_CALL);
                 function_call->func_call.callable = ident;
-                ASTList arguments = parse_comma_separated_idents(parser);
+                AST_List arguments = parse_comma_separated_idents(parser);
                 if (expect_tok(parser, peek_tok(parser->lexer), ')')) {
                     eat_tok(parser->lexer);
                     expr = function_call;
@@ -542,7 +542,7 @@ parse_statement(Parser *parser) {
         statement = parse_assign_ident(parser, ident);
     } else if (tok->kind == TOKEN_KW_RETURN) {
         tok = peek_next_tok(parser->lexer);
-        ASTList return_vars = create_ast_list(ast_new(parser, AST_NONE));
+        AST_List return_vars = create_ast_list(ast_new(parser, AST_NONE));
         while (tok->kind != ';') {
             AST *expr = parse_expr(parser);
             if (!expr || is_error_reported(parser->ctx->er)) {
@@ -579,7 +579,7 @@ parse_statement(Parser *parser) {
     } else if (tok->kind == TOKEN_KW_PRINT) {
         eat_tok(parser->lexer);
         AST *expr = parse_expr(parser);
-        ASTList exprs = create_ast_list(ast_new(parser, AST_NONE));
+        AST_List exprs = create_ast_list(ast_new(parser, AST_NONE));
         ast_list_add(&exprs, expr);
         tok = peek_tok(parser->lexer);
         if (parse_end_of_statement(parser, tok)) {
@@ -604,7 +604,7 @@ parse_block(Parser *parser) {
         return 0;
     }
     
-    ASTList statements = create_ast_list(ast_new(parser, AST_NONE));
+    AST_List statements = create_ast_list(ast_new(parser, AST_NONE));
     while (peek_tok(parser->lexer)->kind != '}') {
         AST *statement = parse_statement(parser);
         if (!statement) {
@@ -636,7 +636,7 @@ parse_function_signature(Parser *parser) {
     }
     tok = peek_next_tok(parser->lexer);
     // Parse arguments
-    ASTList args = create_ast_list(ast_new(parser, AST_NONE));
+    AST_List args = create_ast_list(ast_new(parser, AST_NONE));
     while (tok->kind != ')') {
         if (expect_tok(parser, tok, TOKEN_IDENT)) {
             AST *ident = create_ident(parser, tok->value_str);
@@ -658,7 +658,7 @@ parse_function_signature(Parser *parser) {
     sign->func_sign.arguments = args;
     
     tok = peek_next_tok(parser->lexer);
-    ASTList return_types = create_ast_list(ast_new(parser, AST_NONE));
+    AST_List return_types = create_ast_list(ast_new(parser, AST_NONE));
     if (tok->kind == TOKEN_ARROW) {
         tok = peek_next_tok(parser->lexer);
         

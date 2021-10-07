@@ -10,9 +10,9 @@ u64 f32_to_sort_key(f32 value) {
     return (u64)result;
 }
 
-void radix_sort(SortEntry *entries, SortEntry *sort_temp, uptr n) {
-    SortEntry *src = entries;
-    SortEntry *dst = sort_temp;
+void radix_sort(Sort_Entry *entries, Sort_Entry *sort_temp, uptr n) {
+    Sort_Entry *src = entries;
+    Sort_Entry *dst = sort_temp;
     for (u32 byte_idx = 0; byte_idx < 32; byte_idx += 8) {
         u32 sort_key_offsets[256] = {0};
         for (u32 i = 0; i < n; ++i) {
@@ -34,7 +34,7 @@ void radix_sort(SortEntry *entries, SortEntry *sort_temp, uptr n) {
             dst[sort_key_offsets[radix_piece]++] = src[i];
         }
         
-        SortEntry *temp = dst;
+        Sort_Entry *temp = dst;
         dst = src;
         src = temp;
     }

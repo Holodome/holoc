@@ -48,7 +48,7 @@ enum {
 typedef struct {
     u32 mode;
     
-    OSFileHandle *file;
+    OS_File_Handle *file;
     uptr file_idx;
     
     u8 *bf;
@@ -56,19 +56,19 @@ typedef struct {
     uptr threshold;
     
     uptr bf_idx;
-} OutStream;
+} Out_Stream;
 
 // Create stream for writing to file.
 // bf_sz - what size of buffer to allocate 
 // threshold >= bf_sz
 // bf - storage for stream buffer
-void init_out_streamf(OutStream *stream, OSFileHandle *file_handle,
+void init_out_streamf(Out_Stream *stream, OS_File_Handle *file_handle,
     void *bf, uptr bf_sz, uptr threshold);
 // Printfs to stream
 __attribute__((__format__ (__printf__, 2, 3)))
-uptr out_streamf(OutStream *stream, const char *fmt, ...);
-uptr out_streamv(OutStream *stream, const char *fmt, va_list args);
-void out_stream_flush(OutStream *stream);
+uptr out_streamf(Out_Stream *stream, const char *fmt, ...);
+uptr out_streamv(Out_Stream *stream, const char *fmt, va_list args);
+void out_stream_flush(Out_Stream *stream);
 
 // Threshold defines how much of additonal data is read between flushes.
 // For example, buffer may be 6 kb and threshold 4kb. Then 
@@ -85,7 +85,7 @@ void out_stream_flush(OutStream *stream);
 typedef struct {
     u32 mode;
     
-    OSFileHandle *file;
+    OS_File_Handle *file;
     uptr file_size;
     uptr file_idx;
     // Buffer in stream is used for caching read results
@@ -100,20 +100,20 @@ typedef struct {
     // After what number bf_idx should be reset and buffer refilled
     uptr threshold;
     bool is_finished;
-} InStream;
+} In_Stream;
 
-void init_in_streamf(InStream *stream, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold);
+void init_in_streamf(In_Stream *stream, OS_File_Handle *file, void *bf, uptr bf_sz, uptr threshold);
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked
-uptr in_stream_peek(InStream *stream, void *out, uptr n);
-u8 in_stream_soft_peek_at(InStream *stream, uptr offset);
+uptr in_stream_peek(In_Stream *stream, void *out, uptr n);
+u8 in_stream_soft_peek_at(In_Stream *stream, uptr offset);
 // Advance stream by n bytes. 
 // Return numbef of bytes advanced by
-uptr in_stream_advance(InStream *stream, uptr n);
+uptr in_stream_advance(In_Stream *stream, uptr n);
 // If stream is bufferized, read next file chunk to fill the buffer as much as possible
-void in_stream_flush(InStream *stream);
+void in_stream_flush(In_Stream *stream);
 // Helper function. Used in parsin text, where only next one byte needs to be peeked to be checked
-u8 in_stream_peek_b_or_zero(InStream *stream);
+u8 in_stream_peek_b_or_zero(In_Stream *stream);
 
-OutStream *get_stdout_stream(void);
-OutStream *get_stderr_stream(void);
+Out_Stream *get_stdout_stream(void);
+Out_Stream *get_stderr_stream(void);

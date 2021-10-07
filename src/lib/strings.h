@@ -62,7 +62,7 @@ bool text_startswith(Text a, Text b);
 bool text_endswith(Text a, Text b);
 Text text_substr(Text a, u32 start, u32 end);
 
-typedef struct TextUTF8 {
+typedef struct Text_UTF8 {
     u8 *data;
     uptr len;
-} TextUTF8;
+} Text_UTF8;

@@ -4,9 +4,9 @@
 // Version: 0
 // 
 // Defines abstraction level over files.h file API.
-// All files go through double inderection - first is the OSFileHandle, which stores
+// All files go through double inderection - first is the OS_File_Handle, which stores
 // all data (mostly redundant) about file and has its own lifetime as an object.
-// Second level of iderection is FileID, which is some value used to reference OSFileHandle.
+// Second level of iderection is FileID, which is some value used to reference OS_File_Handle.
 //
 // This double inderection allows all handling of file openness and lifetimes being handled 
 // by single system, which can make use of fast memory allocations and have other benefits.
@@ -29,16 +29,16 @@ typedef struct {
 // But waht we do care about is it works
 #define MAX_FILEPATH 4096
 
-typedef struct FilepathPart {
+typedef struct Filepath_Part {
     char *name;
-    struct FilepathPart *next;
-} FilepathPart;
+    struct Filepath_Part *next;
+} Filepath_Part;
 
 typedef struct {
-    FilepathPart first_part;
+    Filepath_Part first_part;
 } Filepath;
 
-Filepath create_filepath_from_filename(const char *filename, MemoryArena *arena);
+Filepath create_filepath_from_filename(const char *filename, Memory_Arena *arena);
 uptr fmt_filepath(char *bf, uptr bf_sz, Filepath *filepath);
 
 // Initialize storage for filesystem
@@ -52,7 +52,7 @@ FileID fs_open_file(const char *name, u32 mode);
 bool fs_close_file(FileID id);
 
 // Return handle for file if it is open, 0 otherwise
-OSFileHandle *fs_get_handle(FileID id);
+OS_File_Handle *fs_get_handle(FileID id);
 // Preferable way of getting file size. Caches result to minimize os calls
 uptr fs_get_file_size(FileID id);
 uptr fs_fmt_filename(char *bf, uptr bf_sz, FileID id);

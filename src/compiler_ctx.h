@@ -11,13 +11,13 @@ Version: 0
 #include "string_storage.h"
 #include "symbol_table.h"
 
-typedef struct CompilerCtx {
-    MemoryArena arena;
-    ErrorReporter *er;
-    StringStorage *ss;
-    SymbolTable *st;
-} CompilerCtx;
+typedef struct Compiler_Ctx {
+    Memory_Arena arena;
+    Error_Reporter *er;
+    String_Storage *ss;
+    Symbol_Table *st;
+} Compiler_Ctx;
 
-CompilerCtx *create_compiler_ctx(void);
-void destroy_compiler_ctx(CompilerCtx *ctx);
+Compiler_Ctx *create_compiler_ctx(void);
+void destroy_compiler_ctx(Compiler_Ctx *ctx);
 

@@ -31,28 +31,28 @@ typedef struct {
     // that is special value for invalid file handle
     u64 handle;
     u32 flags;
-} OSFileHandle;
+} OS_File_Handle;
 
 enum {
     FILE_MODE_READ,
     FILE_MODE_WRITE,
 };
 
-void os_open_file(OSFileHandle *handle, const char *filename, u32 mode);
-bool os_close_file(OSFileHandle *id);
+void os_open_file(OS_File_Handle *handle, const char *filename, u32 mode);
+bool os_close_file(OS_File_Handle *id);
 // Get console out handle
-uptr os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz);
+uptr os_write_file(OS_File_Handle *file, uptr offset, const void *bf, uptr bf_sz);
 // Same as write file, but read
-uptr os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz);
+uptr os_read_file(OS_File_Handle *file, uptr offset, void *bf, uptr bf_sz);
 // read_file with advancing cursor
-uptr os_get_file_size(OSFileHandle *);
+uptr os_get_file_size(OS_File_Handle *);
 // @NOTE(hl): Although stanadrd streams in most os's are handled the same way as files,
 //  it has been decided to split them in API, because of large difference in logic of work
 //  (file api does use offsets, which streams have no support of)
 uptr os_write_stdout(void *bf, uptr bf_sz);
 uptr os_write_stderr(void *bf, uptr bf_sz);
 
-bool os_is_file_valid(OSFileHandle *);
+bool os_is_file_valid(OS_File_Handle *);
 // Prefixed with fs to avoid collisions (fs for filesystems)
 bool os_mkdir(const char *name);
 bool os_rmdir(const char *name, bool is_recursive);

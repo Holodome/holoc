@@ -9,13 +9,13 @@
 #include "ast.h"
 
 typedef struct {
-    MemoryArena arena;
-    CompilerCtx *ctx;
+    Memory_Arena arena;
+    Compiler_Ctx *ctx;
     Lexer *lexer;
     
     u32 DBG_asts_allocated;
 } Parser;
 
-Parser *create_parser(CompilerCtx *ctx, Lexer *lexer);
+Parser *create_parser(Compiler_Ctx *ctx, Lexer *lexer);
 void destroy_parser(Parser *parser);
 AST *parser_parse_toplevel(Parser *parser);

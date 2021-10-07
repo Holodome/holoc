@@ -12,10 +12,10 @@ void *mem_alloc(uptr size) {
     return result;
 }
 
-MemoryBlock *mem_alloc_block(uptr size) {
-    uptr total_size = size + sizeof(MemoryBlock);
-    MemoryBlock *block = mem_alloc(total_size);
+Memory_Block *mem_alloc_block(uptr size) {
+    uptr total_size = size + sizeof(Memory_Block);
+    Memory_Block *block = mem_alloc(total_size);
     block->size = size;
-    block->base = (u8 *)block + sizeof(MemoryBlock);
+    block->base = (u8 *)block + sizeof(Memory_Block);
     return block;
 }

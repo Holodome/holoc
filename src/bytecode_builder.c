@@ -3,7 +3,7 @@
 #include "lib/hashing.h"
 #include "lib/lists.h"
 
-BytecodeBuilder *create_bytecode_builder(CompilerCtx *ctx) {
+BytecodeBuilder *create_bytecode_builder(Compiler_Ctx *ctx) {
     BytecodeBuilder *builder = arena_bootstrap(BytecodeBuilder, arena);
     builder->ctx = ctx;
     return builder;
@@ -13,7 +13,7 @@ void destroy_bytecode_builder(BytecodeBuilder *builder) {
     arena_clear(&builder->arena);    
 }
 
-static BytecodeBuilderVar *lookup_var(BytecodeBuilder *builder, StringID id) {
+static BytecodeBuilderVar *lookup_var(BytecodeBuilder *builder, String_ID id) {
     BytecodeBuilderVar *result = 0;
     (void)builder;
     (void)id;
@@ -167,7 +167,7 @@ void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel)
     }
 }
 
-void bytecode_builder_emit_code(BytecodeBuilder *builder, OSFileHandle *out) {
+void bytecode_builder_emit_code(BytecodeBuilder *builder, OS_File_Handle *out) {
     (void)builder;
     assert(os_is_file_valid(out));
     

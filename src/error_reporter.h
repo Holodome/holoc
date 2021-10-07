@@ -17,27 +17,27 @@ typedef struct {
     u32 line;
     u32 symb;
     FileID file;
-} SrcLoc;
+} Src_Loc;
 
 typedef struct {
-    MemoryArena *arena;
+    Memory_Arena *arena;
     u32 warning_count;
     u32 error_count;
-    OutStream *out;
-    OutStream *errout;
-} ErrorReporter;
+    Out_Stream *out;
+    Out_Stream *errout;
+} Error_Reporter;
 
-ErrorReporter *create_error_reporter(OutStream *out, OutStream *errout, MemoryArena *arena);
-void report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list args);
-void report_error(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...);
-void report_error_tok(ErrorReporter *reporter, struct Token *token, const char *msg, ...);
-void report_error_ast(ErrorReporter *reporter, struct AST *ast, const char *msg, ...);
-void report_warningv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list args);
-void report_warning(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...);
-void report_warning_tok(ErrorReporter *reporter, struct Token *token, const char *msg, ...);
-void report_warning_ast(ErrorReporter *reporter, struct AST *ast, const char *msg, ...);
-bool is_error_reported(ErrorReporter *reporter);
-void print_reporter_summary(ErrorReporter *reporter);
+Error_Reporter *create_error_reporter(Out_Stream *out, Out_Stream *errout, Memory_Arena *arena);
+void report_errorv(Error_Reporter *reporter, Src_Loc src_loc, const char *msg, va_list args);
+void report_error(Error_Reporter *reporter, Src_Loc src_loc, const char *msg, ...);
+void report_error_tok(Error_Reporter *reporter, struct Token *token, const char *msg, ...);
+void report_error_ast(Error_Reporter *reporter, struct AST *ast, const char *msg, ...);
+void report_warningv(Error_Reporter *reporter, Src_Loc src_loc, const char *msg, va_list args);
+void report_warning(Error_Reporter *reporter, Src_Loc src_loc, const char *msg, ...);
+void report_warning_tok(Error_Reporter *reporter, struct Token *token, const char *msg, ...);
+void report_warning_ast(Error_Reporter *reporter, struct AST *ast, const char *msg, ...);
+bool is_error_reported(Error_Reporter *reporter);
+void print_reporter_summary(Error_Reporter *reporter);
 // Pretty printing error messages to the error stream
 void report_error_generalv(const char *msg, va_list args);
 void report_error_general(const char *msg, ...);

@@ -14,36 +14,36 @@ Version: 0
 
 #define SYMBOL_TABLE_HASH_SIZE 8192
 
-typedef struct SymbolTableEntry {
-    StringID str;
+typedef struct Symbol_Table_Entry {
+    String_ID str;
     u32 ast_type;
-    SrcLoc declare_loc;
+    Src_Loc declare_loc;
     bool is_initialized;
     
-    struct SymbolTableEntry *next;
-} SymbolTableEntry;
+    struct Symbol_Table_Entry *next;
+} Symbol_Table_Entry;
 
-typedef struct SymbolTableScope {
-    SymbolTableEntry *entries;
+typedef struct Symbol_Table_Scope {
+    Symbol_Table_Entry *entries;
     
     // parent
-    struct SymbolTableScope *next;
-} SymbolTableScope;
+    struct Symbol_Table_Scope *next;
+} Symbol_Table_Scope;
 
 typedef struct {
-    MemoryArena *arena;
+    Memory_Arena *arena;
     Hash64 hash; // @TODO(hl): Not used
     
-    SymbolTableScope *global_scope;
-    SymbolTableScope *scope_stack;
+    Symbol_Table_Scope *global_scope;
+    Symbol_Table_Scope *scope_stack;
     u32 scope_depth;
     
-    SymbolTableScope *scope_freelist;
-    SymbolTableEntry *entry_freelist;
-} SymbolTable;
+    Symbol_Table_Scope *scope_freelist;
+    Symbol_Table_Entry *entry_freelist;
+} Symbol_Table;
 
-SymbolTable *create_symbol_table(MemoryArena *arena);
-void symbol_table_push_scope(SymbolTable *st);
-void symbol_table_pop_scope(SymbolTable *st);
-void symbol_table_add_entry(SymbolTable *st, StringID str, u32 ast_type, SrcLoc loc);
-SymbolTableEntry *symbol_table_lookup(SymbolTable *st, StringID str);
+Symbol_Table *create_symbol_table(Memory_Arena *arena);
+void symbol_table_push_scope(Symbol_Table *st);
+void symbol_table_pop_scope(Symbol_Table *st);
+void symbol_table_add_entry(Symbol_Table *st, String_ID str, u32 ast_type, Src_Loc loc);
+Symbol_Table_Entry *symbol_table_lookup(Symbol_Table *st, String_ID str);

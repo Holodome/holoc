@@ -2,9 +2,9 @@
 #include "lexer.h"
 #include "ast.h"
 
-ErrorReporter *
-create_error_reporter(OutStream *out, OutStream *errout, MemoryArena *arena) {
-    ErrorReporter *er = arena_alloc_struct(arena, ErrorReporter);
+Error_Reporter *
+create_error_reporter(Out_Stream *out, Out_Stream *errout, Memory_Arena *arena) {
+    Error_Reporter *er = arena_alloc_struct(arena, Error_Reporter);
     er->arena = arena;
     er->out = out;
     er->errout = errout;
@@ -12,16 +12,16 @@ create_error_reporter(OutStream *out, OutStream *errout, MemoryArena *arena) {
 }
 
 bool 
-is_error_reported(ErrorReporter *reporter) {
+is_error_reported(Error_Reporter *reporter) {
     return reporter->error_count != 0;
 }
 
 void 
-report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list args) {
+report_errorv(Error_Reporter *reporter, Src_Loc src_loc, const char *msg, va_list args) {
     // const FileData *file_data = get_file_data(reporter->file_id);
     // @TODO capture source index and read only n first bytes instead of whole file
     FileID id = src_loc.file;
-    OSFileHandle *handle = fs_get_handle(id);
+    OS_File_Handle *handle = fs_get_handle(id);
     assert(handle);
     uptr file_size = fs_get_file_size(id);
     char *file_contents = mem_alloc(file_size);
@@ -45,7 +45,7 @@ report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list 
     u32 symb = src_loc.symb - 1;
     char filename[4096];
     fs_fmt_filename(filename, sizeof(filename), id);
-    OutStream *out = get_stderr_stream();
+    Out_Stream *out = get_stderr_stream();
     out_streamf(out, "%s:%u:%u: \033[31merror\033[0m: ", filename, src_loc.line, src_loc.symb);
     out_streamv(out, msg, args);
     // @TODO(hl): Investigate why printf "%*c" 0, ' ' gives one space still
@@ -61,21 +61,21 @@ report_errorv(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, va_list 
 }
 
 void 
-report_error(ErrorReporter *reporter, SrcLoc src_loc, const char *msg, ...) {
+report_error(Error_Reporter *reporter, Src_Loc src_loc, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_errorv(reporter, src_loc, msg, args);
 }
 
 void 
-report_error_tok(ErrorReporter *reporter, Token *tok, const char *msg, ...) {
+report_error_tok(Error_Reporter *reporter, Token *tok, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_errorv(reporter, tok->src_loc, msg, args);
 }
 
 void 
-report_error_ast(ErrorReporter *reporter, AST *ast, const char *msg, ...) {
+report_error_ast(Error_Reporter *reporter, AST *ast, const char *msg, ...) {
     va_list args;
     va_start(args, msg);
     report_errorv(reporter, ast->src_loc, msg, args);
@@ -83,7 +83,7 @@ report_error_ast(ErrorReporter *reporter, AST *ast, const char *msg, ...) {
 
 void 
 report_error_generalv(const char *msg, va_list args) {
-    OutStream *stream = get_stderr_stream();
+    Out_Stream *stream = get_stderr_stream();
     out_streamf(stream, "\033[31merror\033[0m: ");
     out_streamv(stream, msg, args);
     out_streamf(stream, "\n");
@@ -98,7 +98,7 @@ report_error_general(const char *msg, ...) {
 }
 
 void 
-print_reporter_summary(ErrorReporter *reporter) {
+print_reporter_summary(Error_Reporter *reporter) {
     if (is_error_reported(reporter)) {
         erroutf("Compilation failed. %u errors encountered\n", reporter->error_count);
     } else {

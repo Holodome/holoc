@@ -109,7 +109,7 @@ hash64_get_internal(Hash64 *hash, u64 key) {
 }
 
 Hash64 
-create_hash64(u32 n, struct MemoryArena *arena) {
+create_hash64(u32 n, struct Memory_Arena *arena) {
     Hash64 hash = {0};
     hash.num_buckets = n;
     hash.keys = arena_alloc_array(arena, n, u64);

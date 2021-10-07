@@ -19,11 +19,11 @@ enum {
     CLARG_TYPE_I64,  
 };
 
-typedef struct CLArgInfo {
+typedef struct CL_Arg_Info {
     uptr output_offset; // offset in output structure
     const char *name;
     u32 narg; // if narg >= 1, data pointed at by output offset is treated as type *
     u32 type;
-} CLArgInfo;
+} CL_Arg_Info;
 
-void clarg_parse(void *out_bf, CLArgInfo *infos, u32 ninfos, u32 argc, char ** const argv);
+void clarg_parse(void *out_bf, CL_Arg_Info *infos, u32 ninfos, u32 argc, char ** const argv);

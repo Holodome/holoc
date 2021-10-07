@@ -3,7 +3,7 @@
 #include "lib/strings.h"
 
 static bool
-out_st_needs_flush(OutStream *stream) {
+out_st_needs_flush(Out_Stream *stream) {
     bool result = false;
     if (stream->mode == STREAM_FILE || stream->mode == STREAM_STDERR || stream->mode == STREAM_STDOUT) {
         result = stream->bf_idx >= stream->threshold;
@@ -12,20 +12,20 @@ out_st_needs_flush(OutStream *stream) {
 }
 // When workign with binary data and size of sizngle data block is bigger than
 // threshold, data should be written directly
-static void out_stream_write_direct(OutStream *stream, const void *data, uptr data_sz) {
+static void out_stream_write_direct(Out_Stream *stream, const void *data, uptr data_sz) {
     if (stream->mode == STREAM_FILE) {
         uptr written = os_write_file(stream->file, stream->file_idx, data, data_sz);
         stream->file_idx += written;
     }
 }
 
-void init_out_stream(OutStream *stream, void *bf, uptr bf_sz) {
+void init_out_stream(Out_Stream *stream, void *bf, uptr bf_sz) {
     stream->mode = STREAM_BUFFER;
     stream->bf = bf;
     stream->bf_sz = bf_sz;
 }
 
-void init_out_streamf(OutStream *stream, OSFileHandle *file,  void *bf, uptr bf_sz, uptr threshold) {
+void init_out_streamf(Out_Stream *stream, OS_File_Handle *file,  void *bf, uptr bf_sz, uptr threshold) {
     assert(threshold < bf_sz);
     stream->file = file;
     stream->mode = STREAM_FILE;
@@ -34,13 +34,13 @@ void init_out_streamf(OutStream *stream, OSFileHandle *file,  void *bf, uptr bf_
     stream->threshold = threshold;
 }
 
-uptr out_streamf(OutStream *stream, const char *format, ...) {
+uptr out_streamf(Out_Stream *stream, const char *format, ...) {
     va_list args;
     va_start(args, format);
     return out_streamv(stream, format, args);
 }
 
-uptr out_streamv(OutStream *stream, const char *format, va_list args) {
+uptr out_streamv(Out_Stream *stream, const char *format, va_list args) {
     assert(!out_st_needs_flush(stream));
     u32 bytes_written = vfmt((char *)stream->bf + stream->bf_idx, stream->bf_sz - stream->bf_idx, format, args);
     stream->bf_idx += bytes_written;
@@ -52,7 +52,7 @@ uptr out_streamv(OutStream *stream, const char *format, va_list args) {
     return bytes_written;   
 }
 
-void out_streamb(OutStream *stream, const void *b, uptr c) {
+void out_streamb(Out_Stream *stream, const void *b, uptr c) {
     // decide writing policy 
     if (c <= stream->bf_sz) {
         if (stream->bf_idx + c >= stream->bf_sz) {
@@ -69,7 +69,7 @@ void out_streamb(OutStream *stream, const void *b, uptr c) {
     }
 }
 
-void out_stream_flush(OutStream *stream) {
+void out_stream_flush(Out_Stream *stream) {
     if (stream->mode == STREAM_BUFFER) {
         // nop  
     } else if (stream->mode == STREAM_FILE) {
@@ -84,13 +84,13 @@ void out_stream_flush(OutStream *stream) {
     }
 }
 
-void init_in_stream(InStream *stream, void *bf, uptr bf_sz) {
+void init_in_stream(In_Stream *stream, void *bf, uptr bf_sz) {
     stream->mode = STREAM_BUFFER;
     stream->bf = bf;
     stream->bf_sz = bf_sz;
 }
 
-void init_in_streamf(InStream *stream, OSFileHandle *file, void *bf, uptr bf_sz, uptr threshold) {
+void init_in_streamf(In_Stream *stream, OS_File_Handle *file, void *bf, uptr bf_sz, uptr threshold) {
     assert(bf_sz > threshold);
     stream->file = file;
     stream->file_size = os_get_file_size(file);
@@ -100,7 +100,7 @@ void init_in_streamf(InStream *stream, OSFileHandle *file, void *bf, uptr bf_sz,
     stream->threshold = threshold;
 }
 
-uptr in_stream_peek(InStream *stream, void *out, uptr n) {
+uptr in_stream_peek(In_Stream *stream, void *out, uptr n) {
     uptr result = 0;
     if (!stream->is_finished) {
         if (stream->bf_idx + n > stream->bf_used) {
@@ -117,7 +117,7 @@ uptr in_stream_peek(InStream *stream, void *out, uptr n) {
     return result;
 }
 
-u8 in_stream_soft_peek_at(InStream *stream, uptr offset) {
+u8 in_stream_soft_peek_at(In_Stream *stream, uptr offset) {
     u8 result = 0;
     if (stream->bf_idx + offset <= stream->bf_used) {
         result = stream->bf[stream->bf_idx + offset];
@@ -125,7 +125,7 @@ u8 in_stream_soft_peek_at(InStream *stream, uptr offset) {
     return result;
 }
 
-uptr in_stream_advance(InStream *stream, uptr n) {
+uptr in_stream_advance(In_Stream *stream, uptr n) {
     uptr result = 0;
     if (!stream->is_finished) {
         if (stream->bf_idx + n > stream->bf_used) {
@@ -146,7 +146,7 @@ uptr in_stream_advance(InStream *stream, uptr n) {
     return result;
 }
 
-void in_stream_flush(InStream *stream) {
+void in_stream_flush(In_Stream *stream) {
     if (stream->mode == STREAM_BUFFER) {
         // nop
     } else if (stream->mode == STREAM_FILE) {
@@ -171,19 +171,19 @@ void in_stream_flush(InStream *stream) {
     } 
 }
 
-u8 in_stream_peek_b_or_zero(InStream *stream) {
+u8 in_stream_peek_b_or_zero(In_Stream *stream) {
     u8 result = 0;
     in_stream_peek(stream, &result, 1);
     return result;    
 }
 
-static OutStream stdout_stream_storage;
-static OutStream stderr_stream_storage;
+static Out_Stream stdout_stream_storage;
+static Out_Stream stderr_stream_storage;
 
-static OutStream *stdout_stream;
-static OutStream *stderr_stream;
+static Out_Stream *stdout_stream;
+static Out_Stream *stderr_stream;
 
-OutStream *get_stdout_stream(void) {
+Out_Stream *get_stdout_stream(void) {
     static u8 stdout_buffer[STDOUT_STREAM_BF_SZ];
     if (stdout_stream == 0) {
         stdout_stream_storage.bf = stdout_buffer;
@@ -195,7 +195,7 @@ OutStream *get_stdout_stream(void) {
     return stdout_stream;
 }
 
-OutStream *get_stderr_stream(void) {
+Out_Stream *get_stderr_stream(void) {
     static u8 stderr_buffer[STDOUT_STREAM_BF_SZ];
     if (stderr_stream == 0) {
         stderr_stream_storage.bf = stderr_buffer;

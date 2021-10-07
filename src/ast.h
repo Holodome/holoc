@@ -22,21 +22,21 @@
 enum {
     AST_NONE,
     
-    AST_BLOCK, // ASTBlock
-    AST_LIT, // ASTLit
-    AST_IDENT, // ASTIdent
-    AST_TYPE, // ASTType
-    AST_UNARY, // ASTUnary
-    AST_BINARY, // ASTBinary
-    AST_ASSIGN, // ASTAssign
-    AST_PRINT, // ASTPrint
-    AST_DECL, // ASTDecl
-    AST_RETURN, // ASTReturn 
-    AST_IF, // ASTIf
-    AST_WHILE, // ASTWhile
-    AST_FUNC_SIGNATURE, // ASTFuncSign
-    AST_FUNC_DECL, // ASTFuncDecl
-    AST_FUNC_CALL, // ASTFuncCall
+    AST_BLOCK, // AST_Block
+    AST_LIT, // AST_Lit
+    AST_IDENT, // AST_Ident
+    AST_TYPE, // AST_Type
+    AST_UNARY, // AST_Unary
+    AST_BINARY, // AST_Binary
+    AST_ASSIGN, // AST_Assign
+    AST_PRINT, // AST_Print
+    AST_DECL, // AST_Decl
+    AST_RETURN, // AST_Return 
+    AST_IF, // AST_If
+    AST_WHILE, // AST_While
+    AST_FUNC_SIGNATURE, // AST_Func_Sign
+    AST_FUNC_DECL, // AST_Func_Decl
+    AST_FUNC_CALL, // AST_Func_Call
     
     AST_COUNT
 };
@@ -47,26 +47,26 @@ typedef struct AST AST;
 // Requirements for list:
 // 1) Order
 // 2) Fast addition of individual elements (implies linked list)
-typedef struct ASTList {
+typedef struct AST_List {
     struct AST *sentinel;
     
     bool DBG_is_initialized;
     u32 DBG_len;
-} ASTList;
+} AST_List;
 
 // @NOTE(hl): Shorthand for writing iterative for loops
 #define AST_LIST_ITER_(_sentinel, _it) for (AST *_it = (_sentinel)->next; _it != (_sentinel); _it = _it->next)
 #define AST_LIST_ITER(_list, _it) AST_LIST_ITER_((_list)->sentinel, _it)
-ASTList create_ast_list(AST *sentinel);
-void ast_list_add(ASTList *list, AST *ast);
+AST_List create_ast_list(AST *sentinel);
+void ast_list_add(AST_List *list, AST *ast);
 
 //
 // Per-kind declarations
 //
 
 typedef struct {
-    ASTList statements;
-} ASTBlock;
+    AST_List statements;
+} AST_Block;
 
 enum {
     AST_LIT_NONE,  
@@ -79,20 +79,20 @@ enum {
 typedef struct {
     u32 kind;
     union {
-        StringID value_str;
+        String_ID value_str;
         i64 value_int;
         f64 value_real;  
     };
-} ASTLit;
+} AST_Lit;
 
 typedef struct {
     AST *lvalue;
     AST *rvalue;
-} ASTAssign;
+} AST_Assign;
 
 typedef struct {
-    StringID name;
-} ASTIdent;
+    String_ID name;
+} AST_Ident;
 
 enum {
     AST_UNARY_NONE,
@@ -106,7 +106,7 @@ enum {
 typedef struct {
     u32 kind;
     AST *expr;
-} ASTUnary;
+} AST_Unary;
 
 enum {
     AST_BINARY_NONE,  
@@ -135,49 +135,49 @@ typedef struct {
     u32 kind;
     AST *left;
     AST *right;
-} ASTBinary;
+} AST_Binary;
 
 typedef struct {
     AST *ident;
     AST *expr;
     AST *type;
     bool is_immutable;
-} ASTDecl;
+} AST_Decl;
 
 typedef struct {
-    ASTList arguments;
-    ASTList return_types;
-} ASTFuncSign;
+    AST_List arguments;
+    AST_List return_types;
+} AST_Func_Sign;
 
 typedef struct {
     AST *name;
     AST *sign;
     AST *block;
-} ASTFuncDecl;
+} AST_Func_Decl;
 
 typedef struct {
-    ASTList vars;
-} ASTReturn;
+    AST_List vars;
+} AST_Return;
 
 typedef struct {
     AST *cond;
     AST *block;
     AST *else_block;
-} ASTIf;
+} AST_If;
 
 typedef struct {
     AST *cond;
     AST *block;
-} ASTWhile;
+} AST_While;
 
 typedef struct {
     AST *callable;
-    ASTList arguments;
-} ASTFuncCall;
+    AST_List arguments;
+} AST_Func_Call;
 
 typedef struct {
-    ASTList arguments;
-} ASTPrint;
+    AST_List arguments;
+} AST_Print;
 
 enum {
     AST_TYPE_NONE = 0x0,
@@ -191,32 +191,32 @@ enum {
 
 typedef struct {
     u32 kind;
-} ASTType;
+} AST_Type;
 
 struct AST {
     u32 kind;
-    SrcLoc src_loc;
+    Src_Loc src_loc;
     // for use in linked lists
     AST *next;
     AST *prev;
     union  {
-        ASTBlock block;
-        ASTLit lit;
-        ASTAssign assign;
-        ASTIdent ident;
-        ASTUnary unary;
-        ASTBinary binary;
-        ASTDecl decl;
-        ASTFuncSign func_sign;
-        ASTReturn returns;
-        ASTIf ifs;
-        ASTWhile whiles;
-        ASTFuncCall func_call;
-        ASTType type;
-        ASTPrint prints;
-        ASTFuncDecl func_decl;
+        AST_Block block;
+        AST_Lit lit;
+        AST_Assign assign;
+        AST_Ident ident;
+        AST_Unary unary;
+        AST_Binary binary;
+        AST_Decl decl;
+        AST_Func_Sign func_sign;
+        AST_Return returns;
+        AST_If ifs;
+        AST_While whiles;
+        AST_Func_Call func_call;
+        AST_Type type;
+        AST_Print prints;
+        AST_Func_Decl func_decl;
     };
 };
 
-struct CompilerCtx;
-void fmt_ast_tree(struct CompilerCtx *ctx, OutStream *stream, AST *ast, u32 depth);
+struct Compiler_Ctx;
+void fmt_ast_tree(struct Compiler_Ctx *ctx, Out_Stream *stream, AST *ast, u32 depth);

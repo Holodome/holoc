@@ -22,8 +22,8 @@ typedef struct BytecodeInterpStack {
 } BytecodeInterpStack;
 
 typedef struct {
-    MemoryArena arena;
-    InStream *in;
+    Memory_Arena arena;
+    In_Stream *in;
     
     BytecodeInterpStack *curr_stack;
     u64 var0;
@@ -32,4 +32,4 @@ typedef struct {
     u64 var3;
 } BytecodeInterp;
 
-BytecodeInterp *create_bytecode_interp(InStream *in);
+BytecodeInterp *create_bytecode_interp(In_Stream *in);

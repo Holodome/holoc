@@ -82,17 +82,17 @@ bool mem_eq(const void *a, const void *b, uptr n);
 
 // Memory blocks are used in arena-like allocators
 // Used to batch several allocations together instead of making multiple os callss
-typedef struct MemoryBlock { 
+typedef struct Memory_Block { 
     uptr size; 
     uptr used; 
     u8 *base;
     // Used only in arena, not related to block itselfs
-    struct MemoryBlock *next;
-} MemoryBlock;
+    struct Memory_Block *next;
+} Memory_Block;
 
 ATTR((malloc))
-MemoryBlock *mem_alloc_block(uptr size);
-void mem_free_block(MemoryBlock *block);
+Memory_Block *mem_alloc_block(uptr size);
+void mem_free_block(Memory_Block *block);
 // Blocks can be freed with mem_free call
 
 // Region-based memory management.
@@ -112,35 +112,35 @@ void mem_free_block(MemoryBlock *block);
 // and user has no control over that
 //
 // @NOTE(hl): One of the latter benefits of memory arenas is inside the multithreaded code
-typedef struct MemoryArena {
-    MemoryBlock *current_block;
+typedef struct Memory_Arena {
+    Memory_Block *current_block;
     uptr minimum_block_size;
     int temp_memory_count;
-} MemoryArena;
+} Memory_Arena;
 
 // Allocator functions
 // All arena-based alloctions are aligned according to MEMORY_ARENA_DEFAULT_ALIGNMENT
 #define arena_alloc_struct(_arena, _type) (_type *)arena_alloc(_arena, sizeof(_type))
 #define arena_alloc_array(_arena, _count, _type) (_type *)arena_alloc(_arena, sizeof(_type) * _count)
-void *arena_alloc(MemoryArena *arena, uptr size);
-char *arena_alloc_str(MemoryArena *arena, const char *src);
-void *arena_copy(MemoryArena *arena, const void *src, uptr size);
-void arena_free_last_block(MemoryArena *arena);
+void *arena_alloc(Memory_Arena *arena, uptr size);
+char *arena_alloc_str(Memory_Arena *arena, const char *src);
+void *arena_copy(Memory_Arena *arena, const void *src, uptr size);
+void arena_free_last_block(Memory_Arena *arena);
 // Frees all blocks
-void arena_clear(MemoryArena *arena);
+void arena_clear(Memory_Arena *arena);
 // Allocates structure using arena that is located inside this structure
-// Ex: struct A { MemoryArena a; }; struct A *b = arena_bootstrap(A, a); (b is allocated on b.a arena)
+// Ex: struct A { Memory_Arena a; }; struct A *b = arena_bootstrap(A, a); (b is allocated on b.a arena)
 #define arena_bootstrap(_type, _field) arena_bootstrap_(sizeof(_type), STRUCT_OFFSET(_type, _field))
 void *arena_bootstrap_(uptr size, uptr arena_offset);
 
 // Alloctions guarded by temporary memory calls are not commited to arena
 typedef struct TemporaryMemory {
-    MemoryArena *arena;
-    MemoryBlock *block;
+    Memory_Arena *arena;
+    Memory_Block *block;
     uptr block_used;
 } TemporaryMemory;
 
-TemporaryMemory begin_temp_memory(MemoryArena *arena);
+TemporaryMemory begin_temp_memory(Memory_Arena *arena);
 void end_temp_memory(TemporaryMemory temp);
 
 // @NOTE there are different allocation technicues (memory pool, packed set, slab allocators, free list linked lists)

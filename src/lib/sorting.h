@@ -11,13 +11,13 @@
 // Has limitation of only operating on numerical values - so all sort entries have to be represented as numbers.
 // Using radix sort can become too verbose in some string-heavy places, so another sorting algorithm may be introduced
 
-typedef struct SortEntry {
+typedef struct Sort_Entry {
     u32 key;   // value that array needs to be sorted around. Floating-point needs special handling, see functions below
     u32 value; // any value that user can use to use sort data
-} SortEntry;
+} Sort_Entry;
 // Construct soring key from floating-pointvalue
 u32 f64_to_sort_key(f64 value);
 
 // O(n)
 // Sorted result is stored in entries
-void radix_sort(SortEntry *entries, SortEntry *temp, uptr n);
+void radix_sort(Sort_Entry *entries, Sort_Entry *temp, uptr n);

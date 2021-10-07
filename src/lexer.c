@@ -44,7 +44,7 @@ is_token_assign(u32 tok) {
 }
 
 Lexer *
-create_lexer(CompilerCtx *ctx, InStream *stream, FileID file) {
+create_lexer(Compiler_Ctx *ctx, In_Stream *stream, FileID file) {
     Lexer *lexer = arena_bootstrap(Lexer, arena);
     lexer->stream = stream;
     lexer->curr_loc.symb = 1;
@@ -114,7 +114,7 @@ lit_write(Lexer *lexer, u8 symb) {
     advance(lexer, 1);
 }
 
-static StringID
+static String_ID
 end_lit_write(Lexer *lexer) {
     string_storage_write(lexer->ctx->ss, lexer->scratch_buffer, lexer->scratch_buffer_used);
     return string_storage_end_write(lexer->ctx->ss);
@@ -150,7 +150,7 @@ peek_tok(Lexer *lexer) {
             }
             continue;
         } else if (parse(lexer, "/*")) {
-            SrcLoc comment_start_loc = lexer->curr_loc;
+            Src_Loc comment_start_loc = lexer->curr_loc;
             u32 depth = 1;
             while (depth) {
                 if (parse(lexer, "/*")) {
@@ -184,7 +184,7 @@ peek_tok(Lexer *lexer) {
                 
                 lit_write(lexer, symb);
             }
-            StringID str_id = end_lit_write(lexer);
+            String_ID str_id = end_lit_write(lexer);
             // @NOTE(hl): This is stupid, just because we decided that strings can have arbitrary size
             string_storage_get(lexer->ctx->ss, str_id, lexer->scratch_buffer, lexer->scratch_buffer_size);
             if (is_real_lit) {
@@ -209,7 +209,7 @@ peek_tok(Lexer *lexer) {
                 
                 lit_write(lexer, symb);
             }
-            StringID str_id = end_lit_write(lexer);
+            String_ID str_id = end_lit_write(lexer);
             for (u32 i = 0; i < MAX_KEYWORD_TOKEN_COUNT; ++i) {
                 if (str_id.value == lexer->keyword_ids[i].value) {
                     token->kind = TOKEN_KEYWORD + i;
@@ -232,7 +232,7 @@ peek_tok(Lexer *lexer) {
                 
                 lit_write(lexer, symb);
             }
-            StringID str_id = end_lit_write(lexer);
+            String_ID str_id = end_lit_write(lexer);
             
             token->kind = TOKEN_STR;
             token->value_str = str_id;
@@ -308,7 +308,7 @@ fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
 }
 
 uptr 
-fmt_tok(CompilerCtx *ctx, char *buf, uptr buf_sz, Token *token) {
+fmt_tok(Compiler_Ctx *ctx, char *buf, uptr buf_sz, Token *token) {
     uptr result = 0;
     if (IS_TOKEN_ASCII(token->kind)) {
         result = fmt(buf, buf_sz, "%c", token->kind);

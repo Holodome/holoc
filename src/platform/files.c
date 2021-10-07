@@ -13,7 +13,7 @@
 #include <errno.h>
 
 void 
-os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
+os_open_file(OS_File_Handle *file, const char *filename, u32 mode) {
     file->flags = 0;
     file->handle = 0;
     
@@ -35,7 +35,7 @@ os_open_file(OSFileHandle *file, const char *filename, u32 mode) {
 }
 
 bool 
-os_close_file(OSFileHandle *id) {
+os_close_file(OS_File_Handle *id) {
     bool result = close(id->handle) == 0;
     if (result) {
         id->flags |= FILE_FLAG_IS_CLOSED;
@@ -44,7 +44,7 @@ os_close_file(OSFileHandle *id) {
 }
 
 uptr 
-os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
+os_write_file(OS_File_Handle *file, uptr offset, const void *bf, uptr bf_sz) {
     uptr result = 0;
     if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
@@ -61,7 +61,7 @@ os_write_file(OSFileHandle *file, uptr offset, const void *bf, uptr bf_sz) {
 }
 
 uptr 
-os_read_file(OSFileHandle *file, uptr offset, void *bf, uptr bf_sz) {
+os_read_file(OS_File_Handle *file, uptr offset, void *bf, uptr bf_sz) {
     uptr result = 0;
     if (os_is_file_valid(file)) {
         int posix_handle = file->handle;
@@ -88,7 +88,7 @@ os_write_stderr(void *bf, uptr bf_sz) {
 }
 
 uptr 
-os_get_file_size(OSFileHandle *id) {
+os_get_file_size(OS_File_Handle *id) {
     uptr result = 0;
     if (os_is_file_valid(id)) {
         int posix_handle = id->handle;
@@ -98,6 +98,6 @@ os_get_file_size(OSFileHandle *id) {
 }
 
 bool 
-os_is_file_valid(OSFileHandle *id) {
+os_is_file_valid(OS_File_Handle *id) {
     return id->handle != 0 && !(id->flags & FILE_FLAG_NOT_OPERATABLE);
 }

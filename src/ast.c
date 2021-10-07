@@ -84,9 +84,9 @@ const char *AST_BINARY_SYMBS[] = {
     "||",    
 };
 
-ASTList 
+AST_List 
 create_ast_list(AST *sentinel) {
-    ASTList result = {0};
+    AST_List result = {0};
     result.DBG_is_initialized = true;
     result.sentinel = sentinel;
     CDLIST_INIT(result.sentinel);
@@ -94,7 +94,7 @@ create_ast_list(AST *sentinel) {
 }
 
 void 
-ast_list_add(ASTList *list, AST *ast) {
+ast_list_add(AST_List *list, AST *ast) {
     assert(list->DBG_is_initialized);
     ++list->DBG_len;
     CDLIST_ADD_LAST(list->sentinel, ast);
@@ -103,7 +103,7 @@ ast_list_add(ASTList *list, AST *ast) {
 #define IDENT_DEPTH(_depth) (_depth) ? out_streamf(stream, "%*c", (_depth), ' ') : (void)0
 
 void 
-fmt_ast_tree(CompilerCtx *ctx, OutStream *stream, AST *ast, u32 depth) {
+fmt_ast_tree(Compiler_Ctx *ctx, Out_Stream *stream, AST *ast, u32 depth) {
     if (!ast) {
         out_streamf(stream, "%*cNULL\n", depth, ' ');
         return;

@@ -169,7 +169,7 @@ uptr outf(const char *msg, ...) {
 }
 
 uptr outv(const char *msg, va_list args) {
-    OutStream *stream = get_stdout_stream();
+    Out_Stream *stream = get_stdout_stream();
     uptr result = out_streamv(stream, msg, args);
     out_stream_flush(stream);
     return result;
@@ -184,7 +184,7 @@ uptr erroutf(const char *msg, ...) {
 }
 
 uptr erroutv(const char *msg, va_list args) {
-    OutStream *stream = get_stderr_stream();
+    Out_Stream *stream = get_stderr_stream();
     uptr result = out_streamv(stream, msg, args);
     out_stream_flush(stream);
     return result;

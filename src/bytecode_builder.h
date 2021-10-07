@@ -11,7 +11,7 @@
 #define BYTECODE_BUILDER_CODE_PAGE_SIZE KB(4)
 
 typedef struct BytecodeBuilderVar {
-    StringID name;
+    String_ID name;
     u64 storage; // can be zero
     u32 type;
     struct BytecodeBuilderVar *next;
@@ -40,8 +40,8 @@ typedef struct BytecodeBuilderBlockInfo {
 } BytecodeBuilderBlockInfo;
 
 typedef struct {
-    MemoryArena arena;
-    CompilerCtx *ctx;
+    Memory_Arena arena;
+    Compiler_Ctx *ctx;
     
     BytecodeBuilderVar *static_vars;
     BytecodeBuilderFunction *functions;
@@ -52,7 +52,7 @@ typedef struct {
     BytecodeBuilderBlockInfo *block_info_free_list;
 } BytecodeBuilder;
 
-BytecodeBuilder *create_bytecode_builder(CompilerCtx *ctx);
+BytecodeBuilder *create_bytecode_builder(Compiler_Ctx *ctx);
 void destroy_bytecode_builder(BytecodeBuilder *builder); 
 void bytecode_builder_proccess_toplevel(BytecodeBuilder *builder, AST *toplevel);
-void bytecode_builder_emit_code(BytecodeBuilder *builder, OSFileHandle *out);
+void bytecode_builder_emit_code(BytecodeBuilder *builder, OS_File_Handle *out);

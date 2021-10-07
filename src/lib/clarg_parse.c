@@ -3,7 +3,7 @@
 #include "lib/strings.h"
 
 typedef struct {
-    CLArgInfo *infos;
+    CL_Arg_Info *infos;
     u32 ninfos;
     
     u32 argc;
@@ -21,11 +21,11 @@ ctx_has_space_for(CLArgCtx *ctx, u32 n) {
     return ctx->cursor + n < ctx->argc;
 }
 
-static CLArgInfo *
+static CL_Arg_Info *
 find_info(CLArgCtx *ctx, const char *opt) {
-    CLArgInfo *info = 0;
+    CL_Arg_Info *info = 0;
     for (u32 i = 0; i < ctx->ninfos; ++i) {
-        CLArgInfo *test = ctx->infos + i;
+        CL_Arg_Info *test = ctx->infos + i;
         if (str_eq(test->name, opt)) {
             info = test;
             break;
@@ -56,7 +56,7 @@ write_arg(void *out, u32 type, const char *opt) {
 }
 
 void 
-clarg_parse(void *out_bf, CLArgInfo *infos, u32 ninfos, u32 argc, char ** const argv) {
+clarg_parse(void *out_bf, CL_Arg_Info *infos, u32 ninfos, u32 argc, char ** const argv) {
     CLArgCtx ctx = {0};
     ctx.infos = infos;
     ctx.ninfos = ninfos;
@@ -66,12 +66,12 @@ clarg_parse(void *out_bf, CLArgInfo *infos, u32 ninfos, u32 argc, char ** const 
     
     while (ctx_is_not_finished(&ctx)) {
         const char *opt = argv[ctx.cursor];
-        CLArgInfo *info = find_info(&ctx, opt);
+        CL_Arg_Info *info = find_info(&ctx, opt);
         
         if (!info) {
             // Try to find variadic
             for (u32 i = 0; i < ninfos; ++i) {
-                CLArgInfo *test = infos + i;
+                CL_Arg_Info *test = infos + i;
                 if (test->narg == CLARG_NARG) {
                     info = test;
                     break;
