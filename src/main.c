@@ -16,14 +16,16 @@ do_compile(const char *filename, const char *out_filename) {
         IN_STREAM_DEFAULT_THRESHLOD);
     Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
     Parser *parser = create_parser(ctx, lexer);
-    BytecodeBuilder *builder = create_bytecode_builder(ctx);
+    IR *ir = create_ir(ctx, &ctx->arena);
+    // BytecodeBuilder *builder = create_bytecode_builder(ctx);
     for (;;) {
         AST *toplevel = parser_parse_toplevel(parser);
         if (!toplevel || is_error_reported(ctx->er)) {
             break;
         }
         // do_semantic_analysis(ctx, toplevel);
-        fmt_ast_tree(ctx, get_stdout_stream(), toplevel, 0);
+        // fmt_ast_tree(ctx, get_stdout_stream(), toplevel, 0);
+        ir_process_toplevel(ir, toplevel);
         // bytecode_builder_proccess_toplevel(builder, toplevel);
     }
     destroy_parser(parser);
@@ -32,10 +34,10 @@ do_compile(const char *filename, const char *out_filename) {
     
     if (!is_error_reported(ctx->er)) {
         FileID out_file = fs_open_file(out_filename, FILE_MODE_WRITE);
-        bytecode_builder_emit_code(builder, fs_get_handle(out_file));
+        // bytecode_builder_emit_code(builder, fs_get_handle(out_file));
         fs_close_file(out_file);
     }
-    destroy_bytecode_builder(builder);
+    // destroy_bytecode_builder(builder);
     print_reporter_summary(ctx->er);
     destroy_compiler_ctx(ctx);
 }

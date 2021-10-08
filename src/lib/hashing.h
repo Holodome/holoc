@@ -32,6 +32,7 @@ typedef struct Hash64 {
 } Hash64;
 
 Hash64 create_hash64(u32 n, Memory_Arena *arena);
+void clear_hash(Hash64 *hash);
 //  @NOTE creation and deletion is not specified - because different use cases may want to
 // ahve different allocation strategies and we don't have API for that
 bool hash64_set(Hash64 *hash, u64 key, u64 value);

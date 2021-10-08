@@ -117,6 +117,13 @@ create_hash64(u32 n, struct Memory_Arena *arena) {
     return hash;
 }
 
+void 
+clear_hash(Hash64 *hash) {
+    mem_zero(hash->keys, sizeof(*hash->keys) * hash->num_buckets);    
+    // @SPEED Redundant?
+    mem_zero(hash->values, sizeof(*hash->values) * hash->num_buckets);    
+}
+
 bool 
 hash64_set(Hash64 *hash, u64 key, u64 value) {
     bool result = false;
