@@ -1,4 +1,9 @@
 #include "error_reporter.h"
+
+#include "lib/stream.h"
+#include "lib/memory.h"
+#include "lib/strings.h"
+
 #include "lexer.h"
 #include "ast.h"
 
@@ -20,9 +25,9 @@ void
 report_errorv(Error_Reporter *reporter, Src_Loc src_loc, const char *msg, va_list args) {
     // const FileData *file_data = get_file_data(reporter->file_id);
     // @TODO capture source index and read only n first bytes instead of whole file
-    FileID id = src_loc.file;
-    OS_File_Handle *handle = fs_get_handle(id);
-    assert(handle);
+    File_ID id = src_loc.file;
+    OS_File_Handle handle = fs_get_handle(id);
+    assert(handle.flags & FILE_HAS_NO_ERRORS_BIT);
     uptr file_size = fs_get_file_size(id);
     char *file_contents = mem_alloc(file_size);
     os_read_file(handle, 0, file_contents, file_size);

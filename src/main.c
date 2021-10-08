@@ -1,22 +1,29 @@
+#include "common.h"
+
+#include "lib/stream.h"
+#include "lib/clarg_parse.h"
+#include "lib/strings.h"
+
 #include "compiler_ctx.h"
 #include "lexer.h"
 #include "parser.h"
-#include "bytecode_builder.h"
-#include "lib/clarg_parse.h"
 #include "ir.h"
+#include "ast.h"
+#include "error_reporter.h"
+
 
 static void
 do_compile(const char *filename, const char *out_filename) {
     Compiler_Ctx *ctx = create_compiler_ctx();
     
-    FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    File_ID in_file_id = fs_open_file(filename, true);
     In_Stream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
-        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        arena_alloc(ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
     Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
     Parser *parser = create_parser(ctx, lexer);
-    IR *ir = create_ir(ctx, &ctx->arena);
+    IR *ir = create_ir(ctx, ctx->arena);
     // BytecodeBuilder *builder = create_bytecode_builder(ctx);
     for (;;) {
         AST *toplevel = parser_parse_toplevel(parser);
@@ -33,7 +40,7 @@ do_compile(const char *filename, const char *out_filename) {
     fs_close_file(in_file_id);
     
     if (!is_error_reported(ctx->er)) {
-        FileID out_file = fs_open_file(out_filename, FILE_MODE_WRITE);
+        File_ID out_file = fs_open_file(out_filename, false);
         // bytecode_builder_emit_code(builder, fs_get_handle(out_file));
         fs_close_file(out_file);
     }
@@ -46,10 +53,10 @@ static void
 do_tokenizing(const char *filename) {
     Compiler_Ctx *ctx = create_compiler_ctx();
 
-    FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    File_ID in_file_id = fs_open_file(filename, true);
     In_Stream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
-        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        arena_alloc(ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
     Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
     u32 last_line_number = (u32)-1;
@@ -80,10 +87,10 @@ static void
 do_ast_view(const char *filename) {
     Compiler_Ctx *ctx = create_compiler_ctx();
 
-    FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    File_ID in_file_id = fs_open_file(filename, true);
     In_Stream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
-        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        arena_alloc(ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
     Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
     Parser *parser = create_parser(ctx, lexer);
@@ -122,14 +129,14 @@ static void
 print_ir(const char *filename) {
     Compiler_Ctx *ctx = create_compiler_ctx();
 
-    FileID in_file_id = fs_open_file(filename, FILE_MODE_READ);
+    File_ID in_file_id = fs_open_file(filename, true);
     In_Stream in_file_st = {0};
     init_in_streamf(&in_file_st, fs_get_handle(in_file_id), 
-        arena_alloc(&ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
+        arena_alloc(ctx->arena, IN_STREAM_DEFAULT_BUFFER_SIZE), IN_STREAM_DEFAULT_BUFFER_SIZE,
         IN_STREAM_DEFAULT_THRESHLOD);
     Lexer *lexer = create_lexer(ctx, &in_file_st, in_file_id);
     Parser *parser = create_parser(ctx, lexer);
-    IR *ir = create_ir(ctx, &ctx->arena);
+    IR *ir = create_ir(ctx, ctx->arena);
     for (;;) {
         AST *toplevel = parser_parse_toplevel(parser);
         if (!toplevel || is_error_reported(ctx->er)) {

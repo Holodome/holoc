@@ -10,11 +10,11 @@ some intermediate code format that can be later optimized and compiled into
 actual code.
 */
 #pragma once 
-#include "lib/general.h"
-#include "platform/memory.h"
+#include "common.h"
+#include "lib/hashing.h"
 
-#include "compiler_ctx.h"
-#include "ast.h"
+struct Compiler_Ctx;
+struct AST;
 
 enum {
     IR_NODE_NONE  = 0x0,
@@ -87,8 +87,8 @@ typedef struct {
 #define MAX_VARIBALES 1024
 
 typedef struct {
-    Compiler_Ctx *ctx;
-    Memory_Arena *arena;
+    struct Compiler_Ctx *ctx;
+    struct Memory_Arena *arena;
     // Current compilation unit context
     u32 next_label_idx;
     u32 current_temp_n;
@@ -98,5 +98,5 @@ typedef struct {
     IR_Node_List *node_list;
 } IR;
 
-IR *create_ir(Compiler_Ctx *ctx, Memory_Arena *arena);
-void ir_process_toplevel(IR *ir, AST *toplevel);
+IR *create_ir(struct Compiler_Ctx *ctx, Memory_Arena *arena);
+void ir_process_toplevel(IR *ir, struct AST *toplevel);

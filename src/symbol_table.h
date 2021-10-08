@@ -5,12 +5,8 @@ File: pkby/src/symbol_table.h
 Version: 0
 */
 #pragma once
-#include "lib/general.h"
-#include "platform/memory.h"
+#include "common.h"
 #include "lib/hashing.h"
-
-#include "ast.h"
-#include "string_storage.h"
 
 #define SYMBOL_TABLE_HASH_SIZE 8192
 
@@ -30,7 +26,7 @@ typedef struct Symbol_Table_Scope {
     struct Symbol_Table_Scope *next;
 } Symbol_Table_Scope;
 
-typedef struct {
+typedef struct Symbol_Table {
     Memory_Arena *arena;
     Hash64 hash; // @TODO(hl): Not used
     

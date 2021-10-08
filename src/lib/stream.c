@@ -1,5 +1,5 @@
 #include "lib/stream.h"
-#include "platform/memory.h"
+#include "lib/memory.h"
 #include "lib/strings.h"
 
 static bool
@@ -25,7 +25,7 @@ void init_out_stream(Out_Stream *stream, void *bf, uptr bf_sz) {
     stream->bf_sz = bf_sz;
 }
 
-void init_out_streamf(Out_Stream *stream, OS_File_Handle *file,  void *bf, uptr bf_sz, uptr threshold) {
+void init_out_streamf(Out_Stream *stream, OS_File_Handle file,  void *bf, uptr bf_sz, uptr threshold) {
     assert(threshold < bf_sz);
     stream->file = file;
     stream->mode = STREAM_FILE;
@@ -90,7 +90,7 @@ void init_in_stream(In_Stream *stream, void *bf, uptr bf_sz) {
     stream->bf_sz = bf_sz;
 }
 
-void init_in_streamf(In_Stream *stream, OS_File_Handle *file, void *bf, uptr bf_sz, uptr threshold) {
+void init_in_streamf(In_Stream *stream, OS_File_Handle file, void *bf, uptr bf_sz, uptr threshold) {
     assert(bf_sz > threshold);
     stream->file = file;
     stream->file_size = os_get_file_size(file);

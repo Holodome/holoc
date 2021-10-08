@@ -6,7 +6,7 @@
 // Provides different APIs that are conncected with hashing.
 #pragma once
 #include "lib/general.h"
-#include "platform/memory.h"
+#include "lib/memory.h"
 
 u32 hash_string(const char *str);
 u32 crc32(u32 crc, const void *bf, uptr bf_sz);

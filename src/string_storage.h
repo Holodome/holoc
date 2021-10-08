@@ -26,17 +26,12 @@ Because of this implementation, two values are needed to access string. The buff
 Access time for buffer is O(n), but if buffer sizes big enough are chosed, this time is kept low.
 */
 #pragma once 
-#include "lib/general.h"
+#include "common.h"
 #include "lib/hashing.h"
 
 #define STRING_STORAGE_BUFFER_SIZE KB(16)
 #define STRING_STORAGE_HASH_SIZE 8192
 #define STRING_STORAGE_NUGE (1llu << 63)
-
-// @TODO(hl): Do we want to store some metadata with the string (like length,hash)
-typedef struct {
-    u64 value;
-} String_ID;
 
 typedef struct String_Storage_Buffer {
     u8 storage[STRING_STORAGE_BUFFER_SIZE];
@@ -45,7 +40,7 @@ typedef struct String_Storage_Buffer {
     struct String_Storage_Buffer *next;
 } String_Storage_Buffer;
 
-typedef struct {
+typedef struct String_Storage {
     Memory_Arena *arena;
 
     Hash64 hash;

@@ -7,15 +7,11 @@ Version: 0
 #pragma once 
 #include "lib/general.h"
 
-#include "error_reporter.h"
-#include "string_storage.h"
-#include "symbol_table.h"
-
 typedef struct Compiler_Ctx {
-    Memory_Arena arena;
-    Error_Reporter *er;
-    String_Storage *ss;
-    Symbol_Table *st;
+    struct Memory_Arena *arena;
+    struct Error_Reporter *er;
+    struct String_Storage *ss;
+    struct Symbol_Table *st;
 } Compiler_Ctx;
 
 Compiler_Ctx *create_compiler_ctx(void);

@@ -9,17 +9,10 @@ typedef struct FSFileSlot {
     u64 hash;
     char *name; // @TODO Filepath should be here
     bool is_open;
-    u32 file_mode;
+    bool for_reading;
     uptr file_size_cached;
     OS_File_Handle handle;
 } FSFileSlot;
-
-typedef struct FSFilepathSlot {
-    u64 hash;
-    Filepath filepath;
-    char *rel_path_cached;
-    char *abs_path_cached;
-} FSFilepathSlot;
 
 typedef struct {
     Memory_Arena arena;
@@ -29,11 +22,6 @@ typedef struct {
     u64 nfile_slots_used;
     FSFileSlot *file_hash_slots;
     // @TODO Free list for ids
-    
-    Hash64 filepath_hash;
-    u64 nfilepath_slots;
-    u64 nfilepath_slots_used;
-    FSFilepathSlot *filepath_hash_slots;
 } FS;
 
 static FS *fs;
@@ -44,15 +32,11 @@ init_filesystem(void) {
     fs->nfile_slots = FS_HASH_SIZE;
     fs->file_hash = create_hash64(fs->nfile_slots, &fs->arena);
     fs->file_hash_slots = arena_alloc_array(&fs->arena, fs->nfile_slots, FSFileSlot);
-    fs->nfilepath_slots = FS_HASH_SIZE;
-    fs->filepath_hash = create_hash64(fs->nfilepath_slots, &fs->arena);
-    fs->filepath_hash_slots = arena_alloc_array(&fs->arena, fs->nfilepath_slots, FSFilepathSlot);
     fs->nfile_slots_used++;
-    fs->nfilepath_slots_used++;
 }
 
 bool 
-is_file_id_valid(FileID id) {
+is_file_id_valid(File_ID id) {
     return id.value != 0;
 }
 
@@ -83,14 +67,18 @@ get_new_file_slot_idx(void) {
 static void 
 open_slot_file(FSFileSlot *slot) {
     if (!slot->is_open) {
-        os_open_file(&slot->handle, slot->name, slot->file_mode);
+        if (slot->for_reading) {
+            slot->handle = os_open_file_read(slot->name);
+        } else {
+            slot->handle = os_open_file_write(slot->name);
+        }
         slot->is_open = true;
     }
 }
 
-FileID 
+File_ID 
 fs_get_id_for_filename(const char *filename) {
-    FileID result = {0};
+    File_ID result = {0};
     // @TODO Construct filepath
     u64 filename_hash = get_hash_for_filename(filename);
     FSFileSlot *slot = get_slot(filename_hash);
@@ -100,20 +88,20 @@ fs_get_id_for_filename(const char *filename) {
     return result;
 }
 
-OS_File_Handle *
-fs_get_handle(FileID id) {
-    OS_File_Handle *handle = 0;
+OS_File_Handle 
+fs_get_handle(File_ID id) {
+    OS_File_Handle handle = {0};
     // @TODO Construct filepath
     FSFileSlot *slot = get_slot(id.value);
     if (slot && slot->hash) {
-        handle = &slot->handle;
+        handle = slot->handle;
     }
     return handle;
 }
 
-FileID 
-fs_open_file(const char *name, u32 mode) {
-    FileID result = {0};
+File_ID 
+fs_open_file(const char *name, bool for_reading) {
+    File_ID result = {0};
     // Check if it already open
     u64 hash = get_hash_for_filename(name);
     FSFileSlot *slot = get_slot(hash);
@@ -127,7 +115,7 @@ fs_open_file(const char *name, u32 mode) {
             slot->hash = hash;
             // @LEAK
             slot->name = arena_alloc_str(&fs->arena, name);
-            slot->file_mode = mode;
+            slot->for_reading = for_reading;
             open_slot_file(slot);
             slot->file_size_cached = (u64)-1;
             result.value = hash;
@@ -138,7 +126,7 @@ fs_open_file(const char *name, u32 mode) {
 }
 
 bool 
-fs_close_file(FileID id) {
+fs_close_file(File_ID id) {
     bool result = false;
     FSFileSlot *slot = get_slot(id.value);
     if (!slot) {
@@ -146,7 +134,8 @@ fs_close_file(FileID id) {
         // fs_fmt_filename(bf, sizeof(bf), id);
         report_error_general("No file open for file id %llu (%s)", id.value, bf);
     } else {
-        os_close_file(&slot->handle);
+        os_close_file(slot->handle);
+        mem_zero(&slot->handle, sizeof(slot->handle));
         slot->is_open = false;
         hash64_set(&fs->file_hash, slot->hash, -1);
         slot->hash = 0;
@@ -157,12 +146,12 @@ fs_close_file(FileID id) {
 }
 
 uptr 
-fs_get_file_size(FileID id) {
+fs_get_file_size(File_ID id) {
     uptr result = 0;
     FSFileSlot *slot = get_slot(id.value);
     if (slot) {
         if (slot->file_size_cached == (u64)-1) {
-            slot->file_size_cached = os_get_file_size(&slot->handle);
+            slot->file_size_cached = os_get_file_size(slot->handle);
         }
         result = slot->file_size_cached;
     }
@@ -170,7 +159,7 @@ fs_get_file_size(FileID id) {
 }
 
 uptr 
-fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
+fs_fmt_filename(char *bf, uptr bf_sz, File_ID id) {
     uptr result = 0;
     FSFileSlot *slot = get_slot(id.value);
     if (slot) {
@@ -181,8 +170,7 @@ fs_fmt_filename(char *bf, uptr bf_sz, FileID id) {
 
 void 
 DBG_dump_file(const char *filename, const void *data, u64 data_size) {
-    OS_File_Handle handle = {0};
-    os_open_file(&handle, filename, FILE_MODE_WRITE);
-    os_write_file(&handle, 0, data, data_size);
-    os_close_file(&handle);    
+    OS_File_Handle handle = os_open_file_write(filename);
+    os_write_file(handle, 0, data, data_size);
+    os_close_file(handle);    
 }

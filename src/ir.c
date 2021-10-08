@@ -1,6 +1,14 @@
 #include "ir.h"
 
 #include "lib/lists.h"
+#include "lib/strings.h"
+#include "lib/stream.h"
+
+#include "ast.h"
+#include "string_storage.h"
+#include "compiler_ctx.h"
+#include "symbol_table.h"
+#include "error_reporter.h"
 
 static void emit_code_for_decl(IR *ir, AST *ast);
 
@@ -17,8 +25,8 @@ fmt_ir_var(char *bf, uptr bf_sz, IR *ir, IR_Var var) {
         bf += len0;
         bf_sz -= len0;
         u32 len = string_storage_get(ir->ctx->ss, var.id, bf, bf_sz);
-        bf += len;
-        bf_sz -= len;
+        bf += len - 1;
+        bf_sz -= len - 1;
         fmt(bf, bf_sz, "%u", var.number);
     } else {
         fmt(bf, bf_sz, "%%%u", var.number);
@@ -37,13 +45,13 @@ dump_ir_list(IR *ir, IR_Node_List *list) {
         INVALID_DEFAULT_CASE;
         case IR_NODE_UN: {
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->un.dest);
-            out_streamf(stream, "%u un kind %u %s=", idx, node->un.kind, var_buf);
+            out_streamf(stream, "%#6x un kind %u %s=", idx, node->un.kind, var_buf);
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->un.what);
             out_streamf(stream, "%s\n", var_buf);
         } break;
         case IR_NODE_BIN: {
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->bin.dest);
-            out_streamf(stream, "%u bin kind %u %s=", idx, node->bin.kind, var_buf);
+            out_streamf(stream, "%#6x bin kind %u %s=", idx, node->bin.kind, var_buf);
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->bin.left);
             out_streamf(stream, "%s ", var_buf);
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->bin.right);
@@ -51,13 +59,13 @@ dump_ir_list(IR *ir, IR_Node_List *list) {
         } break;
         case IR_NODE_VAR: {
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->var.dest);
-            out_streamf(stream, "%u %s=", idx, var_buf);
+            out_streamf(stream, "%#6x %s=", idx, var_buf);
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->var.source);
             out_streamf(stream, "%s\n", var_buf);
         } break;
         case IR_NODE_LIT: {
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->lit.dest);
-            out_streamf(stream, "%u lit kind %u %s=%lld\n", idx, node->un.kind, var_buf, 
+            out_streamf(stream, "%#6x lit kind %u %s=%lld\n", idx, node->lit.kind, var_buf, 
                 node->lit.int_value);
         } break;
         }

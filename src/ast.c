@@ -1,10 +1,14 @@
 #include "ast.h"
+
 #include "lib/strings.h"
 #include "lib/lists.h"
+#include "lib/stream.h"
+#include "lib/memory.h"
 
 #include "compiler_ctx.h"
+#include "string_storage.h"
 
-const char *AST_TYPE_STRS[] = {
+static const char *AST_TYPE_STRS[] = {
     "None",
     "Int",
     "Float",
@@ -13,14 +17,14 @@ const char *AST_TYPE_STRS[] = {
     "Proc"
 };
 
-const char *AST_LITERAL_STRS[] = {
+static const char *AST_LITERAL_STRS[] = {
     "None",
     "Int",
     "Real",
     "String"
 };
 
-const char *AST_UNARY_STRS[] = {
+static const char *AST_UNARY_NAMES[] = {
     "None",
     "Minus",
     "Plus",
@@ -28,7 +32,7 @@ const char *AST_UNARY_STRS[] = {
     "Not"
 };
 
-const char *AST_UNARY_SYMBS[] = {
+static const char *AST_UNARY_STRS[] = {
     "None",
     "-",
     "+",
@@ -36,7 +40,7 @@ const char *AST_UNARY_SYMBS[] = {
     "~"  
 };
 
-const char *AST_BINARY_STRS[] = {
+static const char *AST_BINARY_NAMES[] = {
     "None",
     "Add",
     "Sub",
@@ -62,7 +66,7 @@ const char *AST_BINARY_STRS[] = {
     "IRShift"
 };
 
-const char *AST_BINARY_SYMBS[] = {
+static const char *AST_BINARY_STRS[] = {
     "None",
     "+",
     "-",
@@ -83,6 +87,30 @@ const char *AST_BINARY_SYMBS[] = {
     "&&",    
     "||",    
 };
+
+const char *
+get_ast_unary_kind_str(u32 kind) {
+    assert(kind < ARRAY_SIZE(AST_UNARY_STRS));
+    return AST_UNARY_STRS[kind];    
+}
+
+const char *
+get_ast_unary_kind_name_str(u32 kind) {
+    assert(kind < ARRAY_SIZE(AST_UNARY_NAMES));
+    return AST_UNARY_NAMES[kind];
+}
+
+const char *
+get_ast_binary_kind_str(u32 kind) {
+    assert(kind < ARRAY_SIZE(AST_BINARY_STRS));
+    return AST_BINARY_STRS[kind];
+}
+
+const char *
+get_ast_binary_kind_name_str(u32 kind) {
+    assert(kind < ARRAY_SIZE(AST_BINARY_NAMES));
+    return AST_BINARY_NAMES[kind];
+}
 
 AST_List 
 create_ast_list(AST *sentinel) {
@@ -146,12 +174,12 @@ fmt_ast_tree(Compiler_Ctx *ctx, Out_Stream *stream, AST *ast, u32 depth) {
     } break;
     case AST_UNARY: {
         IDENT_DEPTH(depth);
-        out_streamf(stream, "Unary kind=%s\n", AST_UNARY_STRS[ast->unary.kind]);
+        out_streamf(stream, "Unary kind=%s\n", get_ast_unary_kind_str(ast->unary.kind));
         fmt_ast_tree(ctx, stream, ast->unary.expr, depth + 1);
     } break; 
     case AST_BINARY: {
         IDENT_DEPTH(depth);
-        out_streamf(stream, "Binary kind=%s\n", AST_BINARY_STRS[ast->binary.kind]);
+        out_streamf(stream, "Binary kind=%s\n", get_ast_binary_kind_name_str(ast->binary.kind));
         IDENT_DEPTH(depth + 1);
         out_streamf(stream, "Left:\n");
         fmt_ast_tree(ctx, stream, ast->binary.left, depth + 2);

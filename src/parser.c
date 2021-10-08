@@ -1,5 +1,12 @@
 #include "parser.h"
 
+#include "lib/memory.h"
+
+#include "compiler_ctx.h"
+#include "lexer.h"
+#include "ast.h"
+#include "error_reporter.h"
+
 Parser *
 create_parser(Compiler_Ctx *ctx, Lexer *lexer) {
     Parser *parser = arena_bootstrap(Parser, arena);
@@ -10,7 +17,7 @@ create_parser(Compiler_Ctx *ctx, Lexer *lexer) {
 
 void 
 destroy_parser(Parser *parser) {
-    arena_clear(&parser->arena);
+    arena_clear(parser->arena);
 }
 
 static void 
@@ -43,7 +50,7 @@ parse_end_of_statement(Parser *parser, Token *tok) {
 
 static AST *
 ast_new(Parser *parser, u32 kind) {
-    AST *ast = arena_alloc_struct(&parser->arena, AST);
+    AST *ast = arena_alloc_struct(parser->arena, AST);
     ast->kind = kind;
     // @TODO more explicit way of taking source location?
     ast->src_loc = peek_tok(parser->lexer)->src_loc;

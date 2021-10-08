@@ -1,6 +1,12 @@
 #include "lexer.h"
 
 #include "lib/strings.h"
+#include "lib/memory.h"
+#include "lib/stream.h"
+
+#include "string_storage.h"
+#include "error_reporter.h"
+#include "compiler_ctx.h"
 
 static const char *KEYWORD_STRS[] = {
     "print",
@@ -44,14 +50,14 @@ is_token_assign(u32 tok) {
 }
 
 Lexer *
-create_lexer(Compiler_Ctx *ctx, In_Stream *stream, FileID file) {
+create_lexer(Compiler_Ctx *ctx, In_Stream *stream, File_ID file) {
     Lexer *lexer = arena_bootstrap(Lexer, arena);
     lexer->stream = stream;
     lexer->curr_loc.symb = 1;
     lexer->curr_loc.line = 1;
     lexer->curr_loc.file = file;
     lexer->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
-    lexer->scratch_buffer = arena_alloc(&lexer->arena, lexer->scratch_buffer_size);
+    lexer->scratch_buffer = arena_alloc(lexer->arena, lexer->scratch_buffer_size);
     lexer->ctx = ctx;
     for (u32 i = 0; i < ARRAY_SIZE(KEYWORD_STRS); ++i) {
         lexer->keyword_ids[i] = string_storage_add(lexer->ctx->ss, KEYWORD_STRS[i]);
@@ -61,7 +67,7 @@ create_lexer(Compiler_Ctx *ctx, In_Stream *stream, FileID file) {
 
 void 
 destroy_lexer(Lexer *lexer) {
-    arena_clear(&lexer->arena);
+    arena_clear(lexer->arena);
 }
 
 // @TODO(hl): @SPEED:
@@ -127,7 +133,7 @@ peek_tok(Lexer *lexer) {
         return token;
     }
     
-    token = arena_alloc_struct(&lexer->arena, Token);
+    token = arena_alloc_struct(lexer->arena, Token);
     lexer->active_token = token;
 
     for (;;) {

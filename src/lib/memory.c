@@ -1,41 +1,48 @@
-#include "platform/memory.h"
+#include "lib/memory.h"
 
 #include "lib/strings.h"
 #include "lib/lists.h"
 
 #include <string.h> // memset, memcpy, memmove
 
-void *mem_realloc(void *ptr, uptr old_size, uptr size) {
+void *
+mem_realloc(void *ptr, uptr old_size, uptr size) {
     void *new_ptr = mem_alloc(size);
     mem_copy(new_ptr, ptr, old_size);
     mem_free(ptr, old_size);
     return new_ptr;
 }
 
-char *mem_alloc_str(const char *str) {
+char *
+mem_alloc_str(const char *str) {
     uptr len = str_len(str) + 1;
     char *result = mem_alloc(len);
     mem_copy(result, str, len);
     return result;    
 }
 
-void mem_copy(void *dst, const void *src, uptr size) {
+void 
+mem_copy(void *dst, const void *src, uptr size) {
     memcpy(dst, src, size);
 }
 
-void mem_move(void *dst, const void *src, uptr size) {
+void 
+mem_move(void *dst, const void *src, uptr size) {
     memmove(dst, src, size);
 }
 
-void mem_zero(void *dst, uptr size) {
+void 
+mem_zero(void *dst, uptr size) {
     memset(dst, 0, size);
 }
 
-bool mem_eq(const void *a, const void *b, uptr n) {
+bool 
+mem_eq(const void *a, const void *b, uptr n) {
     return memcmp(a, b, n) == 0;
 }
 
-static uptr get_alignment_offset(Memory_Arena *arena, uptr align) {
+static uptr 
+get_alignment_offset(Memory_Arena *arena, uptr align) {
    assert(IS_POW2(align));
    uptr result_ptr = (uptr)arena->current_block->base + arena->current_block->used;
    uptr align_mask = align - 1;
@@ -46,11 +53,13 @@ static uptr get_alignment_offset(Memory_Arena *arena, uptr align) {
    return offset;
 }
 
-static uptr get_effective_size(Memory_Arena *arena, uptr size) {
+static uptr 
+get_effective_size(Memory_Arena *arena, uptr size) {
     return size + get_alignment_offset(arena, MEM_DEFAULT_ALIGNMENT);
 }
 
-void *arena_alloc(Memory_Arena *arena, uptr size_init) {
+void *
+arena_alloc(Memory_Arena *arena, uptr size_init) {
     void *result = 0;
     if (size_init) {
         uptr size = 0;
@@ -85,26 +94,30 @@ void *arena_alloc(Memory_Arena *arena, uptr size_init) {
     return result;
 }
 
-void *arena_copy(Memory_Arena *arena, const void *src, uptr size) {
+void *
+arena_copy(Memory_Arena *arena, const void *src, uptr size) {
     void *result = arena_alloc(arena, size);
     mem_copy(result, src, size);
     return result;
 }
 
-char *arena_alloc_str(Memory_Arena *arena, const char *src) {
+char *
+arena_alloc_str(Memory_Arena *arena, const char *src) {
     uptr length = str_len(src);
     void *result = arena_alloc(arena, length + 1);
     mem_copy(result, src, length + 1);
     return result; 
 }
 
-void arena_free_last_block(Memory_Arena *arena) {
+void 
+arena_free_last_block(Memory_Arena *arena) {
     Memory_Block *block = arena->current_block;
     STACK_POP(arena->current_block);
     mem_free_block(block);
 }
 // Frees all blocks
-void arena_clear(Memory_Arena *arena) {
+void 
+arena_clear(Memory_Arena *arena) {
     while (arena->current_block) {
         // In case arena itself is stored in last block
         bool is_last_block = (arena->current_block->next == 0);
@@ -115,14 +128,17 @@ void arena_clear(Memory_Arena *arena) {
     }
 }
 
-void *arena_bootstrap_(uptr size, uptr arena_offset) {
+void *
+arena_bootstrap_(uptr size, uptr arena_offset) {
     Memory_Arena bootstrap = {0};
-    void *struct_ptr = arena_alloc(&bootstrap, size);
-    *(Memory_Arena *)((u8 *)struct_ptr + arena_offset) = bootstrap;
+    Memory_Arena *mem_ptr = arena_alloc(&bootstrap, size + sizeof(Memory_Arena));
+    void *struct_ptr = mem_ptr + 1;
+    *(Memory_Arena **)((u8 *)struct_ptr + arena_offset) = mem_ptr;
     return struct_ptr;
 }
 
-TemporaryMemory begin_temp_memory(Memory_Arena *arena) {
+TemporaryMemory 
+begin_temp_memory(Memory_Arena *arena) {
     ++arena->temp_memory_count;
     TemporaryMemory result;
     result.arena = arena;
@@ -131,7 +147,8 @@ TemporaryMemory begin_temp_memory(Memory_Arena *arena) {
     return result;
 }
 
-void end_temp_memory(TemporaryMemory temp) {
+void 
+end_temp_memory(TemporaryMemory temp) {
     assert(temp.arena->temp_memory_count);
     --temp.arena->temp_memory_count;
 

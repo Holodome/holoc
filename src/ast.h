@@ -12,12 +12,9 @@
 // However, actaul perfomance of tagged union vs inheritance structure is debatable,
 // because ast in greater than cache line, and the program actually makes no operations on asts in bulk.
 #pragma once
-#include "lib/general.h"
+#include "common.h"
 
-#include "lib/strings.h"
-#include "lib/stream.h"
-#include "error_reporter.h"
-#include "string_storage.h"
+struct Out_Stream;
 
 enum {
     AST_NONE,
@@ -103,6 +100,9 @@ enum {
     AST_UNARY_COUNT,
 };
 
+const char *get_ast_unary_kind_str(u32 kind);
+const char *get_ast_unary_kind_name_str(u32 kind);
+
 typedef struct {
     u32 kind;
     AST *expr;
@@ -130,6 +130,9 @@ enum {
     AST_BINARY_LOGICAL_OR, // ||
     AST_BINARY_COUNT,  
 };
+
+const char *get_ast_binary_kind_str(u32 kind);
+const char *get_ast_binary_kind_name_str(u32 kind);
 
 typedef struct {
     u32 kind;
@@ -219,4 +222,4 @@ struct AST {
 };
 
 struct Compiler_Ctx;
-void fmt_ast_tree(struct Compiler_Ctx *ctx, Out_Stream *stream, AST *ast, u32 depth);
+void fmt_ast_tree(struct Compiler_Ctx *ctx, struct Out_Stream *stream, AST *ast, u32 depth);

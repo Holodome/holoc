@@ -1,6 +1,6 @@
 // Author: Holodome
 // Date: 21.08.2021 
-// File: pkby/src/platform/memory.h
+// File: pkby/src/lib/memory.h
 // Version: 0
 //
 // Defines memory-related functions, as well as block and arena allocator.
@@ -129,7 +129,7 @@ void arena_free_last_block(Memory_Arena *arena);
 // Frees all blocks
 void arena_clear(Memory_Arena *arena);
 // Allocates structure using arena that is located inside this structure
-// Ex: struct A { Memory_Arena a; }; struct A *b = arena_bootstrap(A, a); (b is allocated on b.a arena)
+// Ex: struct A { Memory_Arena *a; }; struct A *b = arena_bootstrap(A, a); (b is allocated on b.a arena)
 #define arena_bootstrap(_type, _field) arena_bootstrap_(sizeof(_type), STRUCT_OFFSET(_type, _field))
 void *arena_bootstrap_(uptr size, uptr arena_offset);
 

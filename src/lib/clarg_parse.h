@@ -4,10 +4,9 @@
 // Version: 0
 // 
 // Library for command-line arguments parsing
-// @NOTE(hl): This API is not needed to be super fast, as it is executed only once at the start of the program
 #pragma once
 #include "general.h"
-#include "platform/memory.h"
+#include "lib/memory.h"
 
 #define CLARG_NARG ((u32)-1)
 

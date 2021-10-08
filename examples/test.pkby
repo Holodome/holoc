@@ -1,6 +1,14 @@
 main :: () {
-    mul_add := 2 * (3 * (4 + 8));
-    a := 2;
+    a : int;
+    if (2 + 3 > 0) {
+        a = 1;
+    } else {
+        a = 0;
+    }
+    eight := 8;
+    mul_add := 2 * (3 * (4 + eight));
+    a = 2;
     b := 3;
+    a = b + 1;
     c := a + b * (b - (a - 1));
 }

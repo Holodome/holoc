@@ -20,8 +20,7 @@
 // reading and writing to same locaiton
 #pragma once
 #include "lib/general.h"
-#include "lib/strings.h"
-#include "lib/filesystem.h"
+#include "lib/files.h"
 
 #define OUT_STREAM_DEFAULT_BUFFER_SIZE KB(16)
 // This is similar to stdlib's one, which is also usually 4kb
@@ -45,10 +44,10 @@ enum {
 // That is why stream contains buffer that is written to until threshold is hit (to allow writes of arbitrary sizes)
 // When threshold is hit a flush happens - buffer is written to output file and ready to recieve new input
 // buffer_size - buffer_threshold define maximum size of single write 
-typedef struct {
+typedef struct Out_Stream {
     u32 mode;
     
-    OS_File_Handle *file;
+    OS_File_Handle file;
     uptr file_idx;
     
     u8 *bf;
@@ -62,7 +61,7 @@ typedef struct {
 // bf_sz - what size of buffer to allocate 
 // threshold >= bf_sz
 // bf - storage for stream buffer
-void init_out_streamf(Out_Stream *stream, OS_File_Handle *file_handle,
+void init_out_streamf(Out_Stream *stream, OS_File_Handle file_handle,
     void *bf, uptr bf_sz, uptr threshold);
 // Printfs to stream
 __attribute__((__format__ (__printf__, 2, 3)))
@@ -82,10 +81,10 @@ void out_stream_flush(Out_Stream *stream);
 // but the more time it spends on copying and moving around memory
 // Way around this can be allowing buffer of growing size 
 // @NOTE no flusing happens when in stream uses buffer to read from
-typedef struct {
+typedef struct In_Stream {
     u32 mode;
     
-    OS_File_Handle *file;
+    OS_File_Handle file;
     uptr file_size;
     uptr file_idx;
     // Buffer in stream is used for caching read results
@@ -102,7 +101,7 @@ typedef struct {
     bool is_finished;
 } In_Stream;
 
-void init_in_streamf(In_Stream *stream, OS_File_Handle *file, void *bf, uptr bf_sz, uptr threshold);
+void init_in_streamf(In_Stream *stream, OS_File_Handle file, void *bf, uptr bf_sz, uptr threshold);
 // Peek next n bytes without advancing the cursor
 // Returns number of bytes peeked
 uptr in_stream_peek(In_Stream *stream, void *out, uptr n);

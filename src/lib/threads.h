@@ -1,6 +1,6 @@
 // Author: Holodome
 // Date: 25.09.2021 
-// File: pkby/src/platform/threads.h
+// File: pkby/src/lib/threads.h
 // Version: 0
 //
 // Defines platform-agnostic API to access and manipulate threads.

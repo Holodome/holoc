@@ -1,6 +1,6 @@
 #include "lib/strings.h"
 
-#include "platform/memory.h"
+#include "lib/memory.h"
 #include "lib/stream.h"
 
 #include <stdlib.h>
