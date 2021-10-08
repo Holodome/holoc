@@ -2,31 +2,39 @@
 
 #include "lib/lists.h"
 
-static IR_Node *process_and_emit_code_for_decl(IR *ir, AST *ast);
+static void emit_code_for_decl(IR *ir, AST *ast);
+
+void 
+add_node(IR_Node_List *list, IR_Node *node) {
+    CDLIST_ADD_LAST(&list->sentinel, node);
+    // DLIST_ADD_LAST(list, node);    
+}
 
 static void 
 fmt_ir_var(char *bf, uptr bf_sz, IR *ir, IR_Var var) {
-    if (var.is_temp) {
+    if (!var.is_temp) {
+        u32 len0 = fmt(bf, bf_sz, "$");
+        bf += len0;
+        bf_sz -= len0;
         u32 len = string_storage_get(ir->ctx->ss, var.id, bf, bf_sz);
         bf += len;
         bf_sz -= len;
         fmt(bf, bf_sz, "%u", var.number);
     } else {
-        fmt(bf, bf_sz, "TEMP%u", var.number);
+        fmt(bf, bf_sz, "%%%u", var.number);
     }
 }
 
 static void 
-dump_ir_list(IR *ir, IR_Node *list) {
+dump_ir_list(IR *ir, IR_Node_List *list) {
     char var_buf[4096];
     Out_Stream *stream = get_stdout_stream();
     u32 idx = 0;
     IR_Node *node;
-    STACK_ITER(list, node) {
+    CDLIST_ITER(&list->sentinel, node) {
+        ++idx;
         switch (node->kind) {
         INVALID_DEFAULT_CASE;
-        // case IR_NODE_LABEL: {
-        // } break;
         case IR_NODE_UN: {
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->un.dest);
             out_streamf(stream, "%u un kind %u %s=", idx, node->un.kind, var_buf);
@@ -105,58 +113,57 @@ get_new_temp(IR *ir) {
     return result;
 }
 
-static IR_Node *
+static void
 emit_code_for_expression(IR *ir, AST *expr, IR_Var dest) {
-    IR_Node *node = 0;
     switch (expr->kind) {
     case AST_LIT: {
-        node = new_ir_node(ir, IR_NODE_LIT);
+        IR_Node *node = new_ir_node(ir, IR_NODE_LIT);
         node->lit.dest = dest;
         node->lit.kind = expr->lit.kind;
         // @HACK other value types
         node->lit.int_value = expr->lit.value_int;
+        add_node(ir->node_list, node);
     } break;
     case AST_IDENT: {
         Symbol_Table_Entry *entry = symbol_table_lookup(ir->ctx->st, expr->ident.name);
         if (!entry) {
             report_error_ast(ir->ctx->er, expr, "Undeclared identifier");
         } else {
-            node = new_ir_node(ir, IR_NODE_VAR);
+            IR_Node *node = new_ir_node(ir, IR_NODE_VAR);
             node->var.dest = dest;
             node->var.source = get_var(ir, expr->ident.name);
+            add_node(ir->node_list, node);
         }
     } break;
     case AST_BINARY: {
         IR_Var temp_left = get_new_temp(ir);
-        IR_Node *lvalue_code = emit_code_for_expression(ir, expr->binary.left, temp_left);
+        emit_code_for_expression(ir, expr->binary.left, temp_left);
         IR_Var temp_right = get_new_temp(ir);
-        IR_Node *rvalue_code = emit_code_for_expression(ir, expr->binary.right, temp_right);
+        emit_code_for_expression(ir, expr->binary.right, temp_right);
         
-        node = new_ir_node(ir, IR_NODE_BIN);
-        STACK_ADD(node, lvalue_code);
-        STACK_ADD(node, rvalue_code);
+        IR_Node *node = new_ir_node(ir, IR_NODE_BIN);
         node->bin.kind = expr->binary.kind;
         node->bin.left = temp_left;
         node->bin.right = temp_right;
         node->bin.dest = dest;
+        add_node(ir->node_list, node);
     } break;
     case AST_UNARY: {
         if (expr->unary.kind == AST_UNARY_PLUS) {
-            node = emit_code_for_expression(ir, expr->unary.expr, dest);
+            emit_code_for_expression(ir, expr->unary.expr, dest);
         } else {
             IR_Var temp_value = get_new_temp(ir);
-            IR_Node *value_code = emit_code_for_expression(ir, expr, temp_value);
+            emit_code_for_expression(ir, expr, temp_value);
             
-            node = new_ir_node(ir, IR_NODE_UN);
-            STACK_ADD(node, value_code);
+            IR_Node *node = new_ir_node(ir, IR_NODE_UN);
             node->un.kind = expr->unary.kind;
             node->un.what = temp_value;
             node->un.dest = dest;
+            add_node(ir->node_list, node);
         }
     } break;
     INVALID_DEFAULT_CASE;
     }
-    return node;
 }
 
 static u32 
@@ -200,41 +207,12 @@ infer_type(IR *ir, AST *expr) {
     return type;
 }
 
-// static void 
-// process_expr(IR *ir, AST *expr) {
-//     switch (expr->kind) {
-//     case AST_LIT: {
-//         // nop
-//     } break;
-//     case AST_IDENT: {
-//         Symbol_Table_Entry *entry = symbol_table_lookup(ir->ctx->st, expr->ident.name);
-//         if (!entry) {
-//             report_error_ast(ir->ctx->er, expr, "Undeclared identifier");
-//         }
-//     } break;
-//     case AST_UNARY: {
-//         process_expr(ir, expr->unary.expr);
-//     } break;
-//     case AST_BINARY: {
-//         process_expr(ir, expr->binary.left);
-//         process_expr(ir, expr->binary.right);
-//     } break;
-//     INVALID_DEFAULT_CASE;
-//     }
-// }
-
-static IR_Node *
+static void
 emit_code_for_statement(IR *ir, AST *statement) {
-    IR_Node *node = 0;
     switch (statement->kind) {
     case AST_BLOCK: {
         AST_LIST_ITER(&statement->block.statements, it) {
-            IR_Node *statement_code = emit_code_for_statement(ir, it);
-            if (!node) {
-                node = statement_code;
-            } else if (statement_code) {
-                STACK_ADD(node, statement_code);
-            }
+            emit_code_for_statement(ir, it);
         }
     } break;
     case AST_ASSIGN: {
@@ -246,17 +224,15 @@ emit_code_for_statement(IR *ir, AST *statement) {
             report_error_ast(ir->ctx->er, statement, "Variable assignment before declaration");
         } 
         IR_Var left_value = record_var_assingment(ir, lvalue->ident.name);
-        IR_Node *assign_code = emit_code_for_expression(ir, rvalue, left_value);
-        node = assign_code;
+        emit_code_for_expression(ir, rvalue, left_value);
     } break;
     case AST_DECL: {
-        node = process_and_emit_code_for_decl(ir, statement);
+        emit_code_for_decl(ir, statement);
     } break;
     case AST_IF: {
         IR_Var cond_var = get_new_temp(ir);
-        IR_Node *if_cond_code = emit_code_for_expression(ir, statement->ifs.cond, cond_var);
+        emit_code_for_expression(ir, statement->ifs.cond, cond_var);
         // @TODO
-        (void)if_cond_code;
         // gen_code_for_expr(statement->ifs.cond);
         // if (statement->ifs.else_block) {
         //     process_statement(ir,statement->ifs.else_block);
@@ -273,12 +249,10 @@ emit_code_for_statement(IR *ir, AST *statement) {
     } break;
     INVALID_DEFAULT_CASE;
     }
-    return node;
 }
 
-static IR_Node *
-process_and_emit_code_for_decl(IR *ir, AST *ast) {
-    IR_Node *node = 0;
+static void
+emit_code_for_decl(IR *ir, AST *ast) {
     assert(ast->kind == AST_DECL);
     AST *decl_name = ast->decl.ident;
     assert(decl_name->kind == AST_IDENT);
@@ -299,14 +273,11 @@ process_and_emit_code_for_decl(IR *ir, AST *ast) {
             report_error_ast(ir->ctx->er, ast, "Type is not supplied");
         }
         symbol_table_add_entry(ir->ctx->st, decl_name->ident.name, type_kind, ast->src_loc);
-        // @TODO
         if (ast->decl.expr) {
             IR_Var var = get_var(ir, decl_name->ident.name);
-            node = emit_code_for_expression(ir, ast->decl.expr, var);
+            emit_code_for_expression(ir, ast->decl.expr, var);
         }
-        // process_expr(ir, ast->decl.expr);
     }
-    return node;
 }
 
 static void 
@@ -321,14 +292,17 @@ process_func_decl(IR *ir, AST *ast) {
     assert(sign->kind == AST_FUNC_SIGNATURE);
     // Add arguments to scope
     AST_LIST_ITER(&sign->func_sign.arguments, it) {
-        process_and_emit_code_for_decl(ir, it);
+        emit_code_for_decl(ir, it);
     }
     // Process the block
     // resent the compiler settigns
     clear_hash(&ir->variable_hash);
     mem_zero(&ir->vars, sizeof(ir->vars));
-    IR_Node *code = emit_code_for_statement(ir, decl->block);
-    dump_ir_list(ir, code);
+    IR_Node_List list = {0};
+    CDLIST_INIT(&list.sentinel);
+    ir->node_list = &list;
+    emit_code_for_statement(ir, decl->block);
+    dump_ir_list(ir, &list);
     symbol_table_pop_scope(ir->ctx->st);
 }
 
@@ -336,7 +310,7 @@ void
 ir_process_toplevel(IR *ir, AST *ast) {
     switch (ast->kind) {
     case AST_DECL: {
-        process_and_emit_code_for_decl(ir, ast);    
+        // d_emit_code_for_decl(ir, ast);    
     } break;
     case AST_FUNC_DECL: {
         process_func_decl(ir, ast);

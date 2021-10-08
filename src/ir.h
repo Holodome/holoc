@@ -66,6 +66,14 @@ typedef struct IR_Node {
 } IR_Node;
 
 typedef struct {
+    // IR_Node *first;
+    // IR_Node *last;
+    IR_Node sentinel;
+} IR_Node_List;
+
+void add_node(IR_Node_List *list, IR_Node *node);
+
+typedef struct {
     String_ID name;
     u32 nargs;
     u32 *argument_types;
@@ -73,7 +81,7 @@ typedef struct {
     u32 nreturn_values;
     u32 *return_value_types;
     
-    IR_Node node_sentinel;
+    IR_Node_List node_list;
 } IR_Func;
 
 #define MAX_VARIBALES 1024
@@ -87,6 +95,7 @@ typedef struct {
     u32 nvars;
     IR_Var vars[MAX_VARIBALES];
     Hash64 variable_hash;
+    IR_Node_List *node_list;
 } IR;
 
 IR *create_ir(Compiler_Ctx *ctx, Memory_Arena *arena);
