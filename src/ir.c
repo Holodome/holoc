@@ -14,8 +14,9 @@ static void emit_code_for_decl(IR *ir, AST *ast);
 
 void 
 add_node(IR_Node_List *list, IR_Node *node) {
+    assert(!node->DBG_is_added);
+    node->DBG_is_added = true;
     CDLIST_ADD_LAST(&list->sentinel, node);
-    // DLIST_ADD_LAST(list, node);    
 }
 
 static void 
@@ -33,25 +34,44 @@ fmt_ir_var(char *bf, uptr bf_sz, IR *ir, IR_Var var) {
     }
 }
 
+static u32
+get_new_label_id(IR *ir) {
+    return ir->next_label_idx++;
+}
+
 static void 
 dump_ir_list(IR *ir, IR_Node_List *list) {
     char var_buf[4096];
     Out_Stream *stream = get_stdout_stream();
     u32 idx = 0;
-    IR_Node *node;
+    IR_Node *node = 0;
     CDLIST_ITER(&list->sentinel, node) {
         ++idx;
         switch (node->kind) {
         INVALID_DEFAULT_CASE;
+        case IR_NODE_GOTO: {
+            out_streamf(stream, "%#6x goto @%u\n", idx, node->gotos.label_idx);
+        } break;
+        case IR_NODE_IF_NOT_GOTO: {
+            fmt_ir_var(var_buf, sizeof(var_buf), ir, node->if_not_goto.expr);
+            out_streamf(stream, "%#6x if !%s goto @%u\n", idx, var_buf, node->if_not_goto.label_idx);
+        } break;
+        case IR_NODE_IFGOTO: {
+            fmt_ir_var(var_buf, sizeof(var_buf), ir, node->if_goto.expr);
+            out_streamf(stream, "%#6x if %s goto @%u\n", idx, var_buf, node->if_goto.label_idx);
+        } break;
+        case IR_NODE_LABEL: {
+            out_streamf(stream, "%#6x @%u\n", idx, node->label.index);
+        } break;
         case IR_NODE_UN: {
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->un.dest);
-            out_streamf(stream, "%#6x un kind %u %s=", idx, node->un.kind, var_buf);
+            out_streamf(stream, "%#6x un kind %s %s=", idx, get_ast_unary_kind_str(node->un.kind), var_buf);
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->un.what);
             out_streamf(stream, "%s\n", var_buf);
         } break;
         case IR_NODE_BIN: {
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->bin.dest);
-            out_streamf(stream, "%#6x bin kind %u %s=", idx, node->bin.kind, var_buf);
+            out_streamf(stream, "%#6x bin kind %s %s=", idx, get_ast_binary_kind_str(node->bin.kind), var_buf);
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->bin.left);
             out_streamf(stream, "%s ", var_buf);
             fmt_ir_var(var_buf, sizeof(var_buf), ir, node->bin.right);
@@ -77,6 +97,13 @@ new_ir_node(IR *ir, u32 kind) {
     IR_Node *node = arena_alloc_struct(ir->arena, IR_Node);
     node->kind = kind;
     return node;
+}
+
+static IR_Node *
+new_label(IR *ir, u32 label_idx) {
+    IR_Node *label = new_ir_node(ir, IR_NODE_LABEL);
+    label->label.index = label_idx;
+    return label;
 }
 
 static IR_Var *
@@ -124,6 +151,7 @@ get_new_temp(IR *ir) {
 static void
 emit_code_for_expression(IR *ir, AST *expr, IR_Var dest) {
     switch (expr->kind) {
+    INVALID_DEFAULT_CASE;
     case AST_LIT: {
         IR_Node *node = new_ir_node(ir, IR_NODE_LIT);
         node->lit.dest = dest;
@@ -161,7 +189,7 @@ emit_code_for_expression(IR *ir, AST *expr, IR_Var dest) {
             emit_code_for_expression(ir, expr->unary.expr, dest);
         } else {
             IR_Var temp_value = get_new_temp(ir);
-            emit_code_for_expression(ir, expr, temp_value);
+            emit_code_for_expression(ir, expr->unary.expr, temp_value);
             
             IR_Node *node = new_ir_node(ir, IR_NODE_UN);
             node->un.kind = expr->unary.kind;
@@ -170,7 +198,6 @@ emit_code_for_expression(IR *ir, AST *expr, IR_Var dest) {
             add_node(ir->node_list, node);
         }
     } break;
-    INVALID_DEFAULT_CASE;
     }
 }
 
@@ -240,17 +267,48 @@ emit_code_for_statement(IR *ir, AST *statement) {
     case AST_IF: {
         IR_Var cond_var = get_new_temp(ir);
         emit_code_for_expression(ir, statement->ifs.cond, cond_var);
-        // @TODO
-        // gen_code_for_expr(statement->ifs.cond);
-        // if (statement->ifs.else_block) {
-        //     process_statement(ir,statement->ifs.else_block);
-        // }
-        // process_statement(ir, statement->ifs.block);
+        u32 label_id = get_new_label_id(ir);
         
+        IR_Node *if_goto = new_ir_node(ir, IR_NODE_IFGOTO);
+        if_goto->if_goto.expr = cond_var;
+        if_goto->if_goto.label_idx = label_id;
+        add_node(ir->node_list, if_goto);
+        
+        if (statement->ifs.else_block) {
+            emit_code_for_statement(ir, statement->ifs.else_block);
+        }
+        
+        IR_Node *if_label = new_ir_node(ir, IR_NODE_LABEL);
+        if_label->label.index = label_id;
+        add_node(ir->node_list, if_label);
+        
+        emit_code_for_statement(ir, statement->ifs.block);
     } break;
     case AST_WHILE: {
-        // process_expr(ir, statement->whiles.cond);
-        // process_statement(ir, statement->whiles.block);
+        IR_Var cond_var = get_new_temp(ir);
+        u32 check_label_id = get_new_label_id(ir);
+        u32 end_label_id = get_new_label_id(ir);
+        
+        IR_Node *check_label = new_ir_node(ir, IR_NODE_LABEL);
+        check_label->label.index = check_label_id;
+        add_node(ir->node_list, check_label);
+        
+        emit_code_for_expression(ir, statement->whiles.cond, cond_var);
+        
+        IR_Node *if_goto = new_ir_node(ir, IR_NODE_IF_NOT_GOTO);
+        if_goto->if_not_goto.expr = cond_var;
+        if_goto->if_not_goto.label_idx = end_label_id;
+        add_node(ir->node_list, if_goto);
+        
+        emit_code_for_statement(ir, statement->whiles.block);
+        
+        IR_Node *back = new_ir_node(ir, IR_NODE_GOTO);
+        if_goto->gotos.label_idx = check_label_id;
+        add_node(ir->node_list, back);
+        
+        IR_Node *end_label = new_ir_node(ir, IR_NODE_LABEL);
+        end_label->label.index = end_label_id;
+        add_node(ir->node_list, end_label);
     } break;
     case AST_PRINT: {
         // @TODO(hl):

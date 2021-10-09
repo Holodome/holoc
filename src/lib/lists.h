@@ -66,6 +66,27 @@ for ((_it) = (_first); (_it); (_it) = (_it)->next)
 #define DLIST_ITER_BACK(_last, _it) \
 for ((_it) = (_last); (_it); (_it) = (_it)->prev)
 
+#if 0
+// @NOTE(hl): This is supposed to compile to the same assembly on high optimization as macro,
+// just see if this is sane 
+static inline void 
+dlist_add_before(void *list_i, uintptr_t first_offset, 
+                void *node_i, void *new_node_i, 
+                uintptr_t next_offset, uintptr_t prev_offset) {
+    u8 *list = (u8 *)list_i;
+    u8 *node = (u8 *)node_i;
+    u8 *new_node = (u8 *)new_node_i;
+    *(void **)(new_node + next_offset) = node_i;
+    if (*(void **)(node + prev_offset) == 0) {
+        *(void **)(new_node + prev_offset) = 0;
+        *(void **)(list + first_offset) = new_node;
+    } else {
+        *(void **)(new_node + prev_offset) = *(void **)(node + prev_offset);
+        *(void **)(((u8 *)(*(void **)(node + prev_offset)) + next_offset)) = new_node;
+    }
+    *(void **)(node + prev_offset) = new_node_i;
+}
+
 #define DLIST_ADD_BEFORE(_list, _node, _new_node) \
 do { \
     (_new_node)->next = (_node); \
@@ -129,3 +150,4 @@ do { \
         (_node)->next->prev = (_node)->prev;\
     }\
 } while (0);
+#endif 

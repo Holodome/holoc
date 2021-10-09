@@ -1,14 +1,26 @@
 main :: () {
+    a: int;
+    b: int;
+    while b != 0 {
+        t := b;
+        b = a % b;
+        a = t;
+    }
+    
+    /*
     a : int;
-    if (2 + 3 > 0) {
+    expr := 2 + 3;
+    if expr > 0 {
         a = 1;
-    } else {
+    } else if expr == 0 {
         a = 0;
+    } else {
+        a = -1;
     }
     eight := 8;
     mul_add := 2 * (3 * (4 + eight));
-    a = 2;
     b := 3;
     a = b + 1;
     c := a + b * (b - (a - 1));
+    */
 }

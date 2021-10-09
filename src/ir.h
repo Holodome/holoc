@@ -23,6 +23,9 @@ enum {
     IR_NODE_BIN   = 0x3,
     IR_NODE_VAR   = 0x4,
     IR_NODE_LIT   = 0x5,
+    IR_NODE_IFGOTO = 0x6,
+    IR_NODE_GOTO = 0x7,
+    IR_NODE_IF_NOT_GOTO,
 };
 
 typedef struct {
@@ -32,6 +35,8 @@ typedef struct {
 } IR_Var;
 
 typedef struct IR_Node {
+    bool DBG_is_added;
+    
     u32 kind;
     struct IR_Node *next;
     struct IR_Node *prev;
@@ -62,6 +67,17 @@ typedef struct IR_Node {
             IR_Var dest;
             IR_Var source;
         } var;
+        struct {
+            IR_Var expr;
+            u32 label_idx;
+        } if_goto;
+        struct {
+            u32 label_idx;
+        } gotos;
+        struct {
+            IR_Var expr;
+            u32 label_idx;
+        } if_not_goto;
     };
 } IR_Node;
 
