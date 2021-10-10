@@ -8,8 +8,9 @@
 #include "lib/general.h"
 #include "lib/memory.h"
 
-u32 hash_string(const char *str);
+u32 djb2(const char *str);
 u32 crc32(u32 crc, const void *bf, uptr bf_sz);
+u64 fnv64(const void *bf, uptr bf_sz);
 
 // Type-agnostic implementatin of hash tables.
 // Values are typycally indices of array that actually stores values in it.

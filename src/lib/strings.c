@@ -7,6 +7,8 @@
 #define STB_SPRINTF_IMPLEMENTATION
 #include "thirdparty/stb_sprintf.h"
 
+#include "thirdparty/utf8.h"
+
 uptr vfmt(char *buf, uptr buf_size, const char *format, va_list args) {
     return stbsp_vsnprintf(buf, buf_size, format, args);
 }
@@ -108,7 +110,8 @@ uptr str_len(const char *str) {
     return result;
 }
 
-u32 utf8_encode(u32 utf32, u8 *dst) {
+u32 
+utf8_encode(u32 utf32, u8 *dst) {
     u32 len = 0;
     if (utf32 <= 0x0000007F) {
         *dst = utf32;   
@@ -132,7 +135,9 @@ u32 utf8_encode(u32 utf32, u8 *dst) {
     return len;
 }
 
-u32 utf8_decode(const u8 *src, u32 *len_out) {
+const void *
+utf8_decode(const void *buf, u32 *codepoint) {
+#if 0
     u32 len = 0;
     u32 utf32 = 0;
     if ((src[0] & 0x80) == 0x00) {
@@ -158,6 +163,11 @@ u32 utf8_decode(const u8 *src, u32 *len_out) {
     
     *len_out = len;
     return utf32;
+#else 
+    // Credit - https://nullprogram.com/blog/2017/10/06/
+    int errros;
+    return __utf8_decode((void *)buf, codepoint, &errros);
+#endif 
 }
 
 uptr outf(const char *msg, ...) {

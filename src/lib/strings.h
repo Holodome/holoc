@@ -39,9 +39,7 @@ uptr str_len(const char *str);
 // Returns length of utf8-encoded symbol. 
 // 0 means error
 u32 utf8_encode(u32 utf32, u8 *dst);
-// Returns utf32 codepoint of first symbol encoded in src. 
-// length is written in len. If len equals 0, error happened
-u32 utf8_decode(const u8 *src,u32 *len_out);
+const void *utf8_decode(const void *buf, u32 *codepoint);
 // Printf wrappers
 uptr outf(const char *msg, ...);
 uptr outv(const char *msg, va_list args);

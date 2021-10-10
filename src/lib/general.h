@@ -86,6 +86,9 @@ typedef float f32;
 typedef double f64;
 #ifndef __cplusplus
 typedef u8 bool;
+typedef u8 bool8;
+typedef u32 bool32;
+typedef u64 bool64;
 #define true 1
 #define false 0
 #endif 

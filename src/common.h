@@ -18,3 +18,5 @@ typedef struct {
 typedef struct {
     u64 value;
 } String_ID;
+
+#define STRID_EQ(_a, _b) ((_a).value == (_b).value)

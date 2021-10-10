@@ -55,7 +55,7 @@ get_slot(u64 hash) {
 static u64 
 get_hash_for_filename(const char *filename) {
     // @TOOD Use filepaths
-    return hash_string(filename);
+    return djb2(filename);
 }
 
 static u64 

@@ -1,8 +1,19 @@
 #include "lib/hashing.h"
 #include "lib/memory.h"
 
+u64 
+fnv64(const void *bf_init, uptr bf_sz) {
+    u8 *bf = (u8 *)bf_init;
+    u64 hash = 0xcbf29ce484222325;
+    while (bf_sz--) {
+        hash *= 0x100000001b3;
+        hash ^= *bf++;
+    }
+    return hash;
+}
+
 u32 
-hash_string(const char *str) {
+djb2(const char *str) {
     u32 result = 5381;
     // djb2 algorithm - suitable for general-purpose string hashing
     while (*str) {
