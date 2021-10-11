@@ -71,6 +71,7 @@
 
 #include <float.h>
 #include <stdint.h>
+#include <limits.h>
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -113,5 +114,9 @@ typedef u64 bool64;
 #else 
 #define ATTR(...) 
 #endif 
+
+#define UNUSED(_var) (void)(_var)
+#define KB(_b) ((uptr)(_b) << 10)
+#define MB(_b) (KB(_b) << 10)
 
 #include "my_assert.h"

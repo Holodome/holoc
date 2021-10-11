@@ -1,347 +1,444 @@
 #include "lexer.h"
 
-#include "lib/strings.h"
 #include "lib/memory.h"
-#include "lib/stream.h"
+#include "lib/lists.h"
+#include "lib/strings.h"
 
-#include "string_storage.h"
-#include "error_reporter.h"
-#include "compiler_ctx.h"
+#define ITER_KEYWORDS(_it) \
+for ((_it) = KEYWORD_AUTO; (_it) < KEYWORD_SENTINEL; ++(_it))
+#define ITER_PREPROCESSOR_KEYWORD(_it) \
+for ((_it) = KEYWORD_P_DEFINE; (_it) < KEYWORD_P_SENTINEL; ++(_it))
+#define ITER_OPERATORS(_it) \
+for ((_it) = OPERATOR_IADD; (_it) < OPERATOR_SENTINEL; ++(_it))
 
-static const char *KEYWORD_STRS[] = {
-    "print",
-    "while",
-    "return",
+static const char *KEYWORD_STRINGS[] = {
+    "(unknown)",
+    "auto",
+    "break",
+    "case",
+    "char",
+    "const",
+    "continue",
+    "default",
+    "do",
+    "double",
+    "else ",
+    "enum ",
+    "extern",
+    "float",
+    "for ",
+    "goto",
     "if",
-    "else",
+    "inline",
     "int",
-    "float"
+    "long",
+    "register",
+    "restrict",
+    "return",
+    "short",
+    "signed",
+    "unsigned ",
+    "static ",
+    "struct",
+    "switch ",
+    "typedef",
+    "union ",
+    "unsigned",
+    "void",
+    "volatile",
+    "while",
+    "_Alignas",
+    "_Alignof",
+    "_Atomic",
+    "_Bool",
+    "_Complex",
+    "_Decimal128 ",
+    "_Decimal32",
+    "_Decimal64",
+    "_Generic",
+    "_Imaginary",
+    "_Noreturn",
+    "_Static_assert",
+    "_Thread_local",
+    "_Pragma",
 };
 
-static const char *MULTISYMB_STRS[] = {
-    "<<=",
+static const char *PREPROCESSOR_KEYWORD_STRINGS[] = {
+    "(unknown)",
+    "define",
+    "undef",
+    "include",
+    "if",
+    "ifdef",
+    "ifndef",
+    "else",
+    "elifdef",
+    "elifndef",
+    "pragma",
+};
+
+static const char *OPERATOR_STRINGS[] = {
+    "(unknown)",
     ">>=",
-    ":=",
-    "->",
-    "<=",
-    ">=",
-    "==",
-    "!=",
-    "<<",
-    ">>",
-    "+=",   
+    "<<=", 
+    "+=",
     "-=",
+    "*=",
+    "/=",
+    "%=", 
     "&=",
     "|=",
     "^=",
-    "/=",
-    "*=",
-    "%=",
+    "++",
+    "--",
+    ">>",
+    "<<",
     "&&",
     "||",
-    "::"
-};  
+    "==",
+    "!=", 
+    "<=", 
+    ">=", 
+    "->",
+};
 
-bool 
-is_token_assign(u32 tok) {
-    return tok == '=' || tok == TOKEN_IADD || tok == TOKEN_ISUB || tok == TOKEN_IMUL ||
-        tok == TOKEN_IDIV || tok == TOKEN_IMOD || tok == TOKEN_IAND || tok == TOKEN_IOR ||
-        tok == TOKEN_IXOR || tok == TOKEN_ILSHIFT || tok == TOKEN_IRSHIFT; 
-}
-
-Lexer *
-create_lexer(Compiler_Ctx *ctx, In_Stream *stream, File_ID file) {
-    Lexer *lexer = arena_bootstrap(Lexer, arena);
-    lexer->stream = stream;
-    lexer->curr_loc.symb = 1;
-    lexer->curr_loc.line = 1;
-    lexer->curr_loc.file = file;
-    lexer->scratch_buffer_size = TOKENIZER_DEFAULT_SCRATCH_BUFFER_SIZE;
-    lexer->scratch_buffer = arena_alloc(lexer->arena, lexer->scratch_buffer_size);
-    lexer->ctx = ctx;
-    for (u32 i = 0; i < ARRAY_SIZE(KEYWORD_STRS); ++i) {
-        lexer->keyword_ids[i] = string_storage_add(lexer->ctx->ss, KEYWORD_STRS[i]);
-    }
-    return lexer;
-}
-
-void 
-destroy_lexer(Lexer *lexer) {
-    arena_clear(lexer->arena);
-}
-
-// @TODO(hl): @SPEED:
-// Do we always have to check for newlines?
-static bool
-advance(Lexer *lexer, u32 n) {
-    u32 line_idx = lexer->curr_loc.symb;
-    for (u32 i = 0; i < n; ++i) {
-        if (in_stream_soft_peek_at(lexer->stream, i) == '\n') {
-            ++lexer->curr_loc.line;
-            line_idx = 0;
-        } 
-        ++line_idx;
-    }
-    uptr advanced = in_stream_advance(lexer->stream, n);
-    lexer->curr_loc.symb = line_idx;
-    return advanced == n;
-}
-
-static bool 
-parse(Lexer *lexer, const char *str) {
-    bool result = false;
-    uptr len = str_len(str);
-    assert(len < lexer->scratch_buffer_size);
-    // @SPEED(hl): This can be done as direct compare with memory from 
-    // stream, like in_stream_cmp(stream, bf, bf_sz)
-    if (in_stream_peek(lexer->stream, lexer->scratch_buffer, len) == len) {
-        result = mem_eq(lexer->scratch_buffer, str, len);
-        if (result) {
-            advance(lexer, len);
-        }
-    }
+// static Token *
+// peek_forward(Lexer *lexer, u32 n) {
+//     Token *token = 0;
+//     if (n < lexer->stack_size) {
+//         Token_Stack_Entry *entry = lexer->token_stack;
+//         while (n--) {
+//              entry = entry->next;
+//         }
+//         assert(entry);
+//         token = entry->token;
+//     }
     
+//     return token;
+// }
+
+static Token_Stack_Entry *
+get_stack_entry(Lexer *lexer) {
+    Token_Stack_Entry *entry = lexer->token_stack;
+    if (!entry) {
+        entry = arena_alloc_struct(lexer->arena, Token_Stack_Entry);
+    } else {
+        entry->token = 0;
+    }
+    return entry;
+}
+
+static void 
+add_token_to_stack(Lexer *lexer, Token *token) {
+    Token_Stack_Entry *stack_entry = get_stack_entry(lexer);
+    stack_entry->token = token;
+    STACK_ADD(lexer->token_stack, stack_entry);
+    ++lexer->token_stack_size;
+}
+
+static void 
+pop_token_from_stack(Lexer *lexer) {
+    assert(lexer->token_stack_size);
+    --lexer->token_stack_size;
+    Token_Stack_Entry *stack_entry = lexer->token_stack;
+    STACK_ADD(lexer->token_stack_freelist, stack_entry);
+    STACK_POP(lexer->token_stack);
+}
+
+static Token *
+get_current_token(Lexer *lexer) {
+    Token *result = 0;
+    if (lexer->token_stack_size) {
+        result = lexer->token_stack->token;
+    }
     return result;
 }
 
 static void 
-begin_lit_write(Lexer *lexer) {
-    lexer->scratch_buffer_used = 0;
-    string_storage_begin_write(lexer->ctx->ss);
+populate_unicode_buffer(Lexer *lexer) {
+    lexer->unicode_buf_at = 0;
+    
 }
 
-static void
-lit_write(Lexer *lexer, u8 symb) {
-    if (lexer->scratch_buffer_used + 1 > lexer->scratch_buffer_size) {
-        string_storage_write(lexer->ctx->ss, lexer->scratch_buffer, lexer->scratch_buffer_size);
-        lexer->scratch_buffer_used = 0;
-    } 
-    lexer->scratch_buffer[lexer->scratch_buffer_used++] = symb;
-    advance(lexer, 1);
+static void 
+advance(Lexer *lexer, u32 n) {
+    lexer->unicode_buf_size += n;
+    if (lexer->unicode_buf_size >= lexer->unicode_buf_capacity) {
+        populate_unicode_buffer(lexer);
+    }
 }
 
-static String_ID
-end_lit_write(Lexer *lexer) {
-    string_storage_write(lexer->ctx->ss, lexer->scratch_buffer, lexer->scratch_buffer_used);
-    return string_storage_end_write(lexer->ctx->ss);
+static bool
+parse(Lexer *lexer, const char *lit) {
+    u32 length = str_len(lit);
+    bool result = true;
+    for (u32 i = 0; i < length; ++i) {
+        if ((u32)lit[i] != lexer->unicode_buf[lexer->unicode_buf_size + i]) {
+            result = false;
+            break;
+        }
+    }
+    if (result) {
+        advance(lexer, length);
+    }
+    return result;
+}
+
+static void 
+parse_preprocessor_directive(Lexer *lexer) {
+}
+
+static inline u32 
+peek_next_codepoint(Lexer *lexer) {
+    u32 result = 0;
+    assert(lexer->unicode_buf_size < lexer->unicode_buf_capacity);
+    result = lexer->unicode_buf[lexer->unicode_buf_size];
+    return result;
+}
+
+static inline void 
+eat_codepoint(Lexer *lexer) {
+    
+}
+
+static const char *ALPHABET       = "0123456789ABCDEF";
+static const char *ALPHABET_LOWER = "0123456789abcdef";
+
+static bool
+is_symb_base(u32 symb, u32 base) {
+    bool result = false;
+    if (base == 2) {
+        result = (symb == '0' || symb == '1');
+    } else if (base == 8) {
+        result = ('0' <= symb && symb <= '7');
+    } else if (base == 16) {
+        result = ('0' <= symb && symb <= '9') || ('A' <= symb && symb <= 'F') || ('a' <= symb && symb <= 'f');
+    } else if (base == 10) {
+        result = ('0' <= symb && symb <= '9');
+    } else {
+        UNREACHABLE;
+    }
+}
+
+static u64 
+symb_to_base(u32 symb, u32 base) {
+    // 0110000 - 0111001 from 0 - 9
+    // 0001111 mask 
+    
+    // 1100001 - 1111010 from  a - z
+    // 1000001 - 1011010 to    A - Z 
+    // 0011111 mask
+    // -1 
+    u64 result = 0;
+    if (base == 2) {
+        result = symb & 0xF;
+    } else if (base == 8) {
+        result = symb & 0xF;;
+    } else if (base == 16) {
+        if ('0' <= symb && symb <= '9') {
+            result = symb & 0xF;;
+        } else {
+            result = (symb & 0x1F) - 1;
+        }
+    } else if (base == 10) {
+        result = symb & 0xF;;
+    } else {
+        UNREACHABLE;
+    }
+    return result;
+}
+
+static u64 
+str_to_u64_base(Lexer *lexer, u32 base) {
+    u64 value = 0;
+    u32 codepoint = peek_next_codepoint(lexer); 
+    while (codepoint && is_symb_base(codepoint, base)) {
+        value = value * base + symb_to_base(codepoint, base);
+        codepoint = peek_next_codepoint(lexer);
+    }
+    return value;
+}
+
+static void 
+parse_number(Lexer *lexer, Token *token) {
+    // https://en.cppreference.com/w/c/language/integer_constant
+    u32 base = 10;
+    if (parse(lexer, "0x")) {
+        base = 16;
+    } else if (parse(lexer, "0")) {
+        base = 8;
+    } else if (parse(lexer, "0b")) {
+        base = 2;
+    };
+    
+    u64 value = str_to_u64_base(lexer, base);
+    u32 mask = 0;
+    enum { MASK_L = 0x1, MASK_LL = 0x2, MASK_U = 0x4 };
+    if (parse(lexer, "LLU") || parse(lexer, "LLu") ||
+        parse(lexer, "llU") || parse(lexer, "llu") ||
+        parse(lexer, "ULL") || parse(lexer, "Ull") ||
+        parse(lexer, "uLL") || parse(lexer, "ull")) {
+        mask = MASK_LL | MASK_U;
+    } else if (parse(lexer, "ll") || parse(lexer, "LL")) {
+        mask = MASK_LL;
+    } else if (parse(lexer, "LU") || parse(lexer, "Lu") || 
+               parse(lexer, "lU") || parse(lexer, "lu")) {
+        mask = MASK_L | MASK_U;
+    } else if (parse(lexer, "L") || parse(lexer, "l")) {
+        mask = MASK_L;
+    } else if (parse(lexer, "U") || parse(lexer, "u")) {
+        mask = MASK_U;
+    }
+    
+    // Infer type
+    u32 type;
+    if (base == 10) {
+        if (mask & (MASK_LL | MASK_U)) {
+            type = C_TYPE_ULLINT;;
+        } else if (mask & MASK_LL) {
+            type = C_TYPE_SLLINT;
+        } else if (mask & (MASK_L & MASK_U)) {
+            if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask & MASK_L) {
+            if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else {
+                type = C_TYPE_SLLINT;
+            }
+        } else if (mask & MASK_U) {
+            if (value <= UINT_MAX) {
+                type = C_TYPE_UINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else {
+            if (value <= INT_MAX) {
+                type = C_TYPE_SINT;
+            } else if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else {
+                type = C_TYPE_SLLINT;
+            }
+        }
+    } else {
+        if (mask & (MASK_LL | MASK_U)) {
+            type = C_TYPE_ULLINT;;
+        } else if (mask & MASK_LL) {
+            if (value <= LLONG_MAX) {
+                type = C_TYPE_SLLINT;    
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask & (MASK_L & MASK_U)) {
+            if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask & MASK_L) {
+            if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else if (value <= LLONG_MAX) {
+                type = C_TYPE_SLLINT;    
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask & MASK_U) {
+            if (value <= UINT_MAX) {
+                type = C_TYPE_UINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else {
+            if (value <= INT_MAX) {
+                type = C_TYPE_SINT;
+            } else if (value <= UINT_MAX) {
+                type = C_TYPE_UINT;
+            }else if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else if (value <= LLONG_MAX) {
+                type = C_TYPE_SLLINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        }
+    }
+    
+    token->kind = TOKEN_NUMBER;
+    token->number.type = type;
+    token->number.int_value = value;
 }
 
 Token *
 peek_tok(Lexer *lexer) {
-    Token *token = lexer->active_token;
+    Token *token = get_current_token(lexer);
     if (token) {
         return token;
     }
     
     token = arena_alloc_struct(lexer->arena, Token);
-    lexer->active_token = token;
-
+    add_token_to_stack(lexer, token);
+    
     for (;;) {
-        u8 symb = in_stream_peek_b_or_zero(lexer->stream);
-        if (!symb) {
+        u32 codepoint = *lexer->unicode_buf;
+        if (!codepoint) {
             token->kind = TOKEN_EOS;
             break;
         }
         
-        if (is_space(symb)) {
+        // 'skipping' cases
+        if (is_space(codepoint)) {
             advance(lexer, 1);
             continue;
         } else if (parse(lexer, "//")) {
             for (;;) {
-                u8 peeked = in_stream_peek_b_or_zero(lexer->stream);
-                if (!peeked || peeked == '\n') {
-                    break;
-                }
                 advance(lexer, 1);
+                if (parse(lexer, "\n") || !*lexer->unicode_buf) {
+                    break;
+                }   
             }
             continue;
         } else if (parse(lexer, "/*")) {
-            Src_Loc comment_start_loc = lexer->curr_loc;
-            u32 depth = 1;
-            while (depth) {
-                if (parse(lexer, "/*")) {
-                    ++depth; 
-                } else if (parse(lexer, "*/")) {
-                    --depth;
-                } else if (!advance(lexer, 1)) {
+            for (;;) {
+                if (parse(lexer, "*/") || !*lexer->unicode_buf) {
                     break;
                 }
-            }
-            
-            if (depth) {
-                report_error(lexer->ctx->er, comment_start_loc, "*/ expected to end comment");
             }
             continue;
-        }
+        } else if (codepoint == '#') {
+            parse_preprocessor_directive(lexer);
+            continue;
+        } 
         
+        // all cases below should break the loop
         token->src_loc = lexer->curr_loc;
-        if (is_digit(symb)) {
-            begin_lit_write(lexer);
-            bool is_real_lit = false;
+        if (is_digit(codepoint)) {
+            parse_number(lexer, token);
+        } else if (is_ident_start(codepoint)) {
+            
             for (;;) {
-                symb = in_stream_peek_b_or_zero(lexer->stream);
-                if (is_int(symb)) {
-                    // nop
-                } else if (is_real(symb)) {
-                    is_real_lit = true;
-                } else {
-                    break;
-                }
                 
-                lit_write(lexer, symb);
             }
-            String_ID str_id = end_lit_write(lexer);
-            // @NOTE(hl): This is stupid, just because we decided that strings can have arbitrary size
-            string_storage_get(lexer->ctx->ss, str_id, lexer->scratch_buffer, lexer->scratch_buffer_size);
-            if (is_real_lit) {
-                f64 real = str_to_f64((char *)lexer->scratch_buffer);
-                token->value_real = real;
-                token->kind = TOKEN_REAL;
-            } else {
-                i64 iv = str_to_i64((char *)lexer->scratch_buffer);
-                token->value_int = iv;
-                token->kind = TOKEN_INT;
-            }
-            break;
+        } else if (codepoint == '\"') {
             
-        } else if (is_ident_start(symb)) {
-            begin_lit_write(lexer);
-            lit_write(lexer, symb);
-            for (;;) {
-                symb = in_stream_peek_b_or_zero(lexer->stream);
-                if (!is_ident(symb)) {
-                    break;
-                }
-                
-                lit_write(lexer, symb);
-            }
-            String_ID str_id = end_lit_write(lexer);
-            for (u32 i = 0; i < MAX_KEYWORD_TOKEN_COUNT; ++i) {
-                if (str_id.value == lexer->keyword_ids[i].value) {
-                    token->kind = TOKEN_KEYWORD + i;
-                }
-            }
+        } else if (is_punct(codepoint)) {
             
-            if (!token->kind) {
-                token->kind = TOKEN_IDENT;
-                token->value_str = str_id;
-            }
-            break;
-        } else if (symb == '\"') {
-            advance(lexer, 1);
-            begin_lit_write(lexer);
-            for (;;) {
-                symb = in_stream_peek_b_or_zero(lexer->stream);
-                if (symb == '\"') {
-                    break;
-                }
-                
-                lit_write(lexer, symb);
-            }
-            String_ID str_id = end_lit_write(lexer);
-            
-            token->kind = TOKEN_STR;
-            token->value_str = str_id;
-            break;
-        } else if (is_punct(symb)) {
-            // Because muttiple operators can be put together (+=-2),
-            // check by descending length
-            for (u32 kind = TOKEN_MULTISYMB, i = 0; i < ARRAY_SIZE(MULTISYMB_STRS); ++i, ++kind) {
-                if (parse(lexer, MULTISYMB_STRS[i])) {
-                    token->kind = kind;
-                    break;
-                }
-            }
-            
-            // All unhandled cases before - single character 
-            if (!token->kind) {
-                token->kind = symb;
-                advance(lexer, 1);
-            }
-            break;
         } else {
-            report_error_tok(lexer->ctx->er, token, "Unexpected character");
-            token->kind = TOKEN_ERROR;
-            advance(lexer, 1);
-            break;
+            assert(false);
         }
     }
+    
     return token;
-}
-
-void 
-eat_tok(Lexer *lexer) {
-    if (lexer->active_token) {
-        lexer->active_token = 0;
-    }
-}
-
-Token *
-peek_next_tok(Lexer *lexer) {
-    eat_tok(lexer);
-    return peek_tok(lexer);    
-}
-
-uptr 
-fmt_tok_kind(char *buf, uptr buf_sz, u32 kind) {
-    uptr result = 0;
-    if (IS_TOKEN_ASCII(kind)) {
-        result = fmt(buf, buf_sz, "%c", kind);
-    } else if (IS_TOKEN_MULTISYMB(kind)) {
-        result = fmt(buf, buf_sz, "%s", MULTISYMB_STRS[kind - TOKEN_MULTISYMB]);
-    } else if (IS_TOKEN_KEYWORD(kind)) {
-        result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[kind - TOKEN_KEYWORD]);
-    } else if (IS_TOKEN_GENERAL(kind)) {
-        switch (kind) {
-        case TOKEN_EOS: {
-            result = fmt(buf, buf_sz, "<EOS>");
-        } break;
-        case TOKEN_IDENT: {
-            result = fmt(buf, buf_sz, "<ident>");
-        } break;
-        case TOKEN_STR: {
-            result = fmt(buf, buf_sz, "<str>");
-        } break;
-        case TOKEN_INT: {
-            result = fmt(buf, buf_sz, "<int>");
-        } break;
-        case TOKEN_REAL: {
-            result = fmt(buf, buf_sz, "<real>");
-        } break;
-        }
-    }
-    return result;    
-}
-
-uptr 
-fmt_tok(Compiler_Ctx *ctx, char *buf, uptr buf_sz, Token *token) {
-    uptr result = 0;
-    if (IS_TOKEN_ASCII(token->kind)) {
-        result = fmt(buf, buf_sz, "%c", token->kind);
-    } else if (IS_TOKEN_MULTISYMB(token->kind)) {
-        result = fmt(buf, buf_sz, "%s", MULTISYMB_STRS[token->kind - TOKEN_MULTISYMB]);
-    } else if (IS_TOKEN_KEYWORD(token->kind)) {
-        result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRS[token->kind - TOKEN_KEYWORD]);
-    } else if (IS_TOKEN_GENERAL(token->kind)) {
-        switch (token->kind) {
-        case TOKEN_EOS: {
-            result = fmt(buf, buf_sz, "<EOS>");
-        } break;
-        case TOKEN_IDENT: {
-            result = fmt(buf, buf_sz, "<ident>");
-            result += string_storage_get(ctx->ss, token->value_str, (u8 *)buf + result, buf_sz - result);
-        } break;
-        case TOKEN_STR: {
-            result = fmt(buf, buf_sz, "<str>");
-            result += string_storage_get(ctx->ss, token->value_str, (u8 *)buf + result, buf_sz - result);
-        } break;
-        case TOKEN_INT: {
-            result = fmt(buf, buf_sz, "<int>%lld", token->value_int);
-        } break;
-        case TOKEN_REAL: {
-            result = fmt(buf, buf_sz, "<real>%f", token->value_real);
-        } break;
-        }
-    }
-    return result;
 }

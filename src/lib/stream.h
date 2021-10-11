@@ -1,7 +1,7 @@
 // Author: Holodome
 // Date: 13.09.2021 
 // File: pkby/src/lib/stream.h
-// Version: 0
+// Version: 2
 // 
 // Defines series of data types that represent differnt types of input and output streams
 // Stream is an object that provides API to continoiusly access data from different sources
@@ -31,6 +31,15 @@
 #define IN_STREAM_DEFAULT_BUFFER_SIZE OUT_STREAM_DEFAULT_BUFFER_SIZE
 #define IN_STREAM_DEFAULT_THRESHLOD OUT_STREAM_DEFAULT_THRESHOLD
 
+// @NOTE(hl): Simplest kind of stream - just plan data pointer with no memory handling
+typedef struct {
+    u8 *data;
+    u64 data_size;
+    u64 initial_data_size;
+} Buffer;
+
+void buffer_advance(Buffer *buffer, u64 n);
+
 enum {
     STREAM_BUFFER,
     STREAM_FILE,
@@ -38,12 +47,19 @@ enum {
     STREAM_STDERR
 };
 
-// Stream is an object that supports continously writing to while having
-// relatively stable write time perfomance.
-// Streams are used to write to output files, but OS write calls are quite expnesive.
-// That is why stream contains buffer that is written to until threshold is hit (to allow writes of arbitrary sizes)
-// When threshold is hit a flush happens - buffer is written to output file and ready to recieve new input
-// buffer_size - buffer_threshold define maximum size of single write 
+/*
+Stream is an object that supports continously writing to while having
+relatively stable write time perfomance.
+Streams are used to write to output files, but OS write calls are quite expnesive.
+That is why stream contains buffer that is written to until threshold is hit (to allow writes of arbitrary sizes)
+When threshold is hit a flush happens - buffer is written to output file and ready to recieve new input
+buffer_size - buffer_threshold define maximum size of single write 
+
+@NOTE(hl): THIS IS NOT HIGH-PERFOMANCE STRUCTURE.
+ The core principle of this is to unify differnt output methods, and this involves 
+ a lot of last-minute decision making in functions' implementations.
+ If one needs fast way to output data, they should use the one method they need
+*/
 typedef struct Out_Stream {
     u32 mode;
     
@@ -69,50 +85,39 @@ uptr out_streamf(Out_Stream *stream, const char *fmt, ...);
 uptr out_streamv(Out_Stream *stream, const char *fmt, va_list args);
 void out_stream_flush(Out_Stream *stream);
 
-// Threshold defines how much of additonal data is read between flushes.
-// For example, buffer may be 6 kb and threshold 4kb. Then 
-// each time additional 2 kb is read. This way stream can always read at least 2kb bytes
-// This is useful in parsing text files, when, for example, single line have to be read.
-// We can safely say that line is no longer than 2048 symbols (hopefully...).
-// Then whole line can be read and parsed correclty, but in other cases only part
-// of line will be read and then it is not clear what behavour of program should be.
-// When threshold is reached, new bf_sz bytes are read, and bytes located afther threshold are moved
-// at buffer start. So, the bigger the bf_sz - thrreshold, the more stream can read at once, 
-// but the more time it spends on copying and moving around memory
-// Way around this can be allowing buffer of growing size 
-// @NOTE no flusing happens when in stream uses buffer to read from
-typedef struct In_Stream {
-    u32 mode;
-    
-    OS_File_Handle file;
-    uptr file_size;
-    uptr file_idx;
-    // Buffer in stream is used for caching read results
-    u8 *bf;
-    // Total size of buffer
-    uptr bf_sz;
-    // Current read index in buffer
-    uptr bf_idx;
-    // How many bytes the buffer has data of. Not equals to bf_sz only in cases where
-    // chunk contained in bf is last in file
-    uptr bf_used;
-    // After what number bf_idx should be reset and buffer refilled
-    uptr threshold;
-    bool is_finished;
-} In_Stream;
-
-void init_in_streamf(In_Stream *stream, OS_File_Handle file, void *bf, uptr bf_sz, uptr threshold);
-// Peek next n bytes without advancing the cursor
-// Returns number of bytes peeked
-uptr in_stream_peek(In_Stream *stream, void *out, uptr n);
-u8 in_stream_soft_peek_at(In_Stream *stream, uptr offset);
-// Advance stream by n bytes. 
-// Return numbef of bytes advanced by
-uptr in_stream_advance(In_Stream *stream, uptr n);
-// If stream is bufferized, read next file chunk to fill the buffer as much as possible
-void in_stream_flush(In_Stream *stream);
-// Helper function. Used in parsin text, where only next one byte needs to be peeked to be checked
-u8 in_stream_peek_b_or_zero(In_Stream *stream);
-
 Out_Stream *get_stdout_stream(void);
 Out_Stream *get_stderr_stream(void);
+
+// @NOTE(hl): Acceleration structure for handling text input 
+//  to avoid copying, provides direct memory access in size-constrained mode to the data
+//  contained in file 
+// @NOTE(hl): There is no plan to add support for stdin streams, just because there is no such necessity.
+typedef struct In_Stream {
+    OS_File_Handle file;
+    u64 file_cursor;
+    u64 file_size;
+    
+    u8 *bf;
+    u32 bf_sz;
+    u32 threshold;
+    u32 bf_used;
+} In_Stream;
+
+void init_in_stream(In_Stream *stream, OS_File_Handle file_handle, 
+    void *bf, u32 bf_sz, u32 threshold);
+Buffer in_stream_get_data(In_Stream *stream);
+void in_stream_advance(In_Stream *stream);
+
+// @NOTE(hl): Acceleration structure for handling UTF8 input.
+//  decodes a part of text and stores unicode codepoints in full size
+typedef struct In_UTF8_Stream {
+    In_Stream *in_stream;
+    u32 *unicode_codepoint_buf;
+    u32  unicode_codepoint_buf_size;
+    u32  unicode_codepoint_buf_threshold;
+} In_UTF8_Stream;
+
+void init_in_utf8_stream(In_UTF8_Stream *stream, In_Stream *raw_stream, 
+    void *bf, u32 bf_sz, 
+    u32 threshold);
+void in_utf8_stream_

@@ -161,7 +161,6 @@ utf8_decode(const void *buf, u32 *codepoint) {
         }
     }
     
-    *len_out = len;
     return utf32;
 #else 
     // Credit - https://nullprogram.com/blog/2017/10/06/

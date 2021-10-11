@@ -64,34 +64,34 @@ CT_ASSERT((u32)TO_BOOL(MEM_BOUNDS_CHECKING_POLICY & MEM_ALLOC_OVERFLOW_CHECK) + 
 // Unlike malloc, mem_alloc is guaranteed to return already zeroed memory
 // malloc
 ATTR((malloc))
-void *mem_alloc(uptr size);
+void *mem_alloc(uintptr_t size);
 // realloc
-void *mem_realloc(void *ptr, uptr old_size, uptr size);
+void *mem_realloc(void *ptr, uintptr_t old_size, uintptr_t size);
 // strdup
 char *mem_alloc_str(const char *str);
 // free
-void mem_free(void *ptr, uptr size);
+void mem_free(void *ptr, uintptr_t size);
 // memcpy
-void mem_copy(void *dst, const void *src, uptr size);
+void mem_copy(void *dst, const void *src, uintptr_t size);
 // memmove
-void mem_move(void *dst, const void *src, uptr size);
+void mem_move(void *dst, const void *src, uintptr_t size);
 // memset
-void mem_zero(void *dst, uptr size);
+void mem_zero(void *dst, uintptr_t size);
 // memcmp
-bool mem_eq(const void *a, const void *b, uptr n);
+bool mem_eq(const void *a, const void *b, uintptr_t n);
 
 // Memory blocks are used in arena-like allocators
 // Used to batch several allocations together instead of making multiple os callss
 typedef struct Memory_Block { 
-    uptr size; 
-    uptr used; 
+    uintptr_t size; 
+    uintptr_t used; 
     u8 *base;
     // Used only in arena, not related to block itselfs
     struct Memory_Block *next;
 } Memory_Block;
 
 ATTR((malloc))
-Memory_Block *mem_alloc_block(uptr size);
+Memory_Block *mem_alloc_block(uintptr_t size);
 void mem_free_block(Memory_Block *block);
 // Blocks can be freed with mem_free call
 
@@ -114,7 +114,7 @@ void mem_free_block(Memory_Block *block);
 // @NOTE(hl): One of the latter benefits of memory arenas is inside the multithreaded code
 typedef struct Memory_Arena {
     Memory_Block *current_block;
-    uptr minimum_block_size;
+    uintptr_t minimum_block_size;
     int temp_memory_count;
 } Memory_Arena;
 
@@ -122,22 +122,22 @@ typedef struct Memory_Arena {
 // All arena-based alloctions are aligned according to MEMORY_ARENA_DEFAULT_ALIGNMENT
 #define arena_alloc_struct(_arena, _type) (_type *)arena_alloc(_arena, sizeof(_type))
 #define arena_alloc_array(_arena, _count, _type) (_type *)arena_alloc(_arena, sizeof(_type) * _count)
-void *arena_alloc(Memory_Arena *arena, uptr size);
+void *arena_alloc(Memory_Arena *arena, uintptr_t size);
 char *arena_alloc_str(Memory_Arena *arena, const char *src);
-void *arena_copy(Memory_Arena *arena, const void *src, uptr size);
+void *arena_copy(Memory_Arena *arena, const void *src, uintptr_t size);
 void arena_free_last_block(Memory_Arena *arena);
 // Frees all blocks
 void arena_clear(Memory_Arena *arena);
 // Allocates structure using arena that is located inside this structure
 // Ex: struct A { Memory_Arena *a; }; struct A *b = arena_bootstrap(A, a); (b is allocated on b.a arena)
 #define arena_bootstrap(_type, _field) arena_bootstrap_(sizeof(_type), STRUCT_OFFSET(_type, _field))
-void *arena_bootstrap_(uptr size, uptr arena_offset);
+void *arena_bootstrap_(uintptr_t size, uintptr_t arena_offset);
 
 // Alloctions guarded by temporary memory calls are not commited to arena
 typedef struct TemporaryMemory {
     Memory_Arena *arena;
     Memory_Block *block;
-    uptr block_used;
+    uintptr_t block_used;
 } TemporaryMemory;
 
 TemporaryMemory begin_temp_memory(Memory_Arena *arena);
@@ -156,4 +156,4 @@ void end_temp_memory(TemporaryMemory temp);
 // When clear is set to true, all allocations overwrite previous ones.
 // When clear is not zero, allocations pile up 
 void tmp_alloc_set_clear(bool clear);
-void *tmp_alloc(uptr size);
+void *tmp_alloc(uintptr_t size);

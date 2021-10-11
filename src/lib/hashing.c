@@ -13,10 +13,10 @@ fnv64(const void *bf_init, uptr bf_sz) {
 }
 
 u32 
-djb2(const char *str) {
+djb2(const void *bf, uptr bf_sz) {
+    const u8 *str = (u8 *)bf;
     u32 result = 5381;
-    // djb2 algorithm - suitable for general-purpose string hashing
-    while (*str) {
+    while (bf_sz--) {
         result = ((result << 5) + result) + *str++;
     }
     return result;
@@ -98,60 +98,73 @@ crc32(u32 crc, const void *bf_init, uptr bf_sz) {
     return crc;
 }
 
-static u64 *
-hash64_get_internal(Hash64 *hash, u64 key) {
-    if (key == 0) {
-        return 0;
-    }
-    
-    u64 *result = 0;
-    assert(IS_POW2(hash->num_buckets));
-    u64 hash_value = key;
-    u64 hash_mask = hash->num_buckets - 1;
-    for (u64 offset = 0; offset < hash->num_buckets; ++offset) {
-        u64 hash_idx = (hash_value + offset) & hash_mask;
-        u64 test_key = hash->keys[hash_idx];
-        if (test_key == key || test_key == 0) {
-            result = &hash->values[hash_idx];
+static u32 
+hash_table64_get_idx(Hash_Table64 *table, u64 key) {
+    u32 result = (u32)-1;
+    for (u32 i = 0; i < table->num_buckets; ++i) {
+        u32 hash_idx = (key + i) % table->num_buckets;
+        if (table->keys[hash_idx] == key) {
+            result = hash_idx;
             break;
         }
     }
     return result;
 }
 
-Hash64 
-create_hash64(u32 n, struct Memory_Arena *arena) {
-    Hash64 hash = {0};
-    hash.num_buckets = n;
-    hash.keys = arena_alloc_array(arena, n, u64);
-    hash.values = arena_alloc_array(arena, n, u64);
-    return hash;
-}
-
-void 
-clear_hash(Hash64 *hash) {
-    mem_zero(hash->keys, sizeof(*hash->keys) * hash->num_buckets);    
-    // @SPEED Redundant?
-    mem_zero(hash->values, sizeof(*hash->values) * hash->num_buckets);    
-}
-
-bool 
-hash64_set(Hash64 *hash, u64 key, u64 value) {
-    bool result = false;
-    u64 *value_ptr = hash64_get_internal(hash, key);
-    if (value_ptr) {
-        *value_ptr = value;
-        result = true;
+static u64 *
+hash_table64_get_internal(Hash_Table64 *table, u64 key) {
+    u64 *result = 0;
+    u32 idx = hash_table64_get_idx(table, key);
+    if (idx != (u32)-1) {
+        result = table->values + idx;
     }
     return result;
 }
 
-u64 
-hash64_get(Hash64 *hash, u64 key, u64 default_value) {
-    u64 result = default_value;
-    u64 *value_ptr = hash64_get_internal(hash, key);
-    if (value_ptr && *value_ptr) {
-        result = *value_ptr;
+static u64 *
+hash_table64_get_or_create(Hash_Table64 *table, u64 key) {
+    u64 *result = 0;
+    for (u32 i = 0; i < table->num_buckets; ++i) {
+        u32 hash_idx = (key + i) % table->num_buckets;
+        if (table->keys[hash_idx] == key || table->keys[hash_idx] == 0) {
+            table->keys[hash_idx] = key;
+            result = table->values + hash_idx;
+            break;
+        }
     }
+    return result;
+}
+
+
+Hash_Table64_Get_Result 
+hash_table64_get(Hash_Table64 *table, u64 key) {
+    Hash_Table64_Get_Result result = {0};
+    u64 *valuep = hash_table64_get_internal(table, key);
+    if (valuep) {
+        result.is_valid = true;
+        result.value = *valuep;
+    }
+    return result;
+}
+
+bool 
+hash_table64_set(Hash_Table64 *table, u64 key, u64 value) {
+    bool result = false;
+    u64 *valuep = hash_table64_get_or_create(table, key);
+    if (valuep) {
+        result = true;
+        *valuep = value;
+    }
+    return result;
+}
+
+bool 
+hash_table64_delete(Hash_Table64 *table, u64 key) {
+    bool result = false;
+    u32 idx = hash_table64_get_idx(table, key);
+    if (idx != (u32)-1) {
+        result = true;
+        table->keys[idx] = 0;
+    }  
     return result;
 }

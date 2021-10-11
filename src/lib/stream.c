@@ -84,98 +84,27 @@ void out_stream_flush(Out_Stream *stream) {
     }
 }
 
-void init_in_stream(In_Stream *stream, void *bf, uptr bf_sz) {
-    stream->mode = STREAM_BUFFER;
+void 
+init_in_stream(In_Stream *stream, OS_File_Handle file_handle, 
+    void *bf, u32 bf_sz, u32 threshold) {
+    mem_zero(stream, sizeof(*stream));
+    
+    stream->file = file_handle;
     stream->bf = bf;
     stream->bf_sz = bf_sz;
+    stream->threshold = threshold;        
 }
 
-void init_in_streamf(In_Stream *stream, OS_File_Handle file, void *bf, uptr bf_sz, uptr threshold) {
-    assert(bf_sz > threshold);
-    stream->file = file;
-    stream->file_size = os_get_file_size(file);
-    stream->mode = STREAM_FILE;
-    stream->bf = bf;
-    stream->bf_sz = bf_sz;
-    stream->threshold = threshold;
-}
-
-uptr in_stream_peek(In_Stream *stream, void *out, uptr n) {
-    uptr result = 0;
-    if (!stream->is_finished) {
-        if (stream->bf_idx + n > stream->bf_used) {
-            in_stream_flush(stream);
-        }
+Buffer 
+in_stream_get_data(In_Stream *stream) {
         
-        if (stream->bf_idx + n <= stream->bf_used) {
-            mem_copy(out, stream->bf + stream->bf_idx, n);
-            result = n;
-        } else {
-            NOT_IMPLEMENTED;
-        }
-    }      
-    return result;
 }
 
-u8 in_stream_soft_peek_at(In_Stream *stream, uptr offset) {
-    u8 result = 0;
-    if (stream->bf_idx + offset <= stream->bf_used) {
-        result = stream->bf[stream->bf_idx + offset];
-    }
-    return result;
+void 
+in_stream_advance(In_Stream *stream) {
+    
 }
 
-uptr in_stream_advance(In_Stream *stream, uptr n) {
-    uptr result = 0;
-    if (!stream->is_finished) {
-        if (stream->bf_idx + n > stream->bf_used) {
-            in_stream_flush(stream);
-        }
-        
-        if (stream->bf_idx + n <= stream->bf_used) {
-            stream->bf_idx += n;
-            result += n;
-            
-            if (stream->bf_idx > stream->threshold) {
-                in_stream_flush(stream);
-            }
-        } else {
-            NOT_IMPLEMENTED;
-        }
-    }
-    return result;
-}
-
-void in_stream_flush(In_Stream *stream) {
-    if (stream->mode == STREAM_BUFFER) {
-        // nop
-    } else if (stream->mode == STREAM_FILE) {
-        // Move chunk of file that is not processed to buffer start
-        assert(stream->bf_idx < stream->bf_sz);
-        mem_move(stream->bf, stream->bf + stream->bf_idx, stream->bf_used - stream->bf_idx);
-        stream->bf_used = stream->bf_idx;
-        stream->bf_idx = 0;
-        // Read new data
-        uptr buffer_size_aviable = stream->bf_sz - stream->bf_used;
-        uptr read_data_size = stream->file_size - stream->file_idx;
-        if (read_data_size > buffer_size_aviable) {
-            read_data_size = buffer_size_aviable;
-        }
-        uptr bytes_read = os_read_file(stream->file, stream->file_idx, stream->bf + stream->bf_used, read_data_size);
-        stream->bf_used += bytes_read;
-        stream->file_idx += bytes_read;
-        if (bytes_read == 0) {
-            // @TODO buggy
-            stream->is_finished = true;
-        }
-    } 
-}
-
-u8 in_stream_peek_b_or_zero(In_Stream *stream) {
-    u8 result = 0;
-    in_stream_peek(stream, &result, 1);
-    return result;    
-}
 
 static Out_Stream stdout_stream_storage;
 static Out_Stream stderr_stream_storage;
