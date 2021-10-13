@@ -84,26 +84,26 @@ void out_stream_flush(Out_Stream *stream) {
     }
 }
 
-void 
-init_in_stream(In_Stream *stream, OS_File_Handle file_handle, 
-    void *bf, u32 bf_sz, u32 threshold) {
-    mem_zero(stream, sizeof(*stream));
+// void 
+// init_in_stream(In_Stream *stream, OS_File_Handle file_handle, 
+//     void *bf, u32 bf_sz, u32 threshold) {
+//     mem_zero(stream, sizeof(*stream));
     
-    stream->file = file_handle;
-    stream->bf = bf;
-    stream->bf_sz = bf_sz;
-    stream->threshold = threshold;        
-}
+//     stream->file = file_handle;
+//     stream->bf = bf;
+//     stream->bf_sz = bf_sz;
+//     stream->threshold = threshold;        
+// }
 
-Buffer 
-in_stream_get_data(In_Stream *stream) {
+// Buffer 
+// in_stream_get_data(In_Stream *stream) {
         
-}
+// }
 
-void 
-in_stream_advance(In_Stream *stream) {
+// void 
+// in_stream_advance(In_Stream *stream) {
     
-}
+// }
 
 
 static Out_Stream stdout_stream_storage;

@@ -96,7 +96,7 @@ os_write_stderr(void *bf, uptr bf_sz) {
     return write(2, bf, bf_sz);
 }
 
-uptr 
+u64 
 os_get_file_size(OS_File_Handle id) {
     uptr result = 0;
     if (OS_IS_FILE_HANDLE_VALID(id)) {

@@ -46,7 +46,7 @@ uptr os_write_file(OS_File_Handle file, uptr offset, const void *bf, uptr bf_sz)
 // Same as write file, but read
 uptr os_read_file(OS_File_Handle file, uptr offset, void *bf, uptr bf_sz);
 // read_file with advancing cursor
-uptr os_get_file_size(OS_File_Handle handle);
+u64 os_get_file_size(OS_File_Handle handle);
 // @NOTE(hl): Although stanadrd streams in most os's are handled the same way as files,
 //  it has been decided to split them in API, because of large difference in logic of work
 //  (file api does use offsets, which streams have no support of)

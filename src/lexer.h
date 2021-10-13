@@ -17,13 +17,20 @@ struct Compiler_Ctx;
 struct Memory_Arena;
 struct Lexer;
 
+#define MAX_PREPROCESSOR_LINE_LENGTH 4096
+
 enum {
-    TOKEN_EOS      = 0x101,
-    TOKEN_IDENT    = 0x102,
-    TOKEN_KEYWORD  = 0x103,
-    TOKEN_STRING   = 0x104,
-    TOKEN_NUMBER   = 0x105,
-    TOKEN_OPERATOR = 0x106
+    TOKEN_EOS        = 0x101,
+    TOKEN_IDENT      = 0x102,
+    TOKEN_KEYWORD    = 0x103,
+    TOKEN_STRING     = 0x104,
+    TOKEN_NUMBER     = 0x105,
+    TOKEN_PUNCTUATOR = 0x106,
+    // This could have been part of the string, but decided to stick this here for clarity
+    TOKEN_PP_FILENAME          = 0x107,
+    // Similar to strings, contains all that goes after #define AAA till the end of the string
+    TOKEN_PP_DEFINE_DEFINITION = 0x108, 
+    TOKEN_PP_MACRO             = 0x109
 };
 
 enum {
@@ -80,72 +87,49 @@ enum {
 };
 
 enum {
-    PP_KEYWORD_DEFINE   = 0x101, // define
-    PP_KEYWORD_UNDEF    = 0x102, // undef
-    PP_KEYWORD_INCLUDE  = 0x103, // include
-    PP_KEYWORD_IF       = 0x104, // if
-    PP_KEYWORD_IFDEF    = 0x105, // ifdef
-    PP_KEYWORD_IFNDEF   = 0x106, // ifndef
-    PP_KEYWORD_ELSE     = 0x107, // else 
-    PP_KEYWORD_ELIFDEF  = 0x108, // c2x elifdef
-    PP_KEYWORD_ELIFNDEF = 0x109, // c2x elifndef
-    PP_KEYWORD_PRAGMA   = 0x10A, // pragma  
+    PP_KEYWORD_DEFINE   = 0x1, // define
+    PP_KEYWORD_UNDEF    = 0x2, // undef
+    PP_KEYWORD_INCLUDE  = 0x3, // include
+    PP_KEYWORD_IF       = 0x4, // if
+    PP_KEYWORD_IFDEF    = 0x5, // ifdef
+    PP_KEYWORD_IFNDEF   = 0x6, // ifndef
+    PP_KEYWORD_ELSE     = 0x7, // else 
+    PP_KEYWORD_ELIFDEF  = 0x8, // c2x elifdef
+    PP_KEYWORD_ELIFNDEF = 0x9, // c2x elifndef
+    PP_KEYWORD_PRAGMA   = 0xA, // pragma  
+    
+    PP_KEYWORD_ERROR    = 0x10, // error
+    PP_KEYWORD_DEFINED  = 0x11, // defined
+    PP_KEYWORD_LINE     = 0x12, // line
+    
+    PP_KEYWORD_SENTINEL,
 };
 
 enum {
-    OPERATOR_IRSHIFT = 0x101, // >>=
-    OPERATOR_ILSHIFT = 0x102, // <<= 
-    OPERATOR_IADD    = 0x103, // +=
-    OPERATOR_ISUB    = 0x104, // -=
-    OPERATOR_IMUL    = 0x105, // *=
-    OPERATOR_IDIV    = 0x106, // /=
-    OPERATOR_IMOD    = 0x107, // %= 
-    OPERATOR_IAND    = 0x108, // &=
-    OPERATOR_IOR     = 0x109, // |=
-    OPERATOR_IXOR    = 0x10A, // ^=
-    OPERATOR_INC     = 0x10B, // ++
-    OPERATOR_DEC     = 0x10C, // --
-    OPERATOR_RSHIFT  = 0x10D, // >>
-    OPERATOR_LSHIFT  = 0x10E, // <<
-    OPERATOR_LAND    = 0x10F, // &&
-    OPERATOR_LOR     = 0x110, // ||
-    OPERATOR_EQ      = 0x111, // ==
-    OPERATOR_NEQ     = 0x112, // != 
-    OPERATOR_LEQ     = 0x113, // <= 
-    OPERATOR_GEQ     = 0x114, // >= 
-    OPERATOR_ARROW   = 0x115, // ->
+    PUNCTUATOR_IRSHIFT = 0x101, // >>=
+    PUNCTUATOR_ILSHIFT = 0x102, // <<= 
+    PUNCTUATOR_VARARGS = 0x103, // ...
+    PUNCTUATOR_IADD    = 0x104, // +=
+    PUNCTUATOR_ISUB    = 0x105, // -=
+    PUNCTUATOR_IMUL    = 0x106, // *=
+    PUNCTUATOR_IDIV    = 0x107, // /=
+    PUNCTUATOR_IMOD    = 0x108, // %= 
+    PUNCTUATOR_IAND    = 0x109, // &=
+    PUNCTUATOR_IOR     = 0x10A, // |=
+    PUNCTUATOR_IXOR    = 0x10B, // ^=
+    PUNCTUATOR_INC     = 0x10C, // ++
+    PUNCTUATOR_DEC     = 0x10D, // --
+    PUNCTUATOR_RSHIFT  = 0x10E, // >>
+    PUNCTUATOR_LSHIFT  = 0x10F, // <<
+    PUNCTUATOR_LAND    = 0x110, // &&
+    PUNCTUATOR_LOR     = 0x111, // ||
+    PUNCTUATOR_EQ      = 0x112, // ==
+    PUNCTUATOR_NEQ     = 0x113, // != 
+    PUNCTUATOR_LEQ     = 0x114, // <= 
+    PUNCTUATOR_GEQ     = 0x115, // >= 
+    PUNCTUATOR_ARROW   = 0x116, // ->
     
-    OPERATOR_SENTINEL,
-};
-
-enum {
-    C_TYPE_VOID   = 0x0, // void
-    
-    C_TYPE_CHAR   = 0x1, // char 
-    C_TYPE_SCHAR  = 0x2, // signed char 
-    C_TYPE_UCHAR  = 0x3, // unsigned char 
-    C_TYPE_WCHAR  = 0x4, // wchar_t
-    C_TYPE_CHAR16 = 0x5, // char16_t
-    C_TYPE_CHAR32 = 0x6, // char32_t
-    
-    C_TYPE_SINT   = 0x7, // signed int
-    C_TYPE_UINT   = 0x8, // unsigned int
-    C_TYPE_SLINT  = 0x9, // signed long int
-    C_TYPE_ULINT  = 0xA, // unsigned long int
-    C_TYPE_SLLINT = 0xB, // signed long long int
-    C_TYPE_ULLINT = 0xC, // unsigned long long int
-    C_TYPE_SSINT  = 0xD, // signed short int
-    C_TYPE_USINT  = 0xE, // unsigned short int
-    
-    C_TYPE_FLOAT   = 0xF,  // float
-    C_TYPE_DOUBLE  = 0x10, // double
-    C_TYPE_LDOUBLE = 0x11, // long double
-    
-    C_TYPE_DECIMAL32  = 0x12, // _Decimal32
-    C_TYPE_DECIMAL64  = 0x13, // _Decimal64
-    C_TYPE_DECIMAL128 = 0x14, // _Decimal128
-  
-    C_TYPE_BOOL = 0x15, // _Bool
+    PUNCTUATOR_SENTINEL,
 };
 
 typedef struct {
@@ -161,71 +145,55 @@ typedef struct Token {
     Src_Loc src_loc;
     union {
         struct {
-            String_ID str;
-        } str;
+            const char *str;
+            // String_ID str;
+        } str, ident;
         struct {
             u32 kind;
         } kw;
         struct {
             u32 kind;
-        } operator; 
+        } punct; 
         struct {
             u32 type;
             union {
                 u64 int_value;
-                Float_Literal float_literal;
+                long double real_value;
+                // Float_Literal float_literal;
             };
         } number;
     };
 } Token;
+
+u32 fmt_token_kind(char *buf, u64 buf_sz, u32 kind);
+u32 fmt_token(char *buf, u64 buf_sz, struct String_Storage *ctx, Token *token);
 
 typedef struct Token_Stack_Entry {
     Token *token;
     struct Token_Stack_Entry *next;
 } Token_Stack_Entry;
 
-enum {
-    PP_TOKEN_NONE     = 0x0, // correspond to regular token
-    PP_TOKEN_FILENAME = 0x1, // separate type because preprocessor allows <> to mean same as ""
-};
+// Represents buffer from which data needs to be parsed as source.
+typedef struct Lexer_Buffer {
+    char *buf;
+    char *at;
+    u32   size;
+    struct Lexer_Buffer *next;
+} Lexer_Buffer;
 
-typedef struct {
-    u32 kind;
-    union {
-        Token *token;
-        struct {
-            String_ID filename;
-            bool is_global_search;
-        } filename;
-    };
-} Preprocessor_Token;
-
-#define MAXIMUM_MACRO_IDENTIFIER_COUNT 4096
-
-typedef struct Preprocessor_Macro {
-    String_ID ident;
-} Preprocessor_Macro;
-
-typedef struct {
-    struct Memory_Arena *arena;
-    
-    Preprocessor_Macro macros[MAXIMUM_MACRO_IDENTIFIER_COUNT];
-    Hash_Table64       macro_hash_table;
-} Preprocessor;
-
-void init_preprocessor(Preprocessor *preprocessor);
-void preprocessor_parse_directive(struct Lexer *lexer);
+u8 lexbuf_peek(Lexer_Buffer *buffer);
+u32 lexbuf_advance(Lexer_Buffer *buffer, u32 n);
+bool lexbuf_parse(Lexer_Buffer *buffer, const char *lit);
 
 typedef struct Lexer {
     struct Memory_Arena *arena;
     struct Compiler_Ctx *ctx;
     
-    u32 *unicode_buf;
-    u32  unicode_buf_at;
-    u32  unicode_buf_capacity;
-    In_UTF8_Stream *stream;
-    Src_Loc         curr_loc;
-    Preprocessor    preprocessor;
+    Lexer_Buffer *buffer_stack;
+    Lexer_Buffer *buffer_freelist;
+    
+    Src_Loc curr_loc;
+    // Preprocessor    preprocessor;
     // @NOTE(hl): Stack structure used to temporarily store tokens when peekign ahead of current.
     // Because we can't really tell how much tokens we would want to peek, it is free-list based.
     u32                token_stack_size;
@@ -233,6 +201,20 @@ typedef struct Lexer {
     Token_Stack_Entry *token_stack_freelist;
 } Lexer;
 
-Lexer *create_lexer(struct Compiler_Ctx *ctx, struct In_UTF8_Stream *stream);
+
+Lexer *create_lexer(struct Compiler_Ctx *ctx, const char *filename);
 Token *peek_tok(Lexer *lexer);
 void eat_tok(Lexer *lexer);
+
+void add_buffer_to_stack(Lexer *lexer, char *buf, u32 buf_size);
+void pop_buffer_from_stack(Lexer *lexer);
+Lexer_Buffer *get_current_buf(Lexer *lexer);
+
+void add_token_to_stack(Lexer *lexer, Token *token);
+void pop_token_from_stack(Lexer *lexer);
+Token *get_current_token(Lexer *lexer);
+
+u8 peek_codepoint(Lexer *lexer);
+void advance(Lexer *lexer, u32 n);
+bool parse(Lexer *lexer, const char *lit);
+bool skip_spaces(Lexer *lexer);

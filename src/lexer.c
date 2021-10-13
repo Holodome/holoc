@@ -4,12 +4,16 @@
 #include "lib/lists.h"
 #include "lib/strings.h"
 
+#include "c_lang.h"
+#include "ast.h"
+#include "string_storage.h"
+
 #define ITER_KEYWORDS(_it) \
 for ((_it) = KEYWORD_AUTO; (_it) < KEYWORD_SENTINEL; ++(_it))
 #define ITER_PREPROCESSOR_KEYWORD(_it) \
-for ((_it) = KEYWORD_P_DEFINE; (_it) < KEYWORD_P_SENTINEL; ++(_it))
-#define ITER_OPERATORS(_it) \
-for ((_it) = OPERATOR_IADD; (_it) < OPERATOR_SENTINEL; ++(_it))
+for ((_it) = PP_KEYWORD_DEFINE; (_it) < PP_KEYWORD_SENTINEL; ++(_it))
+#define ITER_PUNCTUATORS(_it) \
+for ((_it) = PUNCTUATOR_IADD; (_it) < PUNCTUATOR_SENTINEL; ++(_it))
 
 static const char *KEYWORD_STRINGS[] = {
     "(unknown)",
@@ -75,12 +79,15 @@ static const char *PREPROCESSOR_KEYWORD_STRINGS[] = {
     "elifdef",
     "elifndef",
     "pragma",
+    "error",
+    "defined"
 };
 
-static const char *OPERATOR_STRINGS[] = {
+static const char *PUNCTUATOR_STRINGS[] = {
     "(unknown)",
     ">>=",
     "<<=", 
+    "...",
     "+=",
     "-=",
     "*=",
@@ -102,107 +109,93 @@ static const char *OPERATOR_STRINGS[] = {
     "->",
 };
 
-// static Token *
-// peek_forward(Lexer *lexer, u32 n) {
-//     Token *token = 0;
-//     if (n < lexer->stack_size) {
-//         Token_Stack_Entry *entry = lexer->token_stack;
-//         while (n--) {
-//              entry = entry->next;
-//         }
-//         assert(entry);
-//         token = entry->token;
-//     }
-    
-//     return token;
-// }
-
-static Token_Stack_Entry *
-get_stack_entry(Lexer *lexer) {
-    Token_Stack_Entry *entry = lexer->token_stack;
-    if (!entry) {
-        entry = arena_alloc_struct(lexer->arena, Token_Stack_Entry);
-    } else {
-        entry->token = 0;
-    }
-    return entry;
-}
-
-static void 
-add_token_to_stack(Lexer *lexer, Token *token) {
-    Token_Stack_Entry *stack_entry = get_stack_entry(lexer);
-    stack_entry->token = token;
-    STACK_ADD(lexer->token_stack, stack_entry);
-    ++lexer->token_stack_size;
-}
-
-static void 
-pop_token_from_stack(Lexer *lexer) {
-    assert(lexer->token_stack_size);
-    --lexer->token_stack_size;
-    Token_Stack_Entry *stack_entry = lexer->token_stack;
-    STACK_ADD(lexer->token_stack_freelist, stack_entry);
-    STACK_POP(lexer->token_stack);
-}
-
-static Token *
-get_current_token(Lexer *lexer) {
-    Token *result = 0;
-    if (lexer->token_stack_size) {
-        result = lexer->token_stack->token;
-    }
-    return result;
-}
-
-static void 
-populate_unicode_buffer(Lexer *lexer) {
-    lexer->unicode_buf_at = 0;
-    
-}
-
-static void 
-advance(Lexer *lexer, u32 n) {
-    lexer->unicode_buf_size += n;
-    if (lexer->unicode_buf_size >= lexer->unicode_buf_capacity) {
-        populate_unicode_buffer(lexer);
-    }
-}
-
-static bool
-parse(Lexer *lexer, const char *lit) {
-    u32 length = str_len(lit);
-    bool result = true;
-    for (u32 i = 0; i < length; ++i) {
-        if ((u32)lit[i] != lexer->unicode_buf[lexer->unicode_buf_size + i]) {
-            result = false;
-            break;
-        }
-    }
-    if (result) {
-        advance(lexer, length);
-    }
-    return result;
-}
-
-static void 
-parse_preprocessor_directive(Lexer *lexer) {
-}
-
-static inline u32 
-peek_next_codepoint(Lexer *lexer) {
-    u32 result = 0;
-    assert(lexer->unicode_buf_size < lexer->unicode_buf_capacity);
-    result = lexer->unicode_buf[lexer->unicode_buf_size];
-    return result;
-}
-
-static inline void 
-eat_codepoint(Lexer *lexer) {
-    
-}
-
 static const char *ALPHABET       = "0123456789ABCDEF";
 static const char *ALPHABET_LOWER = "0123456789abcdef";
+
+u32 
+fmt_token_kind(char *buf, u64 buf_sz, u32 kind) {
+    u32 result = 0;
+    switch (kind) {
+    case TOKEN_EOS: {
+        result = fmt(buf, buf_sz, "<eos>");
+    } break;
+    case TOKEN_IDENT: {
+        result = fmt(buf, buf_sz, "<ident>");
+    } break;
+    case TOKEN_KEYWORD: {
+        result = fmt(buf, buf_sz, "<kw>");
+    } break;
+    case TOKEN_STRING: {
+        result = fmt(buf, buf_sz, "<str>");
+    } break;
+    case TOKEN_NUMBER: {
+        result = fmt(buf, buf_sz, "<num>");
+    } break;
+    case TOKEN_PUNCTUATOR: {
+        result = fmt(buf, buf_sz, "<punct>");
+    } break;
+    }    
+    return result;
+}
+
+u32 
+fmt_token(char *buf, u64 buf_sz, String_Storage *ss, Token *token) {
+    u32 result = 0;
+    switch (token->kind) {
+    case TOKEN_EOS: {
+        result = fmt(buf, buf_sz, "<eos>");
+    } break;
+    case TOKEN_IDENT: {
+        result = fmt(buf, buf_sz, "<ident>%s", token->ident.str);
+    } break;
+    case TOKEN_KEYWORD: {
+        result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRINGS[token->kw.kind]);
+    } break;
+    case TOKEN_STRING: {
+        result = fmt(buf, buf_sz, "<str>%s", token->str.str);
+    } break;
+    case TOKEN_NUMBER: {
+        result = fmt(buf, buf_sz, "<num>%llu", 
+            token->number.int_value);
+    } break;
+    case TOKEN_PUNCTUATOR: {
+        result = fmt(buf, buf_sz, "<punct>");
+    } break;
+    }    
+    return result;
+}
+
+u8 
+lexbuf_peek(Lexer_Buffer *buffer) {
+    u8 result = 0;
+    if (buffer->at < buffer->buf + buffer->size) {
+        result = *buffer->at;
+    }
+    return result;
+}
+
+u32 
+lexbuf_advance(Lexer_Buffer *buffer, u32 n) {
+    u32 advanced = 0;
+    if (buffer->at < buffer->buf + buffer->size && n--) {
+        ++buffer->at;
+        ++advanced;
+    }
+    return advanced;
+}
+
+bool 
+lexbuf_parse(Lexer_Buffer *buffer, const char *lit) {
+    u32 length = str_len(lit);
+    bool result = false;
+    if (buffer->at + length < buffer->buf + buffer->size) {
+        result = mem_eq(buffer->at, lit, length);
+        if (result) {
+            lexbuf_advance(buffer, length);
+        }
+    }
+    return result;
+}
 
 static bool
 is_symb_base(u32 symb, u32 base) {
@@ -218,6 +211,7 @@ is_symb_base(u32 symb, u32 base) {
     } else {
         UNREACHABLE;
     }
+    return result;
 }
 
 static u64 
@@ -251,10 +245,10 @@ symb_to_base(u32 symb, u32 base) {
 static u64 
 str_to_u64_base(Lexer *lexer, u32 base) {
     u64 value = 0;
-    u32 codepoint = peek_next_codepoint(lexer); 
+    u8 codepoint = *lexer->buf_at; 
     while (codepoint && is_symb_base(codepoint, base)) {
         value = value * base + symb_to_base(codepoint, base);
-        codepoint = peek_next_codepoint(lexer);
+        codepoint = *++lexer->buf_at;
     }
     return value;
 }
@@ -381,6 +375,299 @@ parse_number(Lexer *lexer, Token *token) {
     token->number.int_value = value;
 }
 
+static Token_Stack_Entry *
+get_stack_entry(Lexer *lexer) {
+    Token_Stack_Entry *entry = lexer->token_stack;
+    if (!entry) {
+        entry = arena_alloc_struct(lexer->arena, Token_Stack_Entry);
+    } else {
+        entry->token = 0;
+    }
+    return entry;
+}
+
+void 
+add_token_to_stack(Lexer *lexer, Token *token) {
+    Token_Stack_Entry *stack_entry = get_stack_entry(lexer);
+    stack_entry->token = token;
+    STACK_ADD(lexer->token_stack, stack_entry);
+    ++lexer->token_stack_size;
+}
+
+void 
+pop_token_from_stack(Lexer *lexer) {
+    assert(lexer->token_stack_size);
+    --lexer->token_stack_size;
+    Token_Stack_Entry *stack_entry = lexer->token_stack;
+    STACK_ADD(lexer->token_stack_freelist, stack_entry);
+    STACK_POP(lexer->token_stack);
+}
+
+Token *
+get_current_token(Lexer *lexer) {
+    Token *result = 0;
+    if (lexer->token_stack_size) {
+        result = lexer->token_stack->token;
+    }
+    return result;
+}
+
+static Lexer_Buffer *
+get_new_buffer_stack_entry(Lexer *lexer) {
+    Lexer_Buffer *result = lexer->buffer_freelist;
+    if (result) {
+        STACK_POP(lexer->token_stack_freelist);
+        mem_zero(result, 0);
+    } else {
+        result = arena_alloc_struct(lexer->arena, Lexer_Buffer);
+    }
+    return result;
+}
+
+void 
+add_buffer_to_stack(Lexer *lexer, char *buf, u32 buf_size) {
+    Lexer_Buffer *entry = get_new_buffer_stack_entry(lexer);
+    entry->buf = entry->at = buf;
+    entry->size = buf_size;
+    STACK_ADD(lexer->buffer_stack, entry);
+}
+
+void 
+pop_buffer_from_stack(Lexer *lexer) {
+    Lexer_Buffer *entry = lexer->buffer_stack;
+    STACK_POP(lexer->buffer_stack);
+    STACK_ADD(lexer->buffer_freelist, entry);
+}
+
+Lexer_Buffer *
+get_current_buf(Lexer *lexer) {
+    return lexer->buffer_stack;
+}
+
+u8 
+peek_codepoint(Lexer *lexer) {
+    u8 result = 0;
+    Lexer_Buffer *buffer = get_current_buf(lexer);
+    if (buffer) {
+        result = lexbuf_peek(buffer);
+        if (!result) {
+            pop_buffer_from_stack(lexer);
+            result = peek_codepoint(lexer);
+        }
+    }
+    return result;
+}
+void 
+advance(Lexer *lexer, u32 n) {
+    Lexer_Buffer *buffer = get_current_buf(lexer);
+    while (n && buffer) {
+        n -= lexbuf_advance(buffer, n);
+        buffer = get_current_buf(lexer);
+    }
+}
+
+bool 
+parse(Lexer *lexer, const char *lit) {
+    bool result = false;
+    Lexer_Buffer *buffer = get_current_buf(lexer);
+    if (buffer) {
+        result = lexbuf_parse(buffer, lit);
+    }
+    return result;
+}
+
+bool 
+skip_spaces(Lexer *lexer) {
+    while (is_space(peek_codepoint(lexer))) {
+        advance(lexer, 1);
+    }
+}
+
+static Token *
+peek_tok_preprocessor(Lexer *lexer) {
+    Token *token = get_current_token(lexer);
+    if (token) {
+        return token;
+    }
+    
+    token = arena_alloc_struct(lexer->arena, Token);
+    add_token_to_stack(lexer, token);
+    
+    for (;;) {
+        u8 codepoint = peek_codepoint(lexer);
+        if (!codepoint || 
+            (codepoint == '\n')) {
+            token->kind = TOKEN_EOS;
+            break;
+        }
+        
+        skip_spaces(lexer);
+        if (parse(lexer, "//")) {
+            while (get_current_buf(lexer) && peek_codepoint(lexer) != '\n') {
+                advance(lexer, 1);
+            }
+            token->kind = TOKEN_EOS;
+            break;;
+        } else if (parse(lexer, "/*")) {
+            for (;;) {
+                if (!get_current_buf(lexer) || parse(lexer, "*/")) {
+                    break;
+                }
+                advance(lexer, 1);
+            }
+            continue;
+        }
+        
+        // all cases below should break the loop
+        token->src_loc = lexer->curr_loc;
+        if (is_digit(codepoint)) {
+            parse_number(lexer, token);
+            break;
+        } else if (is_ident_start(codepoint)) {
+            char buf[4096];
+            u32 len = 0;
+            for (;;) {
+                codepoint = peek_codepoint(lexer);
+                if (is_ident(codepoint)) {
+                    buf[len++] = codepoint;
+                    advance(lexer, 1);
+                } else {
+                    break;
+                }
+            }
+            buf[len] = 0;
+            u32 keyword_enum = 0;
+            u32 keyword_iter = 0;
+            ITER_KEYWORDS(keyword_iter) {
+                if (str_eq(buf, PREPROCESSOR_KEYWORD_STRINGS[keyword_iter])) {
+                    keyword_enum = keyword_iter;
+                    break;
+                }
+            }
+            
+            if (keyword_enum) {
+                token->kind = TOKEN_KEYWORD;
+                token->kw.kind = keyword_enum;
+            } else {
+                token->kind = TOKEN_IDENT;
+                token->ident.str = mem_alloc_str(buf);
+            }
+            break;
+        } else if (codepoint == '\"' || codepoint == '<') {
+            NOT_IMPLEMENTED;
+            token->kind = TOKEN_PP_FILENAME;
+            break;
+        } else if (is_punct(codepoint)) {
+            u32 punct_enum = 0;
+            u32 punct_iter = 0;
+            ITER_PUNCTUATORS(punct_iter) {
+                if (parse(lexer, PUNCTUATOR_STRINGS[punct_iter - 0x100])) {
+                    punct_enum = punct_iter;
+                    break;
+                }
+            }
+            
+            token->kind = TOKEN_PUNCTUATOR;
+            if (punct_enum) {
+                token->punct.kind = punct_enum;
+            } else {
+                token->punct.kind = codepoint;
+                advance(lexer, 1);
+            }
+            break;
+        } else {
+            NOT_IMPLEMENTED;
+        }
+    }
+    
+    return token;
+}
+
+static void 
+parse_preprocessor_directive(Lexer *lexer) {
+    Token *token = peek_tok_preprocessor(lexer);
+    if (token->kind == TOKEN_KEYWORD) {
+        switch(token->kw.kind) {
+        INVALID_DEFAULT_CASE;
+        case PP_KEYWORD_DEFINE: {
+            eat_tok(lexer);
+            token = peek_tok_preprocessor(lexer);
+            if (token->kind == TOKEN_IDENT) {
+                const char *macro_name = token->ident.str;
+                // select macro definition up to end of the line
+                NOT_IMPLEMENTED;
+            } else {
+                NOT_IMPLEMENTED;
+            }
+        } break;
+        case PP_KEYWORD_UNDEF: {
+            eat_tok(lexer);
+            token = peek_tok_preprocessor(lexer);
+            if (token->kind == TOKEN_IDENT) {
+                const char *macro_name = token->ident.str;
+                // do undef 
+                NOT_IMPLEMENTED;
+            } else {
+                NOT_IMPLEMENTED;
+            }
+        } break;
+        case PP_KEYWORD_INCLUDE: {
+            eat_tok(lexer);
+            token = peek_tok_preprocessor(lexer);
+            if (token->kind == TOKEN_PP_FILENAME) {
+                push_file_to_lexer_buffer_stack(token->str.str);
+                eat_tok(lexer);
+                NOT_IMPLEMENTED;
+            } else {
+                NOT_IMPLEMENTED;
+            }
+        } break;
+        case PP_KEYWORD_IF: {
+            eat_tok(lexer);
+            
+            // Ast *expr = pp_parse_expr(lexer);
+            // u32 value = pp_evaluate(expr);
+            // if (value) {
+            //     // nop
+            // } else {
+            //     pp_jump_to_next_cond_st(lexer);
+            //     parse_preprocessor_directive(lexer);
+            // }
+        } break;
+        case PP_KEYWORD_IFDEF: {
+            eat_tok(lexer);
+            
+            // token = peek_tok_preprocessor(lexer);
+            // if (token->kind == TOKEN_IDENT) {
+            //     PP_Macro *macro = pp_macro_lookup(&lexer->pp, token->ident.str);
+            //     if (macro) {
+                    
+            //     } else {
+                    
+            //     }
+            // }
+        } break;
+        case PP_KEYWORD_IFNDEF: {
+            NOT_IMPLEMENTED;
+        } break;
+        case PP_KEYWORD_ELSE: {
+            NOT_IMPLEMENTED;
+        } break;
+        case PP_KEYWORD_ELIFDEF: {
+            NOT_IMPLEMENTED;
+        } break;
+        case PP_KEYWORD_ELIFNDEF: {
+            NOT_IMPLEMENTED;
+        } break;
+        case PP_KEYWORD_PRAGMA: {
+            NOT_IMPLEMENTED;
+        } break;
+        }
+    } else if (token->kind != TOKEN_EOS) {
+        NOT_IMPLEMENTED;
+    } 
+}
+
 Token *
 peek_tok(Lexer *lexer) {
     Token *token = get_current_token(lexer);
@@ -392,32 +679,27 @@ peek_tok(Lexer *lexer) {
     add_token_to_stack(lexer, token);
     
     for (;;) {
-        u32 codepoint = *lexer->unicode_buf;
+        u8 codepoint = *lexer->buf_at; 
         if (!codepoint) {
             token->kind = TOKEN_EOS;
             break;
         }
         
+        
         // 'skipping' cases
-        if (is_space(codepoint)) {
-            advance(lexer, 1);
-            continue;
-        } else if (parse(lexer, "//")) {
-            for (;;) {
-                advance(lexer, 1);
-                if (parse(lexer, "\n") || !*lexer->unicode_buf) {
-                    break;
-                }   
-            }
+        skip_spaces(lexer);
+        codepoint = *lexer->buf_at;
+        if (parse(lexer, "//")) {
             continue;
         } else if (parse(lexer, "/*")) {
             for (;;) {
-                if (parse(lexer, "*/") || !*lexer->unicode_buf) {
+                if (parse(lexer, "*/") || !*lexer->buf_at) {
                     break;
                 }
             }
             continue;
         } else if (codepoint == '#') {
+            advance(lexer, 1);
             parse_preprocessor_directive(lexer);
             continue;
         } 
@@ -426,19 +708,86 @@ peek_tok(Lexer *lexer) {
         token->src_loc = lexer->curr_loc;
         if (is_digit(codepoint)) {
             parse_number(lexer, token);
+            break;
         } else if (is_ident_start(codepoint)) {
-            
-            for (;;) {
-                
+            char buf[4096];
+            u32 len = 0;
+            while (is_ident(*lexer->buf_at)) {
+                buf[len++] = *lexer->buf_at++;
             }
+            buf[len] = 0;
+            u32 keyword_enum = 0;
+            u32 keyword_iter = 0;
+            ITER_KEYWORDS(keyword_iter) {
+                if (str_eq(buf, KEYWORD_STRINGS[keyword_iter])) {
+                    keyword_enum = keyword_iter;
+                    break;
+                }
+            }
+            
+            if (keyword_enum) {
+                token->kind = TOKEN_KEYWORD;
+                token->kw.kind = keyword_enum;
+            } else {
+                token->kind = TOKEN_IDENT;
+                token->ident.str = mem_alloc_str(buf);
+            }
+            break;
         } else if (codepoint == '\"') {
             
+            break;
         } else if (is_punct(codepoint)) {
+            u32 punct_enum = 0;
+            u32 punct_iter = 0;
+            ITER_PUNCTUATORS(punct_iter) {
+                if (parse(lexer, PUNCTUATOR_STRINGS[punct_iter - 0x100])) {
+                    punct_enum = punct_iter;
+                    break;
+                }
+            }
             
+            token->kind = TOKEN_PUNCTUATOR;
+            if (punct_enum) {
+                token->punct.kind = punct_enum;
+            } else {
+                token->punct.kind = codepoint;
+                advance(lexer, 1);
+            }
+            break;
         } else {
             assert(false);
         }
     }
     
     return token;
+}
+
+void 
+eat_tok(Lexer *lexer) {
+    pop_token_from_stack(lexer);
+}
+
+Lexer *
+create_lexer(struct Compiler_Ctx *ctx, const char *filename) {
+    OS_File_Handle file_handle = os_open_file_read(filename);
+    u64 file_size = os_get_file_size(file_handle) + 1;
+    void *source_data_init = mem_alloc(file_size);
+    os_read_file(file_handle, 0, source_data_init, file_size - 1);
+    ((char *)source_data_init)[file_size] = 0;
+    os_close_file(file_handle);    
+    
+    // u32 *decoded_text = mem_alloc(file_size * 4);
+    // u32 decoded_text_size = 0;
+    // const void *source_data = source_data_init;
+    // while (source_data != source_data_init + file_size) {
+    //     source_data = utf8_decode(source_data, decoded_text + decoded_text_size++);
+    // }
+    // mem_free(source_data_init, file_size);
+ 
+    Lexer *lexer = arena_bootstrap(Lexer, arena);
+    lexer->ctx = ctx;
+    lexer->buf_capacity = file_size;
+    lexer->buf = lexer->buf_at = source_data_init;
+    
+    return lexer;
 }

@@ -30,9 +30,21 @@ typedef struct {
     u32 symb;
 } Src_Loc;
 
+typedef struct {
+    u64   data_size;
+    void *data;
+} File_Data;
+
+typedef struct {
+    File_Data data;
+    bool is_valid;
+} File_Data_Get_Result;
+
 typedef struct File_Registry_Entry {
-    u32 id;
+    u64  id;
     char path[MAX_FILEPATH_LENGTH];
+    bool has_data;
+    File_Data data;
 } File_Registry_Entry;
 
 typedef struct File_Registry {
@@ -40,11 +52,14 @@ typedef struct File_Registry {
     
     // @NOTE(hl): Just continiously incremented - free lists could be added, but we are using hash table 
     // so there is little point in doing that
-    u64 next_file_id; 
+    u64 next_file_idx; 
     
     Hash_Table64         hash_table;
-    File_Registry_Entry *files;
+    File_Registry_Entry *files[MAX_FILES];
 } File_Registry;
 
+File_Registry *create_file_registry(struct Memory_Arena *arena);
+
 File_ID register_file(File_Registry *fr, const char *filename);
+File_Data_Get_Result get_file_data(File_Registry *fr, File_ID id);
 const char *get_file_path(File_Registry *fr, File_ID id);

@@ -58,6 +58,7 @@ typedef struct String_Storage {
     // are _never_ going to happen). Because of that, access time for writing is extremely low
     String_Storage_Buffer *buffer;
     u32 buffer_count;
+    String_Storage_Buffer *first_free_buffer;
     
     // Hash table is used to store information whether string with current hash
     // is already in the table, or should be written as new one
@@ -70,9 +71,9 @@ typedef struct String_Storage {
 } String_Storage;
 
 String_Storage *create_string_storage(struct Memory_Arena *arena);
-void string_storage_begin_write(String_Storage *storage, u32 string_mode);
-void string_storage_write(String_Storage *storage, const void *bf, uptr bf_sz);
+void string_storage_begin_write(String_Storage *storage);
+void string_storage_write(String_Storage *storage, const void *bf, u32 bf_sz);
 String_ID string_storage_end_write(String_Storage *storage);
 // shorthand for writing calls for above 3 functions
 String_ID string_storage_add(String_Storage *storage, const char *str);
-const char *string_storge_get(String_Storage *storage, String_ID id);
+const char *string_storage_get(String_Storage *storage, String_ID id);

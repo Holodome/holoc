@@ -92,32 +92,32 @@ Out_Stream *get_stderr_stream(void);
 //  to avoid copying, provides direct memory access in size-constrained mode to the data
 //  contained in file 
 // @NOTE(hl): There is no plan to add support for stdin streams, just because there is no such necessity.
-typedef struct In_Stream {
-    OS_File_Handle file;
-    u64 file_cursor;
-    u64 file_size;
+// typedef struct In_Stream {
+//     OS_File_Handle file;
+//     u64 file_cursor;
+//     u64 file_size;
     
-    u8 *bf;
-    u32 bf_sz;
-    u32 threshold;
-    u32 bf_used;
-} In_Stream;
+//     u8 *bf;
+//     u32 bf_sz;
+//     u32 threshold;
+//     u32 bf_used;
+// } In_Stream;
 
-void init_in_stream(In_Stream *stream, OS_File_Handle file_handle, 
-    void *bf, u32 bf_sz, u32 threshold);
-Buffer in_stream_get_data(In_Stream *stream);
-void in_stream_advance(In_Stream *stream);
+// void init_in_stream(In_Stream *stream, OS_File_Handle file_handle, 
+//     void *bf, u32 bf_sz, u32 threshold);
+// Buffer in_stream_get_data(In_Stream *stream);
+// void in_stream_advance(In_Stream *stream);
 
 // @NOTE(hl): Acceleration structure for handling UTF8 input.
 //  decodes a part of text and stores unicode codepoints in full size
-typedef struct In_UTF8_Stream {
-    In_Stream *in_stream;
-    u32 *unicode_codepoint_buf;
-    u32  unicode_codepoint_buf_size;
-    u32  unicode_codepoint_buf_threshold;
-} In_UTF8_Stream;
+// typedef struct In_UTF8_Stream {
+//     In_Stream *in_stream;
+//     u32 *unicode_codepoint_buf;
+//     u32  unicode_codepoint_buf_size;
+//     u32  unicode_codepoint_buf_threshold;
+// } In_UTF8_Stream;
 
-void init_in_utf8_stream(In_UTF8_Stream *stream, In_Stream *raw_stream, 
-    void *bf, u32 bf_sz, 
-    u32 threshold);
-void in_utf8_stream_
+// void init_in_utf8_stream(In_UTF8_Stream *stream, In_Stream *raw_stream, 
+//     void *bf, u32 bf_sz, 
+//     u32 threshold);
+// void in_utf8_stream_

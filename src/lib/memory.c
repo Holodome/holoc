@@ -8,7 +8,11 @@
 void *
 mem_realloc(void *ptr, uptr old_size, uptr size) {
     void *new_ptr = mem_alloc(size);
-    mem_copy(new_ptr, ptr, old_size);
+    u32 size_to_copy = old_size;
+    if (size < size_to_copy) {
+        size_to_copy = size;
+    }
+    mem_copy(new_ptr, ptr, size_to_copy);
     mem_free(ptr, old_size);
     return new_ptr;
 }
