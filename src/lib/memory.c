@@ -87,12 +87,12 @@ arena_alloc(Memory_Arena *arena, uptr size_init) {
             STACK_ADD(arena->current_block, new_block);
         }
 
-        assert(arena->current_block->used + size < arena->current_block->size);
+        assert(arena->current_block->used + size <= arena->current_block->size);
         uptr align_offset = get_alignment_offset(arena, MEM_DEFAULT_ALIGNMENT);
         uptr block_offset = arena->current_block->used + align_offset;
         result = arena->current_block->base + block_offset;
         arena->current_block->used += size;
-        assert(block_offset + size < arena->current_block->size);
+        assert(block_offset + size <= arena->current_block->size);
         assert(size >= size_init);
     }
     return result;

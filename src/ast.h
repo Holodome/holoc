@@ -35,7 +35,7 @@ enum {
 };
 
 #define AST_FIELDS \
-u32 kind;          \
+u32 ast_kind;      \
 Src_Loc src_loc;   \
 struct Ast *next;  \
 struct Ast *prev;
@@ -53,8 +53,9 @@ typedef struct {
     const char *ident;
 } Ast_Ident;
 
-enum {
-};
+// enum {
+    
+// };
 
 typedef struct {
     AST_FIELDS

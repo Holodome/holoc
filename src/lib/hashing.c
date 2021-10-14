@@ -143,6 +143,7 @@ hash_table64_get(Hash_Table64 *table, u64 key) {
     if (valuep) {
         result.is_valid = true;
         result.value = *valuep;
+        result.idx = valuep - table->values;
     }
     return result;
 }
