@@ -85,7 +85,9 @@ static const char *PREPROCESSOR_KEYWORD_STRINGS[] = {
     "pragma",
     "error",
     "defined",
-    "line"
+    "line",
+    "elif",
+    "endif"
 };
 
 static const char *PUNCTUATOR_STRINGS[] = {
@@ -483,24 +485,24 @@ get_current_buf(Lexer *lexer) {
     return lexer->buffer_stack;
 }
 
-Macro *
+PP_Macro *
 pp_get(Lexer *lexer, const char *name) {
-    Macro *result = 0;
+    PP_Macro *result = 0;
     u32 name_length = zlen(name);
     u64 name_hash = LEX_STR_HASH_FUNC(name, name_length);
     Hash_Table64_Get_Result get_result = hash_table64_get(&lexer->macro_hash, name_hash);
     if (get_result.is_valid) {
         u32 slot_idx = get_result.value;
-        Macro *slot = lexer->macros + slot_idx;
+        PP_Macro *slot = lexer->macros + slot_idx;
         result = slot;
         assert(result->id == name_hash);
     } 
     return result;
 }
 
-Macro * 
+PP_Macro * 
 pp_define(Lexer *lexer, const char *name) {
-    Macro *result = 0;
+    PP_Macro *result = 0;
     u32 name_length = zlen(name);
     u64 name_hash = LEX_STR_HASH_FUNC(name, name_length);
     Hash_Table64_Get_Result get_result = hash_table64_get(&lexer->macro_hash, name_hash);
@@ -510,6 +512,7 @@ pp_define(Lexer *lexer, const char *name) {
         assert(lexer->macros[slot_idx].id == name_hash);
     } else {
         slot_idx = get_result.idx;
+        hash_table64_set(&lexer->macro_hash, name_hash, slot_idx);
     }
     
     assert(slot_idx != (u32)-1);
@@ -527,6 +530,32 @@ pp_undef(Lexer *lexer, const char *name) {
     u32 name_length = zlen(name);
     u64 name_hash = LEX_STR_HASH_FUNC(name, name_length);
     hash_table64_delete(&lexer->macro_hash, name_hash);
+}
+
+
+void 
+pp_push_nested_if(Lexer *lexer, bool is_handled) {
+    assert(lexer->nested_if_cursor + 1 < MAX_NESTED_IFS);
+    PP_Nested_If *ifs = lexer->nested_ifs + lexer->nested_if_cursor++;
+    ifs->is_handled = is_handled;
+}
+
+bool 
+pp_get_nested_if_handled(Lexer *lexer) {
+    assert(lexer->nested_if_cursor);
+    return lexer->nested_ifs[lexer->nested_if_cursor - 1].is_handled;
+}
+
+void 
+pp_set_nested_if_handled(Lexer *lexer) {
+    assert(lexer->nested_if_cursor);
+    lexer->nested_ifs[lexer->nested_if_cursor - 1].is_handled = true;
+}
+
+void 
+pp_pop_nested_if(Lexer *lexer)  {
+    assert(lexer->nested_if_cursor);
+    --lexer->nested_if_cursor;
 }
 
 u8 
@@ -569,15 +598,29 @@ skip_spaces(Lexer *lexer) {
     return true;
 }
 
+bool
+pp_skip_spaces(Lexer *lexer) {
+    bool skipped = false;
+    for (;;) {
+        u8 codepoint = peek_codepoint(lexer);
+        if (is_space(codepoint) && codepoint != '\n') {
+            skipped = true;
+            advance(lexer, 1);
+        } else {
+            break;
+        }
+    }
+    return skipped;
+}
+
 static Token *
-peek_tok_preprocessor(Lexer *lexer) {
+pp_peek_tok(Lexer *lexer) {
     Token *token = get_current_token(lexer);
     if (token) {
         return token;
     }
     
     token = arena_alloc_struct(lexer->arena, Token);
-    add_token_to_stack(lexer, token);
     
     for (;;) {
         {
@@ -589,13 +632,15 @@ peek_tok_preprocessor(Lexer *lexer) {
             }
         }
         
-        skip_spaces(lexer);
+        if (pp_skip_spaces(lexer)) {
+            continue;
+        }
         if (parse(lexer, "//")) {
             while (get_current_buf(lexer) && peek_codepoint(lexer) != '\n') {
                 advance(lexer, 1);
             }
             token->kind = TOKEN_EOS;
-            break;;
+            break;
         } else if (parse(lexer, "/*")) {
             for (;;) {
                 if (!get_current_buf(lexer) || parse(lexer, "*/")) {
@@ -683,36 +728,89 @@ peek_tok_preprocessor(Lexer *lexer) {
         }
     }
     
+    add_token_to_stack(lexer, token);
+    
     return token;
 }
 
 static void 
+pp_skip_to_next_matching_if(Lexer *lexer) {
+    u32 depth = 0;
+    for (;;) {
+        u8 codepoint = peek_codepoint(lexer);
+        if (codepoint == '#') {
+            advance(lexer, 1);
+            Token *token = pp_peek_tok(lexer);
+            if (token->kind == TOKEN_KEYWORD) {
+                if (token->kw.kind == PP_KEYWORD_IF || 
+                    token->kw.kind == PP_KEYWORD_IFDEF ||
+                    token->kw.kind == PP_KEYWORD_IFNDEF) {
+                    ++depth;       
+                    eat_tok(lexer);
+                } else if ((token->kw.kind == PP_KEYWORD_ELIF || 
+                            token->kw.kind == PP_KEYWORD_ELIFDEF || 
+                            token->kw.kind == PP_KEYWORD_ELIFNDEF || 
+                            token->kw.kind == PP_KEYWORD_ENDIF) && depth != 0) {
+                    if (token->kw.kind == PP_KEYWORD_ENDIF) {
+                        --depth;
+                    } 
+                    eat_tok(lexer);
+                } else if ((token->kw.kind == PP_KEYWORD_ELIF || 
+                            token->kw.kind == PP_KEYWORD_ELIFDEF || 
+                            token->kw.kind == PP_KEYWORD_ELIFNDEF || 
+                            token->kw.kind == PP_KEYWORD_ENDIF) && depth == 0) {
+                    break;
+                } else {
+                    eat_tok(lexer);
+                }
+            } else {
+                advance(lexer, 1);
+            }
+        } else if (!codepoint) {
+            break;
+        } else {
+            advance(lexer, 1);
+        }
+    }
+    assert(depth == 0);
+}
+
+static void 
 parse_preprocessor_directive(Lexer *lexer) {
-    Token *token = peek_tok_preprocessor(lexer);
+    Token *token = 0;
+start:
+    token = pp_peek_tok(lexer);
     if (token->kind == TOKEN_KEYWORD) {
         switch(token->kw.kind) {
         INVALID_DEFAULT_CASE;
         case PP_KEYWORD_DEFINE: {
             eat_tok(lexer);
-            token = peek_tok_preprocessor(lexer);
+            token = pp_peek_tok(lexer);
             if (token->kind == TOKEN_IDENT) {
                 const char *macro_name = token->ident.str;
                 eat_tok(lexer);
-                // select macro definition up to end of the line
-                Macro *macro = pp_define(lexer, macro_name);
-                for (;;) {
-                    if (parse(lexer, "\\\n")) {
-                        advance(lexer, 2);
-                    } else {
-                        u8 codepoint = peek_codepoint(lexer);
-                        if (codepoint == '\n') {
-                            break;
+                token = pp_peek_tok(lexer);
+                if (token->kind == TOKEN_EOS) {
+                    eat_tok(lexer);
+                    // select macro definition up to end of the line
+                    // If \\n is met, continue parsing line as if it was one
+                    PP_Macro *macro = pp_define(lexer, macro_name);
+                    for (;;) {
+                        if (parse(lexer, "\\\n")) {
+                            // advance(lexer, 2);
                         } else {
-                            assert(macro->definition_len < MAX_PREPROCESSOR_LINE_LENGTH);
-                            macro->definition[macro->definition_len++] = codepoint;
-                            advance(lexer, 1);
+                            u8 codepoint = peek_codepoint(lexer);
+                            if (codepoint == '\n') {
+                                break;
+                            } else {
+                                assert(macro->definition_len < MAX_PREPROCESSOR_LINE_LENGTH);
+                                macro->definition[macro->definition_len++] = codepoint;
+                                advance(lexer, 1);
+                            }
                         }
                     }
+                } else {
+                    NOT_IMPLEMENTED;  
                 }
             } else {
                 NOT_IMPLEMENTED;
@@ -720,7 +818,7 @@ parse_preprocessor_directive(Lexer *lexer) {
         } break;
         case PP_KEYWORD_UNDEF: {
             eat_tok(lexer);
-            token = peek_tok_preprocessor(lexer);
+            token = pp_peek_tok(lexer);
             if (token->kind == TOKEN_IDENT) {
                 const char *macro_name = token->ident.str;
                 pp_undef(lexer, macro_name);
@@ -730,11 +828,11 @@ parse_preprocessor_directive(Lexer *lexer) {
         } break;
         case PP_KEYWORD_INCLUDE: {
             eat_tok(lexer);
-            token = peek_tok_preprocessor(lexer);
+            token = pp_peek_tok(lexer);
             if (token->kind == TOKEN_PP_FILENAME) {
                 const char *filename = token->filename.str;
                 eat_tok(lexer);
-                token = peek_tok_preprocessor(lexer);
+                token = pp_peek_tok(lexer);
                 if (token->kind == TOKEN_EOS) {
                     eat_tok(lexer);
                     add_buffer_to_stack_file(lexer, filename);
@@ -745,41 +843,128 @@ parse_preprocessor_directive(Lexer *lexer) {
                 NOT_IMPLEMENTED;
             }
         } break;
-        case PP_KEYWORD_IF: {
-            eat_tok(lexer);
-            
-            // Ast *expr = pp_parse_expr(lexer);
-            // u32 value = pp_evaluate(expr);
-            // if (value) {
-            //     // nop
-            // } else {
-            //     pp_jump_to_next_cond_st(lexer);
-            //     parse_preprocessor_directive(lexer);
-            // }
-        } break;
         case PP_KEYWORD_IFDEF: {
             eat_tok(lexer);
-            
-            // token = peek_tok_preprocessor(lexer);
-            // if (token->kind == TOKEN_IDENT) {
-            //     PP_Macro *macro = pp_macro_lookup(&lexer->pp, token->ident.str);
-            //     if (macro) {
-                    
-            //     } else {
-                    
-            //     }
-            // }
+            token = pp_peek_tok(lexer);
+            if (token->kind == TOKEN_IDENT) {
+                const char *ident_name = token->ident.str;
+                eat_tok(lexer);
+                token = pp_peek_tok(lexer);
+                if (token->kind == TOKEN_EOS) {
+                    eat_tok(lexer);
+                    PP_Macro *macro = pp_get(lexer, ident_name);
+                    bool is_true = macro != 0;
+                    pp_push_nested_if(lexer, is_true);
+                    if (!is_true) {
+                        pp_skip_to_next_matching_if(lexer);
+                        goto start;
+                    }
+                } else {
+                    NOT_IMPLEMENTED;
+                }
+            } else {
+                NOT_IMPLEMENTED;
+            }
         } break;
         case PP_KEYWORD_IFNDEF: {
-            NOT_IMPLEMENTED;
+            eat_tok(lexer);
+            token = pp_peek_tok(lexer);
+            if (token->kind == TOKEN_IDENT) {
+                const char *ident_name = token->ident.str;
+                eat_tok(lexer);
+                token = pp_peek_tok(lexer);
+                if (token->kind == TOKEN_EOS) {
+                    eat_tok(lexer);
+                    PP_Macro *macro = pp_get(lexer, ident_name);
+                    bool is_true = macro == 0;
+                    pp_push_nested_if(lexer, is_true);
+                    if (!is_true) {
+                        pp_skip_to_next_matching_if(lexer);
+                        goto start;
+                    }
+                } else {
+                    NOT_IMPLEMENTED;
+                }
+            } else {
+                NOT_IMPLEMENTED;
+            }
+        } break;
+        case PP_KEYWORD_ENDIF: {
+            eat_tok(lexer);
+            token = pp_peek_tok(lexer);
+            if (token->kind == TOKEN_EOS) {
+                pp_pop_nested_if(lexer);
+            } else {
+                NOT_IMPLEMENTED;
+            }
         } break;
         case PP_KEYWORD_ELSE: {
-            NOT_IMPLEMENTED;
+            eat_tok(lexer);
+            token = pp_peek_tok(lexer);
+            if (token->kind == TOKEN_EOS) {
+                eat_tok(lexer);
+                assert(lexer->nested_if_cursor != 0);
+                if (pp_get_nested_if_handled(lexer)) {
+                    pp_skip_to_next_matching_if(lexer);
+                } else {
+                    pp_set_nested_if_handled(lexer);
+                }
+            } else {
+                NOT_IMPLEMENTED;
+            }
         } break;
         case PP_KEYWORD_ELIFDEF: {
-            NOT_IMPLEMENTED;
+            eat_tok(lexer);token = pp_peek_tok(lexer);
+            if (token->kind == TOKEN_IDENT) {
+                const char *ident_name = token->ident.str;
+                eat_tok(lexer);
+                token = pp_peek_tok(lexer);
+                if (token->kind == TOKEN_EOS) {
+                    eat_tok(lexer);
+                    PP_Macro *macro = pp_get(lexer, ident_name);
+                    bool is_true = macro != 0;
+                    assert(lexer->nested_if_cursor != 0);
+                    if (pp_get_nested_if_handled(lexer) || !is_true) {
+                        pp_skip_to_next_matching_if(lexer);
+                    } else if (is_true) {
+                        pp_set_nested_if_handled(lexer);
+                    }
+                } else {
+                    NOT_IMPLEMENTED;
+                }
+            } else {
+                NOT_IMPLEMENTED;
+            }
         } break;
         case PP_KEYWORD_ELIFNDEF: {
+            eat_tok(lexer);token = pp_peek_tok(lexer);
+            if (token->kind == TOKEN_IDENT) {
+                const char *ident_name = token->ident.str;
+                eat_tok(lexer);
+                token = pp_peek_tok(lexer);
+                if (token->kind == TOKEN_EOS) {
+                    eat_tok(lexer);
+                    PP_Macro *macro = pp_get(lexer, ident_name);
+                    bool is_true = macro == 0;
+                    assert(lexer->nested_if_cursor != 0);
+                    if (pp_get_nested_if_handled(lexer) || !is_true) {
+                        pp_skip_to_next_matching_if(lexer);
+                    } else if (is_true) {
+                        pp_set_nested_if_handled(lexer);
+                    }
+                } else {
+                    NOT_IMPLEMENTED;
+                }
+            } else {
+                NOT_IMPLEMENTED;
+            }
+        } break;
+        case PP_KEYWORD_IF: {
+            eat_tok(lexer);
+            NOT_IMPLEMENTED;
+        } break;
+        case PP_KEYWORD_ELIF: {
+            eat_tok(lexer);
             NOT_IMPLEMENTED;
         } break;
         case PP_KEYWORD_PRAGMA: {

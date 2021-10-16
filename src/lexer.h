@@ -19,6 +19,9 @@ struct Lexer;
 
 #define MAX_PREPROCESSOR_LINE_LENGTH 4096
 #define MAX_PREPROCESSOR_MACROS      4096
+#define MAX_NESTED_IFS               64
+#define MAX_INCLUDE_NESTING          16
+#define MAX_PP_MACRO_ARGS            128
 
 enum {
     TOKEN_EOS        = 0x101,
@@ -102,6 +105,8 @@ enum {
     PP_KEYWORD_ERROR    = 0xB, // error
     PP_KEYWORD_DEFINED  = 0xC, // defined
     PP_KEYWORD_LINE     = 0xD, // line
+    PP_KEYWORD_ELIF     = 0xE, // elif
+    PP_KEYWORD_ENDIF    = 0xF, // endif
     
     PP_KEYWORD_SENTINEL,
 };
@@ -194,7 +199,11 @@ typedef struct Macro {
     
     char definition[MAX_PREPROCESSOR_LINE_LENGTH];
     u32  definition_len;
-} Macro;
+} PP_Macro;
+
+typedef struct {
+    bool is_handled;
+} PP_Nested_If;
 
 typedef struct Lexer {
     struct Memory_Arena *arena;
@@ -202,11 +211,15 @@ typedef struct Lexer {
     
     Lexer_Buffer *buffer_stack;
     Lexer_Buffer *buffer_freelist;
+    u32 include_nesting;
     
     // @TODO(hl): Might want to move this to pointers
-    Macro        macros[MAX_PREPROCESSOR_MACROS];
+    PP_Macro     macros[MAX_PREPROCESSOR_MACROS];
     Hash_Table64 macro_hash;
     u32          next_macro_slot;
+    
+    PP_Nested_If nested_ifs[MAX_NESTED_IFS];
+    u32          nested_if_cursor;
     
     Src_Loc curr_loc;
     // Preprocessor    preprocessor;
@@ -221,9 +234,13 @@ Lexer *create_lexer(struct Compiler_Ctx *ctx, const char *filename);
 Token *peek_tok(Lexer *lexer);
 void eat_tok(Lexer *lexer);
 
-Macro *pp_get(Lexer *lexer, const char *name);
-// @NOTE(hl): Returns pointer to macro so its definition can be written to it directly
-Macro *pp_define(Lexer *lexer, const char *name);
+void pp_push_nested_if(Lexer *lexer, bool is_handled);
+bool pp_get_nested_if_handled(Lexer *lexer);
+void pp_set_nested_if_handled(Lexer *lexer);
+void pp_pop_nested_if(Lexer *lexer);
+
+PP_Macro *pp_get(Lexer *lexer, const char *name);
+PP_Macro *pp_define(Lexer *lexer, const char *name);
 void pp_undef(Lexer *lexer, const char *name);
 
 void add_buffer_to_stack(Lexer *lexer, char *buf, u32 buf_size);

@@ -47,7 +47,6 @@ fmt_path_in_same_dir(char *buffer, u32 buffer_size, File_Registry *fr, const cha
     assert(friend->id = friend_id.opaque);
     Str friend_path = strz(friend->path);
     Str base_path = path_parent(friend_path);
-    outf("base %.*s\n", base_path.len, base_path.data);
     char temp_buffer[MAX_FILEPATH_LENGTH];
     fmt(temp_buffer, sizeof(temp_buffer), "%.*s/%s", 
         base_path.len, base_path.data, filename);
