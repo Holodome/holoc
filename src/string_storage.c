@@ -148,7 +148,7 @@ string_storage_get(String_Storage *ss, String_ID id) {
 }
 
 String_ID string_storage_add(String_Storage *storage, const char *str) {
-    u32 len = str_len(str);
+    u32 len = zlen(str);
     string_storage_begin_write(storage);
     string_storage_write(storage, str, len);
     return string_storage_end_write(storage);

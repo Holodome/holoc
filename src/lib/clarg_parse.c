@@ -26,7 +26,7 @@ find_info(CLArgCtx *ctx, const char *opt) {
     CL_Arg_Info *info = 0;
     for (u32 i = 0; i < ctx->ninfos; ++i) {
         CL_Arg_Info *test = ctx->infos + i;
-        if (str_eq(test->name, opt)) {
+        if (zeq(test->name, opt)) {
             info = test;
             break;
         }
@@ -38,11 +38,11 @@ static void
 write_arg(void *out, u32 type, const char *opt) {
     switch (type) {
     case CLARG_TYPE_F64: {
-        f64 value = str_to_f64(opt);
+        f64 value = z2f64(opt);
         *((f64 *)out) = value;
     } break;
     case CLARG_TYPE_I64: {
-        i64 value = str_to_i64(opt);
+        i64 value = z2i64(opt);
         *((i64 *)out) = value;
     } break;
     case CLARG_TYPE_STR: {

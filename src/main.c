@@ -3,21 +3,26 @@
 #include "lib/memory.h"
 #include "lib/strings.h"
 
+#include "compiler_ctx.h"
 #include "lexer.h"
 
 int 
 main(int argc, char **argv) {
-    Memory_Arena arena = {0};
-    String_Storage *ss = create_string_storage(&arena);
-    // Lexer *lexer = create_lexer(0, "examples/test.h");
-    Lexer *lexer = create_lexer(0, "examples/tests/pp/include.h");
+    const char *include_paths[] = {
+        // "examples/tests/pp/include.h"
+    };
+    
+    Compiler_Ctx *ctx = create_compiler_ctx();
+    ctx->fr->include_seach_paths_count = ARRAY_SIZE(include_paths);
+    ctx->fr->include_search_paths = include_paths;
+    Lexer *lexer = create_lexer(ctx, "examples/tests/pp/include.h");
     for (;;) {
         Token *token = peek_tok(lexer);
         if (token->kind == TOKEN_EOS) {
             break;
         }
         char buf[4096];
-        fmt_token(buf, sizeof(buf), ss, token);
+        fmt_token(buf, sizeof(buf), token);
         outf("%s\n", buf);
         eat_tok(lexer);
     }

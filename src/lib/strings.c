@@ -66,17 +66,20 @@ bool is_int(u32 symb) {
     return is_digit(symb) || symb == '-' || symb == '+';
 }
 
-f64 str_to_f64(const char *str) {
+f64 
+z2f64(const char *str) {
     return atof(str);
 }
 
-i64 str_to_i64(const char *str) {
+i64
+z2i64(const char *str) {
     return atoll(str);
 }
 
-uptr str_cp(char *bf, uptr bf_sz, const char *str) {
+uptr 
+zcp(char *bf, uptr bf_sz, const char *str) {
     uptr bytes_to_copy = bf_sz;
-    uptr len = str_len(str) + 1;
+    uptr len = zlen(str) + 1;
     if (len < bytes_to_copy) {
         bytes_to_copy = len;
     }
@@ -84,7 +87,8 @@ uptr str_cp(char *bf, uptr bf_sz, const char *str) {
     return bytes_to_copy;
 }
 
-bool str_eq(const char *a, const char *b) {
+bool 
+zeq(const char *a, const char *b) {
     while (*a && *b && *a == *b) {
         ++a;
         ++b;
@@ -102,7 +106,7 @@ bool str_eqn(const char *a, const char *b, uptr n) {
     return result;
 }
 
-uptr str_len(const char *str) {
+uptr zlen(const char *str) {
     uptr result = 0;
     while (*str++) {
         ++result;
@@ -199,23 +203,22 @@ uptr erroutv(const char *msg, va_list args) {
     return result;
 }
 
-
-Text text(const char *data, u32 len) {
-    Text text;
+Str 
+str(const char *data, u32 len) {
+    Str text;
     text.data = data;
     text.len = len;
     return text;
 }
 
-bool text_eq(Text a, Text b) {
-    bool result = false;
-    if (a.len == b.len) {
-        result = mem_eq(a.data, b.data, a.len);
-    }
+bool 
+str_eq(Str a, Str b) {
+    bool result = (a.len == b.len) && mem_eq(a.data, b.data, a.len);
     return result;
 }
 
-bool text_startswith(Text a, Text b) {
+bool 
+str_startswith(Str a, Str b) {
     bool result = false;
     if (a.len >= b.len) {
         result = mem_eq(a.data, b.data, b.len);
@@ -223,7 +226,8 @@ bool text_startswith(Text a, Text b) {
     return result;
 }
 
-bool text_endswith(Text a, Text b) {
+bool 
+str_endswith(Str a, Str b) {
     bool result = false;
     if (a.len >= b.len) {
         result = mem_eq(a.data + (a.len - b.len), b.data, b.len);
@@ -231,10 +235,139 @@ bool text_endswith(Text a, Text b) {
     return result;
 }
 
-Text text_substr(Text a, u32 start, u32 end) {
+Str 
+str_substr(Str a, u32 start, u32 end) {
     assert(end >= start);
-    Text result = a;
+    Str result = a;
     result.data += start;
     result.len = end - start;
     return result;
+}
+
+Str 
+str_lstrip_(Str a, Str chars) {
+    for (;;) {
+        if (!a.len) {
+            break;
+        }
+        bool is_found = false;
+        char test = a.data[0];
+        for (u32 i = 0; i < chars.len; ++i) {
+            if (chars.data[i] == test) {
+                is_found = true;
+                break;
+            }
+        }
+        
+        if (is_found) {
+            a = str_substr(a, 1, a.len);
+        } else {
+            break;
+        }
+    }
+    return a;
+}
+
+Str 
+str_rstrip_(Str a, Str chars) {
+     for (;;) {
+        if (!a.len) {
+            break;
+        }
+        bool is_found = false;
+        char test = a.data[a.len - 1];
+        for (u32 i = 0; i < chars.len; ++i) {
+            if (chars.data[i] == test) {
+                is_found = true;
+                break;
+            }
+        }
+        
+        if (is_found) {
+            a = str_substr(a, 0, a.len - 1);
+        } else {
+            break;
+        }
+    }
+    return a;
+}
+
+Str 
+str_strip_(Str a, Str chars) {
+    a = str_lstrip_(a, chars);
+    a = str_rstrip_(a, chars);
+    return a;
+}
+
+u32 
+str_countc(Str str, char symb) {
+    u32 result = 0;
+    for (u32 i = 0; i < str.len; ++i) {
+        if (str.data[i] == symb) {
+            ++result;
+        }
+    }
+    return 0;
+}
+
+u32 
+str_count(Str str, Str substr) {
+    NOT_IMPLEMENTED;
+    return 0;
+}
+
+u32 
+str_findc(Str a, char symb) {
+    NOT_IMPLEMENTED;
+    return 0;
+}
+
+u32 
+str_find(Str a, Str substr) {
+    u32 result = UINT32_MAX;
+    if (a.len >= substr.len) {
+        for (u32 i = 0; i < a.len - substr.len; ++i) {
+            Str temp = str_substr(a, i, i + substr.len);
+            if (str_eq(temp, substr)) {
+                result = i;
+                break;
+            }   
+        }
+    }
+    return result;
+}
+
+u32 
+str_rfindc(Str a, char symb) {
+    NOT_IMPLEMENTED;
+    return 0;
+}
+
+u32 
+str_rfind(Str a, Str substr) {
+    u32 result = UINT32_MAX;
+    if (a.len >= substr.len) {
+        for (u32 i = 0; i < a.len - substr.len; ++i) {
+            Str temp = str_substr(a, i, i + substr.len);
+            if (str_eq(temp, substr)) {
+                result = i;
+            }   
+        }
+    }
+    return result;
+}
+
+void 
+str_lower(Str *strp) {
+    NOT_IMPLEMENTED;
+}
+
+void 
+str_upper(Str *strp) {
+    NOT_IMPLEMENTED;
+}
+
+void 
+str_capitalize(Str *strp) {
+    NOT_IMPLEMENTED;
 }

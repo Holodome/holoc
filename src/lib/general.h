@@ -97,6 +97,7 @@ typedef u64 bool64;
 // @NOTE(hl): Used to get size of statically or stack-allocated array: 
 // int a[] = {1, 2, 3}; int len = ARRAY_SIZE(a); // 3
 #define ARRAY_SIZE(_a) ((uptr)(sizeof(_a) / sizeof(*(_a))))
+#define ARRAY_END(_a) (_a + ARRAY_SIZE(_a))
 
 #ifndef __cplusplus
 #define CT_ASSERT(_expr) char __ctassert ## __LINE__ [!!(_expr)]

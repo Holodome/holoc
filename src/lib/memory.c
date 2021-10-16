@@ -19,7 +19,7 @@ mem_realloc(void *ptr, uptr old_size, uptr size) {
 
 char *
 mem_alloc_str(const char *str) {
-    uptr len = str_len(str) + 1;
+    uptr len = zlen(str) + 1;
     char *result = mem_alloc(len);
     mem_copy(result, str, len);
     return result;    
@@ -107,7 +107,7 @@ arena_copy(Memory_Arena *arena, const void *src, uptr size) {
 
 char *
 arena_alloc_str(Memory_Arena *arena, const char *src) {
-    uptr length = str_len(src);
+    uptr length = zlen(src);
     void *result = arena_alloc(arena, length + 1);
     mem_copy(result, src, length + 1);
     return result; 

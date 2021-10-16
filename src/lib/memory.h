@@ -130,7 +130,7 @@ void arena_free_last_block(Memory_Arena *arena);
 void arena_clear(Memory_Arena *arena);
 // Allocates structure using arena that is located inside this structure
 // Ex: struct A { Memory_Arena *a; }; struct A *b = arena_bootstrap(A, a); (b is allocated on b.a arena)
-#define arena_bootstrap(_type, _field) arena_bootstrap_(sizeof(_type), STRUCT_OFFSET(_type, _field))
+#define arena_bootstrap(_type, _field) (_type *)arena_bootstrap_(sizeof(_type), STRUCT_OFFSET(_type, _field))
 void *arena_bootstrap_(uintptr_t size, uintptr_t arena_offset);
 
 // Alloctions guarded by temporary memory calls are not commited to arena
@@ -142,18 +142,3 @@ typedef struct TemporaryMemory {
 
 TemporaryMemory begin_temp_memory(Memory_Arena *arena);
 void end_temp_memory(TemporaryMemory temp);
-
-// @NOTE there are different allocation technicues (memory pool, packed set, slab allocators, free list linked lists)
-// that program may want to use later.
-// Because what allocation may seem suitable, we can't predict all use cases and features it should support
-// But in later future, it may be benefitial to have some kind of allocator object - such that usage code
-// may not specify allocation technique (like call arena_alloc - specific function). This is substaintilly better 
-// for prototyping
-
-// Temporary allocation. The way it works is by having allocator designated for 
-// temporary allocations. This is common idiom in games, where temporary allocator can free all memory within frames
-// Here it should be used primarily for prototyping, as its execution time is not constant (due to need to zero memory) 
-// When clear is set to true, all allocations overwrite previous ones.
-// When clear is not zero, allocations pile up 
-void tmp_alloc_set_clear(bool clear);
-void *tmp_alloc(uintptr_t size);

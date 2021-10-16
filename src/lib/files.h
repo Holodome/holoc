@@ -13,6 +13,8 @@
 #pragma once
 #include "lib/general.h"
 
+struct Memory_Arena;
+
 enum {
     // 0 in file id could mean not initialized, but this flag explicitly tells that file had errors
     // @NOTE It is still not clear how is better to provide more detailed error details 
@@ -58,3 +60,18 @@ bool os_mkdir(const char *name);
 bool os_rmdir(const char *name, bool is_recursive);
 bool os_rm(const char *name);
 uptr os_fmt_cwd(char *bf, uptr bf_sz);
+
+typedef struct {
+    u32 count;
+    const char **entries;
+} OS_Dir_Entries_Result;
+
+void os_dir_entries(const char *dir, struct Memory_Arena *arena);
+
+typedef struct {
+    bool exists;
+    bool is_directory;
+    u32  size;
+} OS_Stat;
+
+OS_Stat os_stat(const char *filename);

@@ -7,6 +7,8 @@
 #include "c_lang.h"
 #include "ast.h"
 #include "string_storage.h"
+#include "compiler_ctx.h"
+#include "file_registry.h"
 
 #define LEX_STR_HASH_FUNC fnv64
 
@@ -142,7 +144,7 @@ fmt_token_kind(char *buf, u64 buf_sz, u32 kind) {
 }
 
 u32 
-fmt_token(char *buf, u64 buf_sz, String_Storage *ss, Token *token) {
+fmt_token(char *buf, u64 buf_sz, Token *token) {
     u32 result = 0;
     switch (token->kind) {
     case TOKEN_EOS: {
@@ -189,7 +191,7 @@ lexbuf_advance(Lexer_Buffer *buffer, u32 n) {
 
 bool 
 lexbuf_parse(Lexer_Buffer *buffer, const char *lit) {
-    u32 length = str_len(lit);
+    u32 length = zlen(lit);
     bool result = false;
     if (buffer->at + length < buffer->buf + buffer->size) {
         result = mem_eq(buffer->at, lit, length);
@@ -446,6 +448,30 @@ add_buffer_to_stack_pp(Lexer *lexer, char *buf, u32 buf_size) {
 }
 
 void 
+add_buffer_to_stack_file(Lexer *lexer, const char *filename) {
+    File_ID parent_id = {0};
+    {
+        Lexer_Buffer *entry = get_current_buf(lexer);
+        if (entry) {
+            parent_id = entry->file_id;
+        }    
+    }
+    File_ID new_id = register_file(lexer->ctx->fr, filename, parent_id);
+    File_Data_Get_Result get_result = get_file_data(lexer->ctx->fr, new_id);
+    if (get_result.is_valid) {
+        File_Data data = get_result.data;
+    
+        Lexer_Buffer *entry = get_new_buffer_stack_entry(lexer);
+        entry->buf = entry->at = data.data;
+        entry->size = data.data_size;
+        entry->file_id = new_id;
+        STACK_ADD(lexer->buffer_stack, entry);       
+    } else {
+        NOT_IMPLEMENTED;
+    }
+}
+
+void 
 pop_buffer_from_stack(Lexer *lexer) {
     Lexer_Buffer *entry = lexer->buffer_stack;
     STACK_POP(lexer->buffer_stack);
@@ -460,7 +486,7 @@ get_current_buf(Lexer *lexer) {
 Macro *
 pp_get(Lexer *lexer, const char *name) {
     Macro *result = 0;
-    u32 name_length = str_len(name);
+    u32 name_length = zlen(name);
     u64 name_hash = LEX_STR_HASH_FUNC(name, name_length);
     Hash_Table64_Get_Result get_result = hash_table64_get(&lexer->macro_hash, name_hash);
     if (get_result.is_valid) {
@@ -475,7 +501,7 @@ pp_get(Lexer *lexer, const char *name) {
 Macro * 
 pp_define(Lexer *lexer, const char *name) {
     Macro *result = 0;
-    u32 name_length = str_len(name);
+    u32 name_length = zlen(name);
     u64 name_hash = LEX_STR_HASH_FUNC(name, name_length);
     Hash_Table64_Get_Result get_result = hash_table64_get(&lexer->macro_hash, name_hash);
     u32 slot_idx = (u32)-1;
@@ -498,7 +524,7 @@ pp_define(Lexer *lexer, const char *name) {
 
 void 
 pp_undef(Lexer *lexer, const char *name) {
-    u32 name_length = str_len(name);
+    u32 name_length = zlen(name);
     u64 name_hash = LEX_STR_HASH_FUNC(name, name_length);
     hash_table64_delete(&lexer->macro_hash, name_hash);
 }
@@ -601,7 +627,7 @@ peek_tok_preprocessor(Lexer *lexer) {
             u32 keyword_enum = 0;
             u32 keyword_iter = 0;
             ITER_PREPROCESSOR_KEYWORD(keyword_iter) {
-                if (str_eq(buf, PREPROCESSOR_KEYWORD_STRINGS[keyword_iter])) {
+                if (zeq(buf, PREPROCESSOR_KEYWORD_STRINGS[keyword_iter])) {
                     keyword_enum = keyword_iter;
                     break;
                 }
@@ -616,8 +642,23 @@ peek_tok_preprocessor(Lexer *lexer) {
             }
             break;
         } else if (peek_codepoint(lexer) == '\"' || peek_codepoint(lexer) == '<') {
-            NOT_IMPLEMENTED;
+            advance(lexer, 1);
+            char buf[4096];
+            u32 len = 0;
+            for (;;) {
+                u8 codepoint = peek_codepoint(lexer);
+                if (codepoint == '\"' || codepoint == '>') {
+                    break;
+                } else {
+                    buf[len++] = codepoint;
+                    advance(lexer, 1);
+                }
+            }
+            advance(lexer, 1);
+            buf[len] = 0;
+            
             token->kind = TOKEN_PP_FILENAME;
+            token->filename.str = mem_alloc_str(buf);
             break;
         } else if (is_punct(peek_codepoint(lexer))) {
             u32 punct_enum = 0;
@@ -691,9 +732,15 @@ parse_preprocessor_directive(Lexer *lexer) {
             eat_tok(lexer);
             token = peek_tok_preprocessor(lexer);
             if (token->kind == TOKEN_PP_FILENAME) {
-                // push_file_to_lexer_buffer_stack(token->str.str);
+                const char *filename = token->filename.str;
                 eat_tok(lexer);
-                NOT_IMPLEMENTED;
+                token = peek_tok_preprocessor(lexer);
+                if (token->kind == TOKEN_EOS) {
+                    eat_tok(lexer);
+                    add_buffer_to_stack_file(lexer, filename);
+                } else {
+                    NOT_IMPLEMENTED;
+                }
             } else {
                 NOT_IMPLEMENTED;
             }
@@ -798,7 +845,7 @@ peek_tok(Lexer *lexer) {
             u32 keyword_enum = 0;
             u32 keyword_iter = 0;
             ITER_KEYWORDS(keyword_iter) {
-                if (str_eq(buf, KEYWORD_STRINGS[keyword_iter])) {
+                if (zeq(buf, KEYWORD_STRINGS[keyword_iter])) {
                     keyword_enum = keyword_iter;
                     break;
                 }
@@ -850,27 +897,12 @@ eat_tok(Lexer *lexer) {
 
 Lexer *
 create_lexer(struct Compiler_Ctx *ctx, const char *filename) {
-    OS_File_Handle file_handle = os_open_file_read(filename);
-    u64 file_size = os_get_file_size(file_handle) + 1;
-    void *source_data_init = mem_alloc(file_size);
-    os_read_file(file_handle, 0, source_data_init, file_size - 1);
-    ((char *)source_data_init)[file_size] = 0;
-    os_close_file(file_handle);    
-    
-    // u32 *decoded_text = mem_alloc(file_size * 4);
-    // u32 decoded_text_size = 0;
-    // const void *source_data = source_data_init;
-    // while (source_data != source_data_init + file_size) {
-    //     source_data = utf8_decode(source_data, decoded_text + decoded_text_size++);
-    // }
-    // mem_free(source_data_init, file_size);
- 
     Lexer *lexer = arena_bootstrap(Lexer, arena);
     lexer->ctx = ctx;
     lexer->macro_hash.num_buckets = MAX_PREPROCESSOR_MACROS;
     lexer->macro_hash.keys = arena_alloc_array(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
     lexer->macro_hash.values = arena_alloc_array(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
-    add_buffer_to_stack(lexer, source_data_init, file_size);
+    add_buffer_to_stack_file(lexer, filename);
     
     return lexer;
 }

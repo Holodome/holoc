@@ -148,7 +148,7 @@ typedef struct Token {
         struct {
             const char *str;
             // String_ID str;
-        } str, ident;
+        } str, ident, filename;
         struct {
             u32 kind;
         } kw;
@@ -167,7 +167,7 @@ typedef struct Token {
 } Token;
 
 u32 fmt_token_kind(char *buf, u64 buf_sz, u32 kind);
-u32 fmt_token(char *buf, u64 buf_sz, struct String_Storage *ctx, Token *token);
+u32 fmt_token(char *buf, u64 buf_sz, Token *token);
 
 typedef struct Token_Stack_Entry {
     Token *token;
@@ -178,8 +178,9 @@ typedef struct Token_Stack_Entry {
 typedef struct Lexer_Buffer {
     char *buf;
     char *at;
-    u32   size;
+    u32  size;
     bool is_pp;
+    File_ID file_id; // if is_pp is false
     struct Lexer_Buffer *next;
 } Lexer_Buffer;
 
@@ -227,6 +228,7 @@ void pp_undef(Lexer *lexer, const char *name);
 
 void add_buffer_to_stack(Lexer *lexer, char *buf, u32 buf_size);
 void add_buffer_to_stack_pp(Lexer *lexer, char *buf, u32 buf_size);
+void add_buffer_to_stack_file(Lexer *lexer, const char *filename);
 void pop_buffer_from_stack(Lexer *lexer);
 Lexer_Buffer *get_current_buf(Lexer *lexer);
 

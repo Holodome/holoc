@@ -23,18 +23,18 @@ bool is_punct(u32 symb);
 bool is_real(u32 symb);
 bool is_int(u32 symb);
 
-f64 str_to_f64(const char *str);
-i64 str_to_i64(const char *str);
+f64 z2f64(const char *str);
+i64 z2i64(const char *str);
 
 // Copies string str to bf. Number of written bytes is min(bf_sz, strlen(str) + 1)
 // Return number of copied bytes
-uptr str_cp(char *bf, uptr bf_sz, const char *str);
+uptr zcp(char *bf, uptr bf_sz, const char *str);
 // Returns true if two given strings are equal, false otherwise
-bool str_eq(const char *a, const char *b);
+bool zeq(const char *a, const char *b);
 // Returns true if first n characters of both strings are equal or strings are equal
-bool str_eqn(const char *a, const char *b, uptr n);
+bool zeqn(const char *a, const char *b, uptr n);
 // Returns string length
-uptr str_len(const char *str);
+uptr zlen(const char *str);
 
 // Returns length of utf8-encoded symbol. 
 // 0 means error
@@ -46,21 +46,35 @@ uptr outv(const char *msg, va_list args);
 uptr erroutf(const char *msg, ...);
 uptr erroutv(const char *msg, va_list args);
 
-// What is known a string usually. In some systems terminology between these terms differs,
-// but here Text is synonymous to string.
-// But cstrings should be called strings, and 'strings' are called text
-typedef struct Text {
+typedef struct Str {
     const char *data;
     u32 len;
-} Text;
+} Str;
 
-Text text(const char *data, u32 len);
-bool text_eq(Text a, Text b);
-bool text_startswith(Text a, Text b);
-bool text_endswith(Text a, Text b);
-Text text_substr(Text a, u32 start, u32 end);
+#define WRAP_Z(_z) ((Str){ _z, sizeof(_z) - 1})
+#define strz(_str) str(_str, zlen(_str))
+Str str(const char *data, u32 len);
+bool str_eq(Str a, Str b);
+bool str_startswith(Str a, Str b);
+bool str_endswith(Str a, Str b);
+Str str_substr(Str a, u32 start, u32 end);
+#define str_lstrip(_a, ...) str_lstrip_(_a, (WRAP_Z(" "), ##__VA_ARGS__))
+Str str_lstrip_(Str a, Str chars);
+#define str_rstrip(_a, ...) str_rstrip_(_a, (WRAP_Z(" "), ##__VA_ARGS__))
+Str str_rstrip_(Str a, Str chars);
+#define str_strip(_a, ...) str_strip_(_a, (WRAP_Z(" "), ##__VA_ARGS__))
+Str str_strip_(Str a, Str chars);
+u32 str_countc(Str str, char symb);
+u32 str_count(Str str, Str substr);
+u32 str_findc(Str a, char symb); 
+u32 str_find(Str a, Str substr);
+u32 str_rfindc(Str a, char symb); 
+u32 str_rfind(Str a, Str substr);
+void str_lower(Str *strp);
+void str_upper(Str *strp);
+void str_capitalize(Str *strp);
 
-typedef struct Text_UTF8 {
+typedef struct Str_UTF8 {
     u8 *data;
     uptr len;
-} Text_UTF8;
+} Str_UTF8;
