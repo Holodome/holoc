@@ -154,12 +154,8 @@ typedef struct Token {
             const char *str;
             // String_ID str;
         } str, ident, filename;
-        struct {
-            u32 kind;
-        } kw;
-        struct {
-            u32 kind;
-        } punct; 
+        u32 kw;
+        u32 punct;
         struct {
             u32 type;
             union {
@@ -181,11 +177,20 @@ typedef struct Token_Stack_Entry {
 
 // Represents buffer from which data needs to be parsed as source.
 typedef struct Lexer_Buffer {
-    char *buf;
-    char *at;
+    const char *buf;
+    const char *at;
     u32  size;
     bool is_pp;
-    File_ID file_id; // if is_pp is false
+    union {
+        File_ID file_id; // if is_pp is false
+        struct {
+            // If resolving macro is function-like, save what strings
+            // its parameters should be substitueted to
+            const char *macro_args[MAX_PP_MACRO_ARGS];
+            u32 macro_arg_count;
+            struct PP_Macro *macro;
+        };
+    };
     struct Lexer_Buffer *next;
 } Lexer_Buffer;
 
@@ -193,9 +198,13 @@ u8 lexbuf_peek(Lexer_Buffer *buffer);
 u32 lexbuf_advance(Lexer_Buffer *buffer, u32 n);
 bool lexbuf_parse(Lexer_Buffer *buffer, const char *lit);
 
-typedef struct Macro {
+typedef struct PP_Macro {
     u64 id;
     const char *name;
+    bool is_function_like;
+    bool has_varargs;
+    const char *arg_names[MAX_PP_MACRO_ARGS];
+    u32         arg_count;
     
     char definition[MAX_PREPROCESSOR_LINE_LENGTH];
     u32  definition_len;
@@ -243,8 +252,7 @@ PP_Macro *pp_get(Lexer *lexer, const char *name);
 PP_Macro *pp_define(Lexer *lexer, const char *name);
 void pp_undef(Lexer *lexer, const char *name);
 
-void add_buffer_to_stack(Lexer *lexer, char *buf, u32 buf_size);
-void add_buffer_to_stack_pp(Lexer *lexer, char *buf, u32 buf_size);
+void add_buffer_to_stack(Lexer *lexer, Lexer_Buffer *entry);
 void add_buffer_to_stack_file(Lexer *lexer, const char *filename);
 void pop_buffer_from_stack(Lexer *lexer);
 Lexer_Buffer *get_current_buf(Lexer *lexer);

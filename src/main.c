@@ -9,13 +9,13 @@
 int 
 main(int argc, char **argv) {
     const char *include_paths[] = {
-        // "examples/tests/pp/include.h"
+        "examples/tests/pp"
     };
     
     Compiler_Ctx *ctx = create_compiler_ctx();
     ctx->fr->include_seach_paths_count = ARRAY_SIZE(include_paths);
     ctx->fr->include_search_paths = include_paths;
-    Lexer *lexer = create_lexer(ctx, "examples/tests/pp/include.h");
+    Lexer *lexer = create_lexer(ctx, "macro_expansion.h");
     for (;;) {
         Token *token = peek_tok(lexer);
         if (token->kind == TOKEN_EOS) {

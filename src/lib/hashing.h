@@ -21,7 +21,7 @@ typedef struct Hash_Table64 {
 typedef struct {
     bool is_valid;
     u64 value;
-    u32 idx;
+    // u32 idx;
 } Hash_Table64_Get_Result;
 
 Hash_Table64_Get_Result hash_table64_get(Hash_Table64 *table, u64 key);

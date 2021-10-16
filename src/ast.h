@@ -67,6 +67,12 @@ enum {
     AST_UNARY_PLUS        = 0x2, // +
     AST_UNARY_LOGICAL_NOT = 0x3, // ~
     AST_UNARY_NOT         = 0x4, // !
+    
+    
+    PP_AST_UNARY_SUFFIX_INC  = 0x5, // ++
+    PP_AST_UNARY_POSTFIX_INC = 0x6, // ++
+    PP_AST_UNARY_SUFFIX_DEC  = 0x7, // --
+    PP_AST_UNARY_POSTFIX_DEC = 0x8, // --
 };
 
 typedef struct Ast_Unary {
@@ -93,6 +99,19 @@ enum {
     AST_BINARY_RSHIFT      = 0x10, // >>
     AST_BINARY_LOGICAL_AND = 0x11, // &&
     AST_BINARY_LOGICAL_OR  = 0x12, // ||
+    
+    
+    PP_AST_BINARY_A           = 0x13, // =
+    PP_AST_BINARY_ADDA        = 0x13, // +=
+    PP_AST_BINARY_SUBA        = 0x13, // -=  
+    PP_AST_BINARY_DIVA        = 0x13, // /=  
+    PP_AST_BINARY_MULA        = 0x13, // *=  
+    PP_AST_BINARY_MODA        = 0x13, // %=  
+    PP_AST_BINARY_LSHIFTA     = 0x13, // <<=   
+    PP_AST_BINARY_RSHIFTA     = 0x13, // >>=   
+    PP_AST_BINARY_ANDA        = 0x13, // &=   
+    PP_AST_BINARY_ORA         = 0x13, // |=   
+    PP_AST_BINARY_XORA        = 0x13, // ^=   
 };
 
 typedef struct Ast_Binary {
