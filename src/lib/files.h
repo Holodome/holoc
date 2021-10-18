@@ -10,7 +10,8 @@
 //
 // @TODO(hl): @CLEANUP Change from pointers to static structs. There is just little point in that,
 //  because errors are never written to file, and we can make separate function for getting them
-#pragma once
+#ifndef FILES_H
+#define FILES_H
 #include "lib/general.h"
 
 struct Memory_Arena;
@@ -75,3 +76,5 @@ typedef struct {
 } OS_Stat;
 
 OS_Stat os_stat(const char *filename);
+
+#endif

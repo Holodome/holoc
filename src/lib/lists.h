@@ -8,7 +8,8 @@ Macros that can be used to produce differnt linked lists' functionality
 @TODO(hl): Doubly-linked lists are not tested, they probably need to make a copy of added node
     because of macros nature.
 */
-#pragma once
+#ifndef LISTS_H
+#define LISTS_H
 #include "general.h"
 
 #define STACK_ITER(_list, _it) \
@@ -56,6 +57,16 @@ do {\
 (_node)->prev->next = (_node)->next;\
 (_node)->next->prev = (_node)->prev;\
 } while (0);
+
+// static inline void **
+// internal_chaining_get(void **hash_table, u32 hash_value,
+//                       uintptr_t next_offset, uintptr_t hash_offset) {
+//     void **slot = hash_table + hash_value;
+//     while (*slot && ( *((u32 *)(*slot + hash_offset)) ) != hash_value) {
+//         slot = &( *((void **)(*slot + next_offset)) );
+//     }
+//     return *slot;
+// }
 
 //
 // Doubly-linked list
@@ -150,4 +161,5 @@ do { \
         (_node)->next->prev = (_node)->prev;\
     }\
 } while (0);
+#endif 
 #endif 

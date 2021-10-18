@@ -12,7 +12,8 @@ C specification 5.2.4.1  Translation limits
 However, neither C nor C++ specify maximum identifier length.
 Ley that just be the same of string's
 */
-#pragma once 
+#ifndef STRING_STORAGE_H
+#define STRING_STORAGE_H
 #include "lib/general.h"
 #include "lib/hashing.h"
 
@@ -77,3 +78,5 @@ String_ID string_storage_end_write(String_Storage *storage);
 // shorthand for writing calls for above 3 functions
 String_ID string_storage_add(String_Storage *storage, const char *str);
 const char *string_storage_get(String_Storage *storage, String_ID id);
+
+#endif

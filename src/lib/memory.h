@@ -5,7 +5,8 @@
 //
 // Defines memory-related functions, as well as block and arena allocator.
 // @NOTE All allocation functions set allocated memory to zero
-#pragma once 
+#ifndef MEMORY_H
+#define MEMORY_H
 #include "lib/general.h"
 #include "lib/utils.h"
 
@@ -121,7 +122,7 @@ typedef struct Memory_Arena {
 // Allocator functions
 // All arena-based alloctions are aligned according to MEMORY_ARENA_DEFAULT_ALIGNMENT
 #define arena_alloc_struct(_arena, _type) (_type *)arena_alloc(_arena, sizeof(_type))
-#define arena_alloc_array(_arena, _count, _type) (_type *)arena_alloc(_arena, sizeof(_type) * _count)
+#define arena_alloc_arr(_arena, _count, _type) (_type *)arena_alloc(_arena, sizeof(_type) * _count)
 void *arena_alloc(Memory_Arena *arena, uintptr_t size);
 char *arena_alloc_str(Memory_Arena *arena, const char *src);
 void *arena_copy(Memory_Arena *arena, const void *src, uintptr_t size);
@@ -134,11 +135,13 @@ void arena_clear(Memory_Arena *arena);
 void *arena_bootstrap_(uintptr_t size, uintptr_t arena_offset);
 
 // Alloctions guarded by temporary memory calls are not commited to arena
-typedef struct TemporaryMemory {
+typedef struct Temp_Memory {
     Memory_Arena *arena;
     Memory_Block *block;
     uintptr_t block_used;
-} TemporaryMemory;
+} Temp_Memory;
 
-TemporaryMemory begin_temp_memory(Memory_Arena *arena);
-void end_temp_memory(TemporaryMemory temp);
+Temp_Memory begin_temp_memory(Memory_Arena *arena);
+void end_temp_memory(Temp_Memory temp);
+
+#endif

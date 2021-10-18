@@ -4,7 +4,8 @@
 // Version: 0
 //
 // Defines series of functions that are frequently used when oprating with strings.
-#pragma once
+#ifndef STRINGS_H
+#define STRINGS_H
 #include "lib/general.h"
 
 // snprintf wrappers
@@ -78,3 +79,5 @@ typedef struct Str_UTF8 {
     u8 *data;
     uptr len;
 } Str_UTF8;
+
+#endif

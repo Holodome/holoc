@@ -10,6 +10,8 @@ Version: 0
 
 #include "file_registry.h"
 
+struct Memory_Arena;
+
 enum {
     AST_IDENT     = 0x1, // value
     AST_LITERAL   = 0x2, // 1, 1.0, "assa", 'a'
@@ -32,11 +34,12 @@ enum {
     AST_DECL      = 0x13, // int a = b;
     AST_ADDR      = 0x14, // &
     AST_DEREF     = 0x15, // *
+    AST_TYPEDEF   = 0x16, // 
 };
 
 #define AST_FIELDS \
 u32 ast_kind;      \
-Src_Loc src_loc;   \
+Src_Loc *src_loc;  \
 struct Ast *next;  \
 struct Ast *prev;
 

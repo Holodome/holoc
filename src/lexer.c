@@ -9,6 +9,7 @@
 #include "string_storage.h"
 #include "compiler_ctx.h"
 #include "file_registry.h"
+#include "error_reporter.h"
 
 #define LEX_STR_HASH_FUNC fnv64
 
@@ -30,11 +31,11 @@ static const char *KEYWORD_STRINGS[] = {
     "default",
     "do",
     "double",
-    "else ",
-    "enum ",
+    "else",
+    "enum",
     "extern",
     "float",
-    "for ",
+    "for",
     "goto",
     "if",
     "inline",
@@ -50,7 +51,7 @@ static const char *KEYWORD_STRINGS[] = {
     "struct",
     "switch ",
     "typedef",
-    "union ",
+    "union",
     "unsigned",
     "void",
     "volatile",
@@ -60,7 +61,7 @@ static const char *KEYWORD_STRINGS[] = {
     "_Atomic",
     "_Bool",
     "_Complex",
-    "_Decimal128 ",
+    "_Decimal128",
     "_Decimal32",
     "_Decimal64",
     "_Generic",
@@ -163,7 +164,7 @@ fmt_token(char *buf, u64 buf_sz, Token *token) {
     } break;
     case TOKEN_NUMBER: {
         result = fmt(buf, buf_sz, "<num>%llu", 
-            token->number.int_value);
+            token->number.uint_value);
     } break;
     case TOKEN_PUNCTUATOR: {
         result = fmt(buf, buf_sz, "<punct>");
@@ -190,7 +191,13 @@ lexbuf_peek(Lexer_Buffer *buffer) {
 u32 
 lexbuf_advance(Lexer_Buffer *buffer, u32 n) {
     u32 advanced = 0;
-    if (buffer->at < buffer->buf + buffer->size && n--) {
+    while (buffer->at < buffer->buf + buffer->size && n--) {
+        if (*buffer->at == '\n') {
+            ++buffer->line;
+            buffer->symb = 0;
+        } else {
+            ++buffer->symb;
+        }
         ++buffer->at;
         ++advanced;
     }
@@ -386,12 +393,59 @@ parse_number(Lexer *lexer, Token *token) {
     
     token->kind = TOKEN_NUMBER;
     token->number.type = type;
-    token->number.int_value = value;
+    token->number.uint_value = value;
 }
 
 static void
 parse_character_literal(Lexer *lexer, Token *token) {
+    u8 codepoint = peek_codepoint(lexer);
+    assert(codepoint == '\'');
+    advance(lexer, 1);
+    char char_buf[1024];
+    u32 char_buf_len = 0;
+    codepoint = peek_codepoint(lexer);
+    while (codepoint && codepoint != '\'') {
+        char_buf[char_buf_len++] = codepoint;
+        advance(lexer, 1);
+        codepoint = peek_codepoint(lexer);
+    }
+    codepoint = peek_codepoint(lexer);
+    assert(codepoint == '\'');
+    advance(lexer, 1);
+    char_buf[char_buf_len] = 0;
     
+    int value = 0;
+    if (zeq(char_buf, "\\\'")) {
+        value = '\'';
+    } else if (zeq(char_buf, "\\\"")) {
+        value = '\"';
+    } else if (zeq(char_buf, "\\\?")) {
+        value = '\?';
+    } else if (zeq(char_buf, "\\\\")) {
+        value = '\\';
+    } else if (zeq(char_buf, "\\\a")) {
+        value = '\a';
+    } else if (zeq(char_buf, "\\\b")) {
+        value = '\b';
+    } else if (zeq(char_buf, "\\\f")) {
+        value = '\f';
+    } else if (zeq(char_buf, "\\\n")) {
+        value = '\n';
+    } else if (zeq(char_buf, "\\\r")) {
+        value = '\r';
+    } else if (zeq(char_buf, "\\\t")) {
+        value = '\t';
+    } else if (zeq(char_buf, "\\\v")) {
+        value = '\v';
+    } else if (char_buf_len == 1) {
+        value = char_buf[0];
+    } else {
+        report_error(lexer->ctx->er, token->src_loc, "Unexpected format in character constant");
+    }
+    
+    token->kind = TOKEN_NUMBER;
+    token->number.sint_value = value;
+    token->number.type = C_TYPE_SINT;
 }
 
 static Token_Stack_Entry *
@@ -446,13 +500,14 @@ get_new_buffer_stack_entry(Lexer *lexer) {
 void 
 add_buffer_to_stack(Lexer *lexer, Lexer_Buffer *entry) {
     STACK_ADD(lexer->buffer_stack, entry);
+    ++lexer->buffer_stack_size;
 }
 
 void 
 add_buffer_to_stack_file(Lexer *lexer, const char *filename) {
     File_ID parent_id = {0};
     {
-        Lexer_Buffer *entry = get_current_buf(lexer);
+        Lexer_Buffer *entry = get_current_buf(lexer); // @TODO Look into parents too
         if (entry) {
             parent_id = entry->file_id;
         }    
@@ -464,10 +519,10 @@ add_buffer_to_stack_file(Lexer *lexer, const char *filename) {
     
         Lexer_Buffer *entry = get_new_buffer_stack_entry(lexer);
         entry->buf = entry->at = data.data;
-        entry->size = data.data_size;
+        entry->size = data.size;
         entry->file_id = new_id;
-        STACK_ADD(lexer->buffer_stack, entry);       
-        ++lexer->include_nesting;
+        entry->kind = LEXER_BUFFER_FILE;
+        add_buffer_to_stack(lexer, entry);
     } else {
         NOT_IMPLEMENTED;
     }
@@ -476,10 +531,7 @@ add_buffer_to_stack_file(Lexer *lexer, const char *filename) {
 void 
 pop_buffer_from_stack(Lexer *lexer) {
     Lexer_Buffer *entry = lexer->buffer_stack;
-    if (!entry->is_pp) {
-        // assert(lexer->include_nesting);
-        --lexer->include_nesting;
-    }
+    --lexer->buffer_stack_size;
     STACK_POP(lexer->buffer_stack);
     STACK_ADD(lexer->buffer_freelist, entry);
 }
@@ -488,6 +540,52 @@ Lexer_Buffer *
 get_current_buf(Lexer *lexer) {
     return lexer->buffer_stack;
 }
+
+static const Src_Loc * 
+get_current_loc(Lexer *lexer) { 
+    Temp_Memory temp = begin_temp_memory(lexer->arena);
+    // Create temporary array for storing buffers in stack-like structure
+    u32 count = lexer->buffer_stack_size;
+    Lexer_Buffer **buffers = arena_alloc_arr(temp.arena, count, Lexer_Buffer *);
+    {
+        u32 cursor = count;
+        // Populare array in reverse order
+        for (Lexer_Buffer *buffer = lexer->buffer_stack;
+            buffer;
+            buffer = buffer->next) {
+            assert(cursor);
+            --cursor;
+            buffers[cursor] = buffer;
+        }
+        // Now start generating src locations going from parent to child
+        assert(cursor == 0);
+    }
+    
+    const Src_Loc *current_loc = 0;
+    for (u32 cursor = 0;
+         cursor < count;
+         ++cursor) {
+        Lexer_Buffer *buffer = buffers[cursor];
+        switch (buffer->kind) {
+        INVALID_DEFAULT_CASE;
+        case LEXER_BUFFER_FILE: {
+            current_loc = get_src_loc_file(lexer->ctx->fr, buffer->file_id, buffer->line, 
+                buffer->symb, current_loc);
+        } break;
+        case LEXER_BUFFER_MACRO: {
+            current_loc = get_src_loc_macro(lexer->ctx->fr, buffer->macro->loc, buffer->symb, 
+                current_loc);
+        } break;
+        case LEXER_BUFFER_MACRO_ARG: {
+            current_loc = get_src_loc_macro_arg(lexer->ctx->fr, buffer->symb, current_loc);
+        } break;
+        }
+    }
+    end_temp_memory(temp);
+    const Src_Loc *loc = current_loc;
+    return loc;
+}
+
 
 PP_Macro *
 pp_get(Lexer *lexer, const char *name) {
@@ -535,7 +633,6 @@ pp_undef(Lexer *lexer, const char *name) {
     u64 name_hash = LEX_STR_HASH_FUNC(name, name_length);
     hash_table64_delete(&lexer->macro_hash, name_hash);
 }
-
 
 void 
 pp_push_nested_if(Lexer *lexer, bool is_handled) {
@@ -659,7 +756,7 @@ pp_peek_tok(Lexer *lexer) {
         }
         
         // all cases below should break the loop
-        token->src_loc = lexer->curr_loc;
+        token->src_loc = get_current_loc(lexer); 
         if (is_digit(peek_codepoint(lexer))) {
             parse_number(lexer, token);
             break;
@@ -804,12 +901,13 @@ start:
                 if (peek_codepoint(lexer) == '(') {
                     advance(lexer, 1);
                     macro->is_function_like = true;
+                    token = pp_peek_tok(lexer);
                     while (token->kind != TOKEN_EOS && 
                         !(token->kind == TOKEN_PUNCTUATOR && token->punct == ')')) {
                         token = pp_peek_tok(lexer);
                         if (token->kind == TOKEN_IDENT) {
                             if (macro->has_varargs) {
-                                NOT_IMPLEMENTED;
+                                report_error_tok(lexer->ctx->er, token, "Can't define named argument after macro varargs");
                             } else {
                                 assert(macro->arg_count + 1 < MAX_PP_MACRO_ARGS);
                                 macro->arg_names[macro->arg_count++] = token->ident.str;
@@ -823,7 +921,7 @@ start:
                         token = pp_peek_tok(lexer);
                         if (token->kind == TOKEN_PUNCTUATOR && token->punct == ',') {
                             if (macro->has_varargs) {
-                                NOT_IMPLEMENTED;
+                                report_error_tok(lexer->ctx->er, token, "Can't define arguments after macro varargs");
                             }
                             eat_tok(lexer);
                             token = pp_peek_tok(lexer);
@@ -850,7 +948,7 @@ start:
                     }
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Expected identifier after #define");
             }
         } break;
         case PP_KEYWORD_UNDEF: {
@@ -864,10 +962,10 @@ start:
                     eat_tok(lexer);
                     pp_undef(lexer, macro_name);
                 } else {
-                    NOT_IMPLEMENTED;
+                    report_error_tok(lexer->ctx->er, token, "Unexpected token after #undef");
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Expected identifier after #undef");
             }
         } break;
         case PP_KEYWORD_INCLUDE: {
@@ -881,10 +979,10 @@ start:
                     eat_tok(lexer);
                     add_buffer_to_stack_file(lexer, filename);
                 } else {
-                    NOT_IMPLEMENTED;
+                    report_error_tok(lexer->ctx->er, token, "Unexpected token after #include");
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Expected identifier after #include");
             }
         } break;
         case PP_KEYWORD_IFDEF: {
@@ -904,10 +1002,10 @@ start:
                         goto start;
                     }
                 } else {
-                    NOT_IMPLEMENTED;
+                    report_error_tok(lexer->ctx->er, token, "Expected identifier after #ifdef");
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Expected identifier after #ifdef");
             }
         } break;
         case PP_KEYWORD_IFNDEF: {
@@ -927,19 +1025,20 @@ start:
                         goto start;
                     }
                 } else {
-                    NOT_IMPLEMENTED;
+                    report_error_tok(lexer->ctx->er, token, "Unexpected token after #ifndef");
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Expected identifier after #ifndef");
             }
         } break;
         case PP_KEYWORD_ENDIF: {
             eat_tok(lexer);
             token = pp_peek_tok(lexer);
             if (token->kind == TOKEN_EOS) {
+                eat_tok(lexer);
                 pp_pop_nested_if(lexer);
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Unexpected token after #endif");
             }
         } break;
         case PP_KEYWORD_ELSE: {
@@ -954,7 +1053,7 @@ start:
                     pp_set_nested_if_handled(lexer);
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Unexpected token after #else");
             }
         } break;
         case PP_KEYWORD_ELIFDEF: {
@@ -974,10 +1073,10 @@ start:
                         pp_set_nested_if_handled(lexer);
                     }
                 } else {
-                    NOT_IMPLEMENTED;
+                    report_error_tok(lexer->ctx->er, token, "Unexpected token after #elifdef");
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Expected identifier after #elifdef");
             }
         } break;
         case PP_KEYWORD_ELIFNDEF: {
@@ -997,10 +1096,10 @@ start:
                         pp_set_nested_if_handled(lexer);
                     }
                 } else {
-                    NOT_IMPLEMENTED;
+                    report_error_tok(lexer->ctx->er, token, "Unexpected token after #elifdef");
                 }
             } else {
-                NOT_IMPLEMENTED;
+                report_error_tok(lexer->ctx->er, token, "Expected identifier after #elifdef");
             }
         } break;
         case PP_KEYWORD_IF: {
@@ -1016,51 +1115,8 @@ start:
         } break;
         }
     } else if (token->kind != TOKEN_EOS) {
-        NOT_IMPLEMENTED;
+        report_error_tok(lexer->ctx->er, token, "Unexpected token");
     } 
-}
-
-static void 
-resolve_macro(Lexer *lexer, PP_Macro *macro) {
-    Lexer_Buffer *buffer = get_new_buffer_stack_entry(lexer);
-    buffer->buf = buffer->at = macro->definition;
-    buffer->size = macro->definition_len;
-    buffer->is_pp = true;
-    buffer->macro = macro;
-    if (macro->is_function_like) {
-        u8 codepoint = peek_codepoint(lexer);
-        if (codepoint == '(') {
-            advance(lexer, 1);
-            codepoint = peek_codepoint(lexer);
-            char temp_buffer[4096];
-            u32  temp_buffer_size = 0;
-            while (codepoint != ')') {
-                if (codepoint == ',') {
-                    // @HACK Currently we insert space so the algorithm can function 
-                    // normally and parse macro properly if it is contained in another macro
-                    // argument
-                    temp_buffer[temp_buffer_size++] = ' ';
-                    temp_buffer[temp_buffer_size] = 0;
-                    buffer->macro_args[buffer->macro_arg_count++] = mem_alloc_str(temp_buffer);
-                    temp_buffer_size = 0;
-                } else {
-                    temp_buffer[temp_buffer_size++] = codepoint;
-                }
-                advance(lexer, 1);
-                codepoint = peek_codepoint(lexer);
-            }
-            // @TODO DRY
-            if (temp_buffer_size) {
-                temp_buffer[temp_buffer_size++] = ' ';
-                temp_buffer[temp_buffer_size] = 0;
-                buffer->macro_args[buffer->macro_arg_count++] = mem_alloc_str(temp_buffer);
-            }
-            advance(lexer, 1);
-        } else {
-            NOT_IMPLEMENTED;
-        } 
-    }
-    add_buffer_to_stack(lexer, buffer);
 }
 
 Token *
@@ -1107,7 +1163,7 @@ peek_tok(Lexer *lexer) {
         } 
         
         // all cases below should break the loop
-        token->src_loc = lexer->curr_loc;
+        token->src_loc = get_current_loc(lexer); 
         if (is_digit(peek_codepoint(lexer))) {
             parse_number(lexer, token);
             break;
@@ -1131,7 +1187,7 @@ peek_tok(Lexer *lexer) {
                 for (Lexer_Buffer *lexbuf = get_current_buf(lexer);
                      lexbuf && !is_macro_argument;
                      lexbuf = lexbuf->next) {
-                    if (lexbuf->is_pp) {
+                    if (lexbuf->kind == LEXER_BUFFER_MACRO) {
                         PP_Macro *macro = lexbuf->macro;
                         for (u32 macro_arg_name_idx = 0;
                              macro_arg_name_idx < macro->arg_count;
@@ -1140,7 +1196,10 @@ peek_tok(Lexer *lexer) {
                             if (zeq(test, buf)) {
                                 const char *arg_expansion = lexbuf->macro_args[macro_arg_name_idx];
                                 u32 arg_expansion_len = zlen(arg_expansion);
+                                // add_buffer_to_stack_macro_arg_expansion(lexer, macro, 
+                                //     lexbuf);
                                 Lexer_Buffer *newbuf = get_new_buffer_stack_entry(lexer);
+                                newbuf->kind = LEXER_BUFFER_MACRO_ARG;
                                 newbuf->buf = newbuf->at = arg_expansion;
                                 newbuf->size = arg_expansion_len;
                                 is_macro_argument = true;
@@ -1148,6 +1207,8 @@ peek_tok(Lexer *lexer) {
                                 break;
                             }
                         }
+                    } else if (lexbuf->kind != LEXER_BUFFER_FILE) {
+                        break;
                     }
                 }   
                 
@@ -1159,7 +1220,47 @@ peek_tok(Lexer *lexer) {
             // Try to get macro
             PP_Macro *macro = pp_get(lexer, buf);
             if (macro) {
-                resolve_macro(lexer, macro);
+                Lexer_Buffer *buffer = get_new_buffer_stack_entry(lexer);
+                buffer->buf = buffer->at = macro->definition;
+                buffer->size = macro->definition_len;
+                buffer->kind = LEXER_BUFFER_MACRO;
+                buffer->macro = macro;
+                if (macro->is_function_like) {
+                    u8 codepoint = peek_codepoint(lexer);
+                    if (codepoint == '(') {
+                        advance(lexer, 1);
+                        codepoint = peek_codepoint(lexer);
+                        char temp_buffer[4096];
+                        u32  temp_buffer_size = 0;
+                        while (codepoint != ')') {
+                            if (codepoint == ',') {
+                                // @HACK Currently we insert space so the algorithm can function 
+                                // normally and parse macro properly if it is contained in another macro
+                                // argument
+                                temp_buffer[temp_buffer_size++] = ' ';
+                                temp_buffer[temp_buffer_size] = 0;
+                                buffer->macro_args[buffer->macro_arg_count++] = mem_alloc_str(temp_buffer);
+                                temp_buffer_size = 0;
+                            } else {
+                                temp_buffer[temp_buffer_size++] = codepoint;
+                            }
+                            advance(lexer, 1);
+                            codepoint = peek_codepoint(lexer);
+                        }
+                        // @TODO DRY
+                        if (temp_buffer_size) {
+                            temp_buffer[temp_buffer_size++] = ' ';
+                            temp_buffer[temp_buffer_size] = 0;
+                            buffer->macro_args[buffer->macro_arg_count++] = mem_alloc_str(temp_buffer);
+                        }
+                        advance(lexer, 1);
+                    } else {
+                        report_error_tok(lexer->ctx->er, token, "Function-like macro expects arguments");
+                    } 
+                }
+                // add_buffer_to_stack_macro_expansion(lexer, macro);
+                buffer->kind = LEXER_BUFFER_MACRO;
+                add_buffer_to_stack(lexer, buffer);
                 continue;
             }
             
@@ -1226,8 +1327,8 @@ create_lexer(struct Compiler_Ctx *ctx, const char *filename) {
     Lexer *lexer = arena_bootstrap(Lexer, arena);
     lexer->ctx = ctx;
     lexer->macro_hash.num_buckets = MAX_PREPROCESSOR_MACROS;
-    lexer->macro_hash.keys = arena_alloc_array(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
-    lexer->macro_hash.values = arena_alloc_array(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
+    lexer->macro_hash.keys = arena_alloc_arr(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
+    lexer->macro_hash.values = arena_alloc_arr(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
     add_buffer_to_stack_file(lexer, filename);
     
     return lexer;

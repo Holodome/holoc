@@ -141,10 +141,10 @@ arena_bootstrap_(uptr size, uptr arena_offset) {
     return struct_ptr;
 }
 
-TemporaryMemory 
+Temp_Memory 
 begin_temp_memory(Memory_Arena *arena) {
     ++arena->temp_memory_count;
-    TemporaryMemory result;
+    Temp_Memory result;
     result.arena = arena;
     result.block = arena->current_block;
     result.block_used = arena->current_block->used;
@@ -152,7 +152,7 @@ begin_temp_memory(Memory_Arena *arena) {
 }
 
 void 
-end_temp_memory(TemporaryMemory temp) {
+end_temp_memory(Temp_Memory temp) {
     assert(temp.arena->temp_memory_count);
     --temp.arena->temp_memory_count;
 

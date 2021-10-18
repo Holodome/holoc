@@ -18,7 +18,8 @@
 // @NOTE Input and output streams are split into two different data structures.
 // This is done to preserve clarity in code for reading - because single use case can never mix 
 // reading and writing to same locaiton
-#pragma once
+#ifndef STREAM_H
+#define STREAM_H
 #include "lib/general.h"
 #include "lib/files.h"
 
@@ -121,3 +122,5 @@ Out_Stream *get_stderr_stream(void);
 //     void *bf, u32 bf_sz, 
 //     u32 threshold);
 // void in_utf8_stream_
+
+#endif

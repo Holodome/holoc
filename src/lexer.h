@@ -4,7 +4,8 @@ Date: 10.10.2021
 File: src/new_lexer.h
 Version: 0
 */
-#pragma once 
+#ifndef LEXER_H
+#define LEXER_H
 #include "lib/general.h"
 
 #include "lib/stream.h"     // In_UTF8_Stream
@@ -20,7 +21,6 @@ struct Lexer;
 #define MAX_PREPROCESSOR_LINE_LENGTH 4096
 #define MAX_PREPROCESSOR_MACROS      4096
 #define MAX_NESTED_IFS               64
-#define MAX_INCLUDE_NESTING          16
 #define MAX_PP_MACRO_ARGS            128
 
 enum {
@@ -148,7 +148,7 @@ typedef struct {
 
 typedef struct Token {
     u32 kind;
-    Src_Loc src_loc;
+    const Src_Loc *src_loc;
     union {
         struct {
             const char *str;
@@ -159,7 +159,8 @@ typedef struct Token {
         struct {
             u32 type;
             union {
-                u64 int_value;
+                u64 uint_value;
+                i64 sint_value;
                 long double real_value;
                 // Float_Literal float_literal;
             };
@@ -175,20 +176,30 @@ typedef struct Token_Stack_Entry {
     struct Token_Stack_Entry *next;
 } Token_Stack_Entry;
 
+enum {
+    LEXER_BUFFER_FILE      = 0x1,
+    LEXER_BUFFER_MACRO     = 0x2,
+    LEXER_BUFFER_MACRO_ARG = 0x3,
+};
+
 // Represents buffer from which data needs to be parsed as source.
 typedef struct Lexer_Buffer {
     const char *buf;
+    u32         size;
+    
     const char *at;
-    u32  size;
-    bool is_pp;
+    
+    u8 kind;
+    u32 line;
+    u32 symb;
     union {
-        File_ID file_id; // if is_pp is false
+        File_ID file_id; 
         struct {
+            struct PP_Macro *macro;
             // If resolving macro is function-like, save what strings
             // its parameters should be substitueted to
             const char *macro_args[MAX_PP_MACRO_ARGS];
-            u32 macro_arg_count;
-            struct PP_Macro *macro;
+            u32         macro_arg_count;
         };
     };
     struct Lexer_Buffer *next;
@@ -200,6 +211,7 @@ bool lexbuf_parse(Lexer_Buffer *buffer, const char *lit);
 
 typedef struct PP_Macro {
     u64 id;
+    Src_Loc *loc;
     const char *name;
     bool is_function_like;
     bool has_varargs;
@@ -217,20 +229,20 @@ typedef struct {
 typedef struct Lexer {
     struct Memory_Arena *arena;
     struct Compiler_Ctx *ctx;
-    
+    // Storage of buffers that are used to parse text from
+    // This can include files, macros, macro arguments
     Lexer_Buffer *buffer_stack;
     Lexer_Buffer *buffer_freelist;
-    u32 include_nesting;
+    // Current include depth. Need to keep track of it so we don't run into infinite loop
+    u32 buffer_stack_size;
     
     // @TODO(hl): Might want to move this to pointers
     PP_Macro     macros[MAX_PREPROCESSOR_MACROS];
     Hash_Table64 macro_hash;
     u32          next_macro_slot;
-    
+    // Needs to be stored so we know whether next #if should be checked or skipped 
     PP_Nested_If nested_ifs[MAX_NESTED_IFS];
     u32          nested_if_cursor;
-    
-    Src_Loc curr_loc;
     // Preprocessor    preprocessor;
     // @NOTE(hl): Stack structure used to temporarily store tokens when peekign ahead of current.
     // Because we can't really tell how much tokens we would want to peek, it is free-list based.
@@ -254,6 +266,8 @@ void pp_undef(Lexer *lexer, const char *name);
 
 void add_buffer_to_stack(Lexer *lexer, Lexer_Buffer *entry);
 void add_buffer_to_stack_file(Lexer *lexer, const char *filename);
+void add_buffer_to_stack_macro_expansion(Lexer *lexer, PP_Macro *macro);
+void add_buffer_to_stack_macro_arg_expansion(Lexer *lexer, PP_Macro *macro, Lexer_Buffer *lexbuf);
 void pop_buffer_from_stack(Lexer *lexer);
 Lexer_Buffer *get_current_buf(Lexer *lexer);
 
@@ -265,3 +279,5 @@ u8 peek_codepoint(Lexer *lexer);
 void advance(Lexer *lexer, u32 n);
 bool parse(Lexer *lexer, const char *lit);
 bool skip_spaces(Lexer *lexer);
+
+#endif

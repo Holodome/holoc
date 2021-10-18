@@ -51,8 +51,8 @@ create_string_storage(Memory_Arena *arena) {
     String_Storage *storage = arena_alloc_struct(arena, String_Storage);
     storage->arena = arena;
     storage->hash_table.num_buckets = STRING_STORAGE_HASH_SIZE;
-    storage->hash_table.keys = arena_alloc_array(arena, STRING_STORAGE_HASH_SIZE, u64);
-    storage->hash_table.values = arena_alloc_array(arena, STRING_STORAGE_HASH_SIZE, u64);
+    storage->hash_table.keys = arena_alloc_arr(arena, STRING_STORAGE_HASH_SIZE, u64);
+    storage->hash_table.values = arena_alloc_arr(arena, STRING_STORAGE_HASH_SIZE, u64);
     return storage;
 }
 

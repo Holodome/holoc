@@ -4,7 +4,8 @@
 // Version: 0
 // 
 // Library for command-line arguments parsing
-#pragma once
+#ifndef CLARG_PARSE_H
+#define CLARG_PARSE_H
 #include "general.h"
 #include "lib/memory.h"
 
@@ -26,3 +27,4 @@ typedef struct CL_Arg_Info {
 } CL_Arg_Info;
 
 void clarg_parse(void *out_bf, CL_Arg_Info *infos, u32 ninfos, u32 argc, char ** const argv);
+#endif

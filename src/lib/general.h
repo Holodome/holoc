@@ -5,7 +5,9 @@
 //
 // Provides data types and macros that are widely used throughout the program
 // Basiclly it is the language layer over c 
-#pragma once 
+#ifndef GENERAL_H
+#define GENERAL_H
+
 #ifndef INTERNAL_BUILD
 #define INTERNAL_BUILD 1
 #endif
@@ -100,8 +102,8 @@ typedef u64 bool64;
 #define ARRAY_END(_a) (_a + ARRAY_SIZE(_a))
 
 #ifndef __cplusplus
-#define CT_ASSERT(_expr) char __ctassert ## __LINE__ [!!(_expr)]
-// #define CT_ASSERT(_expr) _Static_assert(_expr, "Assertion " #_expr " failed")
+// #define CT_ASSERT(_expr) char __ctassert ## __LINE__ [!!(_expr)]
+#define CT_ASSERT(_expr) _Static_assert(_expr, "Assertion " #_expr " failed")
 #else 
 #define CT_ASSERT(_expr) static_assert(_expr, "Assertion " #_expr " failed")
 #endif 
@@ -121,3 +123,5 @@ typedef u64 bool64;
 #define MB(_b) (KB(_b) << 10)
 
 #include "my_assert.h"
+
+#endif

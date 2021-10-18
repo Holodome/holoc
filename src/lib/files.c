@@ -6,12 +6,11 @@
 #include "lib/memory.h"
 #include "lib/hashing.h"
 
-#include <sys/syslimits.h>
+// #include <sys/syslimits.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-
 
 
 OS_File_Handle 
@@ -111,7 +110,6 @@ os_stat(const char *filename) {
     OS_Stat result = {0};
     struct stat stat_st;
     int posix_result = stat(filename, &stat_st);
-    result.exists = posix_result;
     if (posix_result == 0) {
         result.exists = true;
         result.is_directory = S_ISDIR(stat_st.st_mode);

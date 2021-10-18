@@ -4,7 +4,8 @@
 // Version: 0
 // 
 // Provides different APIs that are conncected with hashing.
-#pragma once
+#ifndef HASHING_H
+#define HASHING_H
 #include "lib/general.h"
 
 u32 djb2(const void *bf, uptr bf_sz);
@@ -27,3 +28,4 @@ typedef struct {
 Hash_Table64_Get_Result hash_table64_get(Hash_Table64 *table, u64 key);
 bool hash_table64_set(Hash_Table64 *table, u64 key, u64 value);
 bool hash_table64_delete(Hash_Table64 *table, u64 key);
+#endif

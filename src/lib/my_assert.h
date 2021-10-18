@@ -5,7 +5,8 @@
 // 
 // Assert implementation. Debug information on macos with arm processors is not generated correctly,
 // and standard assert macro does not do brekpoint in correct place
-#pragma once
+#ifndef MY_ASSERT_H
+#define MY_ASSERT_H
 
 #ifdef _MSC_VER
 #define DBG_BREAKPOINT __debugbreak()
@@ -41,3 +42,5 @@ void assert_msg(const char *expr, const char *filename, int line, const char *fu
 #define NOT_IMPLEMENTED DBG_BREAKPOINT
 #define INVALID_DEFAULT_CASE default: assert("InvalidDefaultCase" && 0)
 #define UNREACHABLE assert("Unreachable" && 0)
+
+#endif

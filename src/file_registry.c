@@ -4,6 +4,8 @@
 #include "lib/strings.h"
 #include "lib/files.h"
 #include "lib/path.h"
+#include "lib/hashing.h"
+#include "lib/lists.h"
 
 #include "compiler_ctx.h"
 
@@ -12,8 +14,8 @@ create_file_registry(Compiler_Ctx *ctx) {
     File_Registry *fr = arena_alloc_struct(ctx->arena, File_Registry);
     fr->ctx = ctx;
     fr->hash_table.num_buckets = MAX_FILES;
-    fr->hash_table.keys = arena_alloc_array(ctx->arena, MAX_FILES, u64);
-    fr->hash_table.values = arena_alloc_array(ctx->arena, MAX_FILES, u64);
+    fr->hash_table.keys = arena_alloc_arr(ctx->arena, MAX_FILES, u64);
+    fr->hash_table.values = arena_alloc_arr(ctx->arena, MAX_FILES, u64);
     return fr;
 }
 
@@ -120,7 +122,7 @@ get_file_data(File_Registry *fr, File_ID id) {
                 os_read_file(file_handle, 0, data, file_size);
                 ((char *)data)[file_size] = 0;
                 file->data.data = data;
-                file->data.data_size = file_size;
+                file->data.size = file_size;
                 os_close_file(file_handle);
                 result.is_valid = true;
             } else {
@@ -148,4 +150,86 @@ get_file_path(File_Registry *fr, File_ID id) {
         result = file->path;
     } 
     return result;
+}
+
+static u32 
+get_src_loc_hash_internal(const Src_Loc *loc, u32 crc) {
+    if (loc) {
+        crc ^= loc->hash_value;
+        crc = get_src_loc_hash_internal(loc->parent, crc);
+    }
+    return crc;
+}
+
+static u32 
+get_src_loc_hash(const Src_Loc *loc) {
+    u32 parent_crc = get_src_loc_hash_internal(loc->parent, 0);
+    u32 current_crc = crc32(parent_crc, loc, sizeof(*loc));
+    return current_crc;
+}
+
+Src_Loc **
+get_src_loc_internal(File_Registry *fr, u32 hash) {
+    CT_ASSERT(IS_POW2(FILE_REGISTRY_SRC_LOC_HASH_SIZE));
+    u32 hash_value = hash & FILE_REGISTRY_SRC_LOC_HASH_SIZE;
+    Src_Loc **loc = fr->src_loc_hash + hash_value;
+    while (*loc && ((*loc)->hash_value != hash_value)) {
+        loc = &(*loc)->next;
+    }
+    
+    return loc;
+}
+
+static void 
+copy_src_loc(Src_Loc *dest, Src_Loc *src) {
+    Src_Loc *next = dest->next;
+    mem_copy(dest, src, sizeof(*dest));
+    dest->next = next;
+}
+
+static Src_Loc *
+add_src_loc_internal(File_Registry *fr, Src_Loc *source) {
+    Src_Loc *result = 0;
+    u32 loc_hash = get_src_loc_hash(source);
+    Src_Loc **loc = get_src_loc_internal(fr, loc_hash);
+    if (!*loc) {
+        Src_Loc *new_loc = arena_alloc_struct(fr->ctx->arena, Src_Loc);
+        copy_src_loc(new_loc, source);
+        new_loc->hash_value = loc_hash;
+        STACK_ADD(*(loc), new_loc);
+        result = new_loc;
+    } else {
+        result = *loc;
+    }
+    return result;
+}
+
+const Src_Loc *
+get_src_loc_file(File_Registry *fr, File_ID id, u32 line, u32 symb, const Src_Loc *parent) {
+    Src_Loc new_src_loc = {0};
+    new_src_loc.kind = SRC_LOC_FILE;
+    new_src_loc.file = id;
+    new_src_loc.line = line;
+    new_src_loc.symb = symb;
+    new_src_loc.parent = parent;
+    return add_src_loc_internal(fr, &new_src_loc);
+}
+
+const Src_Loc *
+get_src_loc_macro(File_Registry *fr, Src_Loc *declared_at, u32 symb, const Src_Loc *parent) {
+    Src_Loc new_src_loc = {0};
+    new_src_loc.kind = SRC_LOC_MACRO;
+    new_src_loc.declared_at = declared_at;
+    new_src_loc.symb = symb;
+    new_src_loc.parent = parent;
+    return add_src_loc_internal(fr, &new_src_loc);
+}
+
+const Src_Loc *
+get_src_loc_macro_arg(File_Registry *fr, u32 symb, const Src_Loc *parent) {
+    Src_Loc new_src_loc = {0};
+    new_src_loc.kind = SRC_LOC_MACRO_ARG;
+    new_src_loc.symb = symb;
+    new_src_loc.parent = parent;
+    return add_src_loc_internal(fr, &new_src_loc);
 }

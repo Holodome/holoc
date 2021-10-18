@@ -4,7 +4,8 @@
 // Version: 0
 //
 // Provides different soring algorithms
-#pragma once
+#ifndef SORTING_H
+#define SORTING_H
 #include "lib/general.h"
 
 // Implementation of radix sort.
@@ -21,3 +22,5 @@ u32 f64_to_sort_key(f64 value);
 // O(n)
 // Sorted result is stored in entries
 void radix_sort(Sort_Entry *entries, Sort_Entry *temp, uptr n);
+
+#endif
