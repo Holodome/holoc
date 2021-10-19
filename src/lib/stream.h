@@ -9,44 +9,32 @@
 // 1: Files. Input and output streams support delayed writing, improving perfomance over calling os
 // write call every time
 // 2: Standard streams. These are stdin, stdout, stderr
-// 3: Buffers. User-defned buffers
-// 
-// Use of streams allows writing all input and output code in same manner, generally improving code
-// reuse.
-// Streams are similar to FILE * objects from c standard library.
-//
-// @NOTE Input and output streams are split into two different data structures.
-// This is done to preserve clarity in code for reading - because single use case can never mix 
-// reading and writing to same locaiton
+// 3: Buffers. 
 #ifndef STREAM_H
 #define STREAM_H
+
 #include "lib/general.h"
 #include "lib/files.h"
 
-#define OUT_STREAM_DEFAULT_BUFFER_SIZE KB(16)
-// This is similar to stdlib's one, which is also usually 4kb
-#define OUT_STREAM_DEFAULT_MAX_PRINTF_LEN KB(4)
-#define OUT_STREAM_DEFAULT_THRESHOLD (OUT_STREAM_DEFAULT_BUFFER_SIZE - OUT_STREAM_DEFAULT_MAX_PRINTF_LEN)
-#define STDOUT_STREAM_BF_SZ KB(16)
-#define STDOUT_STREAM_THRESHOLD KB(12)
-#define IN_STREAM_DEFAULT_BUFFER_SIZE OUT_STREAM_DEFAULT_BUFFER_SIZE
-#define IN_STREAM_DEFAULT_THRESHLOD OUT_STREAM_DEFAULT_THRESHOLD
+struct Memory_Arena;
 
-// @NOTE(hl): Simplest kind of stream - just plan data pointer with no memory handling
-typedef struct {
-    u8 *data;
-    u64 data_size;
-    u64 initial_data_size;
-} Buffer;
-
-void buffer_advance(Buffer *buffer, u64 n);
+#define OUT_STREAM_DEFAULT_BUFFER_SIZE    KB(16)
 
 enum {
-    STREAM_BUFFER,
-    STREAM_FILE,
-    STREAM_STDOUT,
-    STREAM_STDERR
+    STREAM_ON_DEMAND = 0x0,
+    STREAM_BUFFER    = 0x1,
+    STREAM_FILE      = 0x2,
+    STREAM_STDOUT    = 0x3,
+    STREAM_STDERR    = 0x4,
 };
+
+typedef struct Out_Stream_Chunk {
+    void *buf;
+    u32   buf_cursor;
+    
+    struct Out_Stream_Chunk *next;
+} Out_Stream_Chunk;
+
 
 /*
 Stream is an object that supports continously writing to while having
@@ -62,65 +50,37 @@ buffer_size - buffer_threshold define maximum size of single write
  If one needs fast way to output data, they should use the one method they need
 */
 typedef struct Out_Stream {
-    u32 mode;
+    u8 mode;
+    union {
+        struct {
+            OS_File_Handle file;
+            u32            file_offset;
+        };
+        // For on-demand memory stream.
+        struct {
+            struct Memory_Arena *arena; 
+        };
+    };
     
-    OS_File_Handle file;
-    uptr file_idx;
-    
-    u8 *bf;
-    uptr bf_sz;
-    uptr threshold;
-    
-    uptr bf_idx;
+    Out_Stream_Chunk first_chunk;
+    u32 buf_size;
+    u32 threshold;
 } Out_Stream;
-
-// Create stream for writing to file.
-// bf_sz - what size of buffer to allocate 
-// threshold >= bf_sz
-// bf - storage for stream buffer
-void init_out_streamf(Out_Stream *stream, OS_File_Handle file_handle,
-    void *bf, uptr bf_sz, uptr threshold);
-// Printfs to stream
-__attribute__((__format__ (__printf__, 2, 3)))
-uptr out_streamf(Out_Stream *stream, const char *fmt, ...);
-uptr out_streamv(Out_Stream *stream, const char *fmt, va_list args);
-void out_stream_flush(Out_Stream *stream);
 
 Out_Stream *get_stdout_stream(void);
 Out_Stream *get_stderr_stream(void);
+#define STDOUT get_stdout_stream()
+#define STDERR get_stderr_stream()
 
-// @NOTE(hl): Acceleration structure for handling text input 
-//  to avoid copying, provides direct memory access in size-constrained mode to the data
-//  contained in file 
-// @NOTE(hl): There is no plan to add support for stdin streams, just because there is no such necessity.
-// typedef struct In_Stream {
-//     OS_File_Handle file;
-//     u64 file_cursor;
-//     u64 file_size;
-    
-//     u8 *bf;
-//     u32 bf_sz;
-//     u32 threshold;
-//     u32 bf_used;
-// } In_Stream;
+Out_Stream out_stream(OS_File_Handle file_handle, void *buf, u32 buf_size);
+Out_Stream out_stream_on_demand(struct Memory_Arena *arena, u32 chunk_size);
+Out_Stream out_stream_buffer(void *buffer, u32 buffer_size);
 
-// void init_in_stream(In_Stream *stream, OS_File_Handle file_handle, 
-//     void *bf, u32 bf_sz, u32 threshold);
-// Buffer in_stream_get_data(In_Stream *stream);
-// void in_stream_advance(In_Stream *stream);
-
-// @NOTE(hl): Acceleration structure for handling UTF8 input.
-//  decodes a part of text and stores unicode codepoints in full size
-// typedef struct In_UTF8_Stream {
-//     In_Stream *in_stream;
-//     u32 *unicode_codepoint_buf;
-//     u32  unicode_codepoint_buf_size;
-//     u32  unicode_codepoint_buf_threshold;
-// } In_UTF8_Stream;
-
-// void init_in_utf8_stream(In_UTF8_Stream *stream, In_Stream *raw_stream, 
-//     void *bf, u32 bf_sz, 
-//     u32 threshold);
-// void in_utf8_stream_
+u32 out_streamv(Out_Stream *stream, const char *fmt, va_list args);
+__attribute__((__format__ (__printf__, 2, 3)))
+u32 out_streamf(Out_Stream *stream, const char *fmt, ...);
+#define out_streamfln(_stream, _fmt, ...) out_streamf(_stream, _fmt "\n", ##__VA_ARGS__)
+// u32 out_streamb(Out_Stream *stream, const void *data, u32 data_size);
+void out_stream_flush(Out_Stream *stream);
 
 #endif
