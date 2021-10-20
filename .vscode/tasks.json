@@ -10,7 +10,7 @@
                 "command": "${workspaceFolder}/build.sh"
             },
             "osx": {
-                "command": "${workspaceFolder}/build.sh"  
+                "command": "${workspaceFolder}/build.sh"
             },
             "options": {
                 "cwd": "${workspaceFolder}/"
@@ -18,8 +18,34 @@
             "problemMatcher": [
                 "$gcc"
             ],
-            "group": "build"
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
+        {
+            "type": "shell",
+            "label": "Test",
+            "windows": {
+                "command": "${workspaceFolder}/build.bat"
+            },
+            "linux": {
+                "command": "${workspaceFolder}/build/lang examples/test.h"
+            },
+            "osx": {
+                "command": "${workspaceFolder}/build/lang examples/test.h"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        }
     ],
     "version": "2.0.0"
 } 

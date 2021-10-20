@@ -8,12 +8,10 @@ Version: 0
 #define LEXER_H
 #include "lib/general.h"
 
-#include "lib/stream.h"     // In_UTF8_Stream
-
 #include "file_registry.h"  // File_ID
 #include "string_storage.h" // String_ID
 
-struct In_UTF8_Stream;
+struct Out_Stream;
 struct Compiler_Ctx;
 struct Memory_Arena;
 struct Lexer;
@@ -24,17 +22,25 @@ struct Lexer;
 #define MAX_PP_MACRO_ARGS            128
 
 enum {
+    // End of stream. @NOTE(hl): Kinda not satisfied with the name, but the EOF doesn't make me happier either
     TOKEN_EOS        = 0x101,
+    // Identifier 
     TOKEN_IDENT      = 0x102,
+    // Special kind of identifiers
     TOKEN_KEYWORD    = 0x103,
+    // String literal. Includes all type-specific ones
     TOKEN_STRING     = 0x104,
+    // Number literal. Includes integer literals, floating-point literals and character constants.
+    // Has type attached to it
     TOKEN_NUMBER     = 0x105,
+    // Punctuator like , . + - += <<= etc.
     TOKEN_PUNCTUATOR = 0x106,
     // This could have been part of the string, but decided to stick this here for clarity
     TOKEN_PP_FILENAME          = 0x107,
     // Similar to strings, contains all that goes after #define AAA till the end of the string
-    TOKEN_PP_DEFINE_DEFINITION = 0x108, 
-    TOKEN_PP_MACRO             = 0x109
+    TOKEN_PP_DEFINE_DEFINITION = 0x108,
+    // __VA_ARGS__. Needed for special case of , ##__VA_ARGS__ being replaced to either , or none depending on varargs 
+    TOKEN_PP_VARARGS           = 0x10A,
 };
 
 enum {
@@ -101,14 +107,23 @@ enum {
     PP_KEYWORD_ELIFDEF  = 0x8, // c2x elifdef
     PP_KEYWORD_ELIFNDEF = 0x9, // c2x elifndef
     PP_KEYWORD_PRAGMA   = 0xA, // pragma  
-    
     PP_KEYWORD_ERROR    = 0xB, // error
     PP_KEYWORD_DEFINED  = 0xC, // defined
     PP_KEYWORD_LINE     = 0xD, // line
     PP_KEYWORD_ELIF     = 0xE, // elif
     PP_KEYWORD_ENDIF    = 0xF, // endif
     
+    // PP_KEYWORD_VA_ARGS  = 0x10, // __VA_ARGS__
+    
     PP_KEYWORD_SENTINEL,
+};
+
+enum {
+    // @NOTE(hl): __func__, __PRETTY_FUNCTION__, __FUNCTION__ are not preprocessor macros
+    PREDEFINED_MACRO_FILE = 0x1, // __FILE__
+    PREDEFINED_MACRO_LINE = 0x2, // __LINE__
+    PREDEFINED_MACRO_TIME = 0x3, // __TIME__
+    PREDEFINED_MACRO_DATE = 0x4, // __DATE__ 
 };
 
 enum {
@@ -168,8 +183,8 @@ typedef struct Token {
     };
 } Token;
 
-u32 fmt_token_kind(char *buf, u64 buf_sz, u32 kind);
-u32 fmt_token(char *buf, u64 buf_sz, Token *token);
+u32 fmt_token_kind(struct Out_Stream *stream, u32 kind);
+u32 fmt_token(struct Out_Stream *stream, Token *token);
 
 typedef struct Token_Stack_Entry {
     Token *token;
@@ -215,6 +230,7 @@ typedef struct PP_Macro {
     const char *name;
     bool is_function_like;
     bool has_varargs;
+    u32  varargs_idx; // Idx where ... appeared
     const char *arg_names[MAX_PP_MACRO_ARGS];
     u32         arg_count;
     
@@ -235,6 +251,11 @@ typedef struct Lexer {
     Lexer_Buffer *buffer_freelist;
     // Current include depth. Need to keep track of it so we don't run into infinite loop
     u32 buffer_stack_size;
+    // If some of the parent buffers is preprocessor - 
+    // this is needed to make stringifying and joining strings possible
+    // @NOTE(hl): This is number, but in code is used as a boolean,
+    // could make union to make this more clear
+    u32 is_in_preprocessor_ctx;  
     
     // @TODO(hl): Might want to move this to pointers
     PP_Macro     macros[MAX_PREPROCESSOR_MACROS];
@@ -249,6 +270,10 @@ typedef struct Lexer {
     u32                token_stack_size;
     Token_Stack_Entry *token_stack;
     Token_Stack_Entry *token_stack_freelist;
+    
+    char *scratch_buffer;
+    u32 scratch_buf_size;
+    u32 scratch_buf_capacity;
 } Lexer;
 
 Lexer *create_lexer(struct Compiler_Ctx *ctx, const char *filename);

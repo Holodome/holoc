@@ -2,6 +2,7 @@
 
 #include "lib/memory.h"
 #include "lib/strings.h"
+#include "lib/stream.h"
 
 #include "compiler_ctx.h"
 #include "lexer.h"
@@ -38,17 +39,16 @@ main(int argc, char **argv) {
     Compiler_Ctx *ctx = create_compiler_ctx();
     ctx->fr->include_seach_paths_count = ARRAY_SIZE(include_paths);
     ctx->fr->include_search_paths = include_paths;
-    Lexer *lexer = create_lexer(ctx, "include.h");
+    Lexer *lexer = create_lexer(ctx, "macro_expansion.h");
     // Lexer *lexer = create_lexer(ctx, "examples/tests/example.c");
     for (;;) {
         Token *token = peek_tok(lexer);
         if (token->kind == TOKEN_EOS) {
             break;
         }
-        char buf[4096];
-        fmt_token(buf, sizeof(buf), token);
-        out_streamf(get_stdout_stream(), "\n%s\n", buf);
-        fmt_src_loc(get_stdout_stream(), token->src_loc, ctx->fr, 1);
+        out_streamf(STDOUT, "\n");
+        fmt_token(STDOUT, token);
+        fmt_src_loc(STDOUT, token->src_loc, ctx->fr, 1);
         eat_tok(lexer);
     }
     out_stream_flush(get_stdout_stream());

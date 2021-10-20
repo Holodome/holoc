@@ -3,6 +3,7 @@
 #include "lib/memory.h"
 #include "lib/lists.h"
 #include "lib/strings.h"
+#include "lib/stream.h"
 
 #include "c_lang.h"
 #include "ast.h"
@@ -11,14 +12,15 @@
 #include "file_registry.h"
 #include "error_reporter.h"
 
-#define LEX_STR_HASH_FUNC fnv64
+#define LEX_STR_HASH_FUNC    fnv64
+#define LEX_SCRATCH_BUF_SIZE KB(16)
 
 #define ITER_KEYWORDS(_it) \
 for ((_it) = KEYWORD_AUTO; (_it) < KEYWORD_SENTINEL; ++(_it))
 #define ITER_PREPROCESSOR_KEYWORD(_it) \
 for ((_it) = PP_KEYWORD_DEFINE; (_it) < PP_KEYWORD_SENTINEL; ++(_it))
 #define ITER_PUNCTUATORS(_it) \
-for ((_it) = PUNCTUATOR_IADD; (_it) < PUNCTUATOR_SENTINEL; ++(_it))
+for ((_it) = PUNCTUATOR_IRSHIFT; (_it) < PUNCTUATOR_SENTINEL; ++(_it))
 
 static const char *KEYWORD_STRINGS[] = {
     "(unknown)",
@@ -88,7 +90,8 @@ static const char *PREPROCESSOR_KEYWORD_STRINGS[] = {
     "defined",
     "line",
     "elif",
-    "endif"
+    "endif",
+    // "__VA_ARGS__"
 };
 
 static const char *PUNCTUATOR_STRINGS[] = {
@@ -121,57 +124,57 @@ static const char *ALPHABET       = "0123456789ABCDEF";
 static const char *ALPHABET_LOWER = "0123456789abcdef";
 
 u32 
-fmt_token_kind(char *buf, u64 buf_sz, u32 kind) {
+fmt_token_kind(Out_Stream *stream, u32 kind) {
     u32 result = 0;
     switch (kind) {
     case TOKEN_EOS: {
-        result = fmt(buf, buf_sz, "<eos>");
+        result = out_streamf(stream, "<eos>");
     } break;
     case TOKEN_IDENT: {
-        result = fmt(buf, buf_sz, "<ident>");
+        result = out_streamf(stream, "<ident>");
     } break;
     case TOKEN_KEYWORD: {
-        result = fmt(buf, buf_sz, "<kw>");
+        result = out_streamf(stream, "<kw>");
     } break;
     case TOKEN_STRING: {
-        result = fmt(buf, buf_sz, "<str>");
+        result = out_streamf(stream, "<str>");
     } break;
     case TOKEN_NUMBER: {
-        result = fmt(buf, buf_sz, "<num>");
+        result = out_streamf(stream, "<num>");
     } break;
     case TOKEN_PUNCTUATOR: {
-        result = fmt(buf, buf_sz, "<punct>");
+        result = out_streamf(stream, "<punct>");
     } break;
     }    
     return result;
 }
 
 u32 
-fmt_token(char *buf, u64 buf_sz, Token *token) {
+fmt_token(Out_Stream *stream, Token *token) {
     u32 result = 0;
     switch (token->kind) {
     case TOKEN_EOS: {
-        result = fmt(buf, buf_sz, "<eos>");
+        result = out_streamf(stream, "<eos>");
     } break;
     case TOKEN_IDENT: {
-        result = fmt(buf, buf_sz, "<ident>%s", token->ident.str);
+        result = out_streamf(stream, "<ident>%s", token->ident.str);
     } break;
     case TOKEN_KEYWORD: {
-        result = fmt(buf, buf_sz, "<kw>%s", KEYWORD_STRINGS[token->kw]);
+        result = out_streamf(stream, "<kw>%s", KEYWORD_STRINGS[token->kw]);
     } break;
     case TOKEN_STRING: {
-        result = fmt(buf, buf_sz, "<str>%s", token->str.str);
+        result = out_streamf(stream, "<str>%s", token->str.str);
     } break;
     case TOKEN_NUMBER: {
-        result = fmt(buf, buf_sz, "<num>%llu", 
+        result = out_streamf(stream, "<num>%llu", 
             token->number.uint_value);
     } break;
     case TOKEN_PUNCTUATOR: {
-        result = fmt(buf, buf_sz, "<punct>");
+        result = out_streamf(stream, "<punct>");
         if (token->punct < 0x100) {
-            result += fmt(buf + result, buf_sz - result, "%c", token->punct);
+            result += out_streamf(stream, "%c", token->punct);
         } else {
-            result += fmt(buf + result, buf_sz - result, "%s", 
+            result += out_streamf(stream, "%s", 
                 PUNCTUATOR_STRINGS[token->punct - 0x100]);
         }
     } break;
@@ -379,7 +382,7 @@ parse_number(Lexer *lexer, Token *token) {
                 type = C_TYPE_SINT;
             } else if (value <= UINT_MAX) {
                 type = C_TYPE_UINT;
-            }else if (value <= LONG_MAX) {
+            } else if (value <= LONG_MAX) {
                 type = C_TYPE_SLINT;
             } else if (value <= ULONG_MAX) {
                 type = C_TYPE_ULINT;
@@ -450,11 +453,12 @@ parse_character_literal(Lexer *lexer, Token *token) {
 
 static Token_Stack_Entry *
 get_new_stack_entry(Lexer *lexer) {
-    Token_Stack_Entry *entry = lexer->token_stack;
+    Token_Stack_Entry *entry = lexer->token_stack_freelist;
     if (!entry) {
         entry = arena_alloc_struct(lexer->arena, Token_Stack_Entry);
     } else {
-        entry->token = 0;
+        STACK_POP(lexer->token_stack_freelist);
+        mem_zero_ptr(entry);
     }
     return entry;
 }
@@ -490,7 +494,7 @@ get_new_buffer_stack_entry(Lexer *lexer) {
     Lexer_Buffer *result = lexer->buffer_freelist;
     if (result) {
         STACK_POP(lexer->buffer_freelist);
-        mem_zero(result, sizeof(*result));
+        mem_zero_ptr(result);
     } else {
         result = arena_alloc_struct(lexer->arena, Lexer_Buffer);
     }
@@ -501,6 +505,9 @@ void
 add_buffer_to_stack(Lexer *lexer, Lexer_Buffer *entry) {
     STACK_ADD(lexer->buffer_stack, entry);
     ++lexer->buffer_stack_size;
+    if (entry->kind == LEXER_BUFFER_MACRO) {
+        ++lexer->is_in_preprocessor_ctx;
+    } 
 }
 
 void 
@@ -531,6 +538,9 @@ add_buffer_to_stack_file(Lexer *lexer, const char *filename) {
 void 
 pop_buffer_from_stack(Lexer *lexer) {
     Lexer_Buffer *entry = lexer->buffer_stack;
+    if (entry->kind == LEXER_BUFFER_MACRO) {
+        --lexer->is_in_preprocessor_ctx;
+    }
     --lexer->buffer_stack_size;
     STACK_POP(lexer->buffer_stack);
     STACK_ADD(lexer->buffer_freelist, entry);
@@ -636,7 +646,7 @@ pp_undef(Lexer *lexer, const char *name) {
 
 void 
 pp_push_nested_if(Lexer *lexer, bool is_handled) {
-    assert(lexer->nested_if_cursor + 1 < MAX_NESTED_IFS);
+    assert(lexer->nested_if_cursor < MAX_NESTED_IFS);
     PP_Nested_If *ifs = lexer->nested_ifs + lexer->nested_if_cursor++;
     ifs->is_handled = is_handled;
 }
@@ -915,6 +925,7 @@ start:
                         } else if (token->kind == TOKEN_PUNCTUATOR && 
                                    token->punct == PUNCTUATOR_VARARGS) {
                             macro->has_varargs = true;
+                            macro->varargs_idx = macro->arg_count++;
                         } 
                         
                         eat_tok(lexer);
@@ -947,6 +958,8 @@ start:
                         }
                     }
                 }
+                assert(macro->definition_len < MAX_PREPROCESSOR_LINE_LENGTH);
+                macro->definition[macro->definition_len++] = ' ';
             } else {
                 report_error_tok(lexer->ctx->er, token, "Expected identifier after #define");
             }
@@ -1119,6 +1132,16 @@ start:
     } 
 }
 
+static void 
+add_arg_expansion_buffer(Lexer *lexer, const char *def) {
+    u32 arg_expansion_len = zlen(def);
+    Lexer_Buffer *newbuf = get_new_buffer_stack_entry(lexer);
+    newbuf->kind = LEXER_BUFFER_MACRO_ARG;
+    newbuf->buf = newbuf->at = def;
+    newbuf->size = arg_expansion_len;
+    add_buffer_to_stack(lexer, newbuf);
+}
+
 Token *
 peek_tok(Lexer *lexer) {
     Token *token = get_current_token(lexer);
@@ -1189,21 +1212,25 @@ peek_tok(Lexer *lexer) {
                      lexbuf = lexbuf->next) {
                     if (lexbuf->kind == LEXER_BUFFER_MACRO) {
                         PP_Macro *macro = lexbuf->macro;
+                        // @TODO(hl): __VA_ARGS__ Cab be made a keyword and so prohibit redifining at as macro argument
+                        if (zeq(buf, "__VA_ARGS__")) {
+                            u32 varargs_idx = macro->varargs_idx;
+                            if (lexbuf->macro_arg_count < varargs_idx) {
+                                // nop
+                            } else {
+                                add_arg_expansion_buffer(lexer, lexbuf->macro_args[macro->varargs_idx]);
+                                is_macro_argument = true;
+                            }
+                        }
+                        
                         for (u32 macro_arg_name_idx = 0;
-                             macro_arg_name_idx < macro->arg_count;
+                             macro_arg_name_idx < macro->arg_count - macro->has_varargs;
                              ++macro_arg_name_idx) {
                             const char *test = macro->arg_names[macro_arg_name_idx];
                             if (zeq(test, buf)) {
                                 const char *arg_expansion = lexbuf->macro_args[macro_arg_name_idx];
-                                u32 arg_expansion_len = zlen(arg_expansion);
-                                // add_buffer_to_stack_macro_arg_expansion(lexer, macro, 
-                                //     lexbuf);
-                                Lexer_Buffer *newbuf = get_new_buffer_stack_entry(lexer);
-                                newbuf->kind = LEXER_BUFFER_MACRO_ARG;
-                                newbuf->buf = newbuf->at = arg_expansion;
-                                newbuf->size = arg_expansion_len;
+                                add_arg_expansion_buffer(lexer, arg_expansion);
                                 is_macro_argument = true;
-                                add_buffer_to_stack(lexer, newbuf);
                                 break;
                             }
                         }
@@ -1230,10 +1257,15 @@ peek_tok(Lexer *lexer) {
                     if (codepoint == '(') {
                         advance(lexer, 1);
                         codepoint = peek_codepoint(lexer);
+                        
                         char temp_buffer[4096];
                         u32  temp_buffer_size = 0;
                         while (codepoint != ')') {
-                            if (codepoint == ',') {
+                            // If current macro is positional, use , as separator, and if we parse variadic 
+                            // arguments, just put this arguments into one
+                            if ( codepoint == ',' && 
+                                (!macro->has_varargs || (macro->has_varargs && 
+                                    buffer->macro_arg_count < macro->varargs_idx)) ) {
                                 // @HACK Currently we insert space so the algorithm can function 
                                 // normally and parse macro properly if it is contained in another macro
                                 // argument
@@ -1255,7 +1287,7 @@ peek_tok(Lexer *lexer) {
                         }
                         advance(lexer, 1);
                     } else {
-                        report_error_tok(lexer->ctx->er, token, "Function-like macro expects arguments");
+                        report_error(lexer->ctx->er, get_current_loc(lexer), "'(' Expected in function-like macro");
                     } 
                 }
                 // add_buffer_to_stack_macro_expansion(lexer, macro);

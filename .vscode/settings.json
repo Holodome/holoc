@@ -1,5 +1,8 @@
 {
     "files.associations": {
-        "*.h": "c"
+        "*.h": "c",
+        "__node_handle": "c",
+        "__locale": "c",
+        "ios": "c"
     }
 }

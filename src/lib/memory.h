@@ -78,6 +78,8 @@ void mem_copy(void *dst, const void *src, uintptr_t size);
 void mem_move(void *dst, const void *src, uintptr_t size);
 // memset
 void mem_zero(void *dst, uintptr_t size);
+#define mem_zero_ptr(_ptr) mem_zero((_ptr), sizeof(*(_ptr)))
+#define mem_zero_struct(_struct) mem_zero(&(_struct), sizeof(_struct))
 // memcmp
 bool mem_eq(const void *a, const void *b, uintptr_t n);
 

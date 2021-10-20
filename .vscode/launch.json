@@ -4,12 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "(lldb) Launch",
             "type": "lldb",
-            "request": "launch",
+            "request": "launch",   
             "program": "${workspaceFolder}/build/lang",
-            "args": ["examples/test.pkby", "-mode", "ast"],
+            "args": ["examples/test.h"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

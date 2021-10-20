@@ -10,7 +10,7 @@ static Out_Stream *stderr_stream;
 
 static u32 
 calculate_threshold(u32 buf_size) {
-    u32 result = buf_size * 100 / 80;
+    u32 result = buf_size * 3 / 4;
     u32 max_threshold = KB(4); 
     if (result > max_threshold) {
         result = max_threshold;
@@ -100,11 +100,10 @@ out_stream_flush(Out_Stream *stream) {
     } break;
     case STREAM_ON_DEMAND: {
         Out_Stream_Chunk *new_chunk = arena_alloc_struct(stream->arena, Out_Stream_Chunk);
-        new_chunk->buf = stream->first_chunk.buf;
-        new_chunk->buf_cursor = stream->first_chunk.buf_cursor;
-        new_chunk->next = stream->first_chunk.next;
+        mem_copy(new_chunk, &stream->first_chunk, sizeof(stream->first_chunk));
         mem_zero(&stream->first_chunk, sizeof(stream->first_chunk));
         stream->first_chunk.next = new_chunk;
+        stream->first_chunk.buf = arena_alloc(stream->arena, stream->buf_size);
     } break;
     case STREAM_FILE: {
         os_write_file(stream->file, stream->file_offset, stream->first_chunk.buf, stream->first_chunk.buf_cursor);

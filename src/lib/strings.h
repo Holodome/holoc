@@ -75,9 +75,4 @@ void str_lower(Str *strp);
 void str_upper(Str *strp);
 void str_capitalize(Str *strp);
 
-typedef struct Str_UTF8 {
-    u8 *data;
-    uptr len;
-} Str_UTF8;
-
 #endif
