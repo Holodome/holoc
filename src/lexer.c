@@ -118,6 +118,7 @@ static const char *PUNCTUATOR_STRINGS[] = {
     "<=", 
     ">=", 
     "->",
+    "##",
 };
 
 static const char *ALPHABET       = "0123456789ABCDEF";
@@ -127,6 +128,7 @@ u32
 fmt_token_kind(Out_Stream *stream, u32 kind) {
     u32 result = 0;
     switch (kind) {
+    INVALID_DEFAULT_CASE;
     case TOKEN_EOS: {
         result = out_streamf(stream, "<eos>");
     } break;
@@ -153,6 +155,7 @@ u32
 fmt_token(Out_Stream *stream, Token *token) {
     u32 result = 0;
     switch (token->kind) {
+    INVALID_DEFAULT_CASE;
     case TOKEN_EOS: {
         result = out_streamf(stream, "<eos>");
     } break;
@@ -166,8 +169,8 @@ fmt_token(Out_Stream *stream, Token *token) {
         result = out_streamf(stream, "<str>%s", token->str.str);
     } break;
     case TOKEN_NUMBER: {
-        result = out_streamf(stream, "<num>%llu", 
-            token->number.uint_value);
+        result = out_streamf(stream, "<num>%s", 
+            token->number.string);
     } break;
     case TOKEN_PUNCTUATOR: {
         result = out_streamf(stream, "<punct>");
@@ -396,7 +399,7 @@ parse_number(Lexer *lexer, Token *token) {
     
     token->kind = TOKEN_NUMBER;
     token->number.type = type;
-    token->number.uint_value = value;
+    // token->number.uint_value = value;
 }
 
 static void
@@ -447,7 +450,7 @@ parse_character_literal(Lexer *lexer, Token *token) {
     }
     
     token->kind = TOKEN_NUMBER;
-    token->number.sint_value = value;
+    // token->number.sint_value = value;
     token->number.type = C_TYPE_SINT;
 }
 
@@ -467,7 +470,16 @@ void
 add_token_to_stack(Lexer *lexer, Token *token) {
     Token_Stack_Entry *stack_entry = get_new_stack_entry(lexer);
     stack_entry->token = token;
-    STACK_ADD(lexer->token_stack, stack_entry);
+    Token_Stack_Entry *last_token_stack = lexer->token_stack;
+    if (last_token_stack) {
+        while (last_token_stack->next) {
+            last_token_stack = last_token_stack->next;
+        }
+        last_token_stack->next = stack_entry;
+    } else {
+        lexer->token_stack = stack_entry;
+    }
+    // STACK_ADD(lexer->token_stack, stack_entry);
     ++lexer->token_stack_size;
 }
 
@@ -536,6 +548,15 @@ add_buffer_to_stack_file(Lexer *lexer, const char *filename) {
 }
 
 void 
+add_buffer_to_stack_concat(Lexer *lexer) {
+    Lexer_Buffer *entry = get_new_buffer_stack_entry(lexer);
+    entry->buf = entry->at = mem_alloc_str(lexer->scratch_buffer);
+    entry->size = zlen(entry->buf);
+    entry->kind = LEXER_BUFFER_CONCAT;
+    add_buffer_to_stack(lexer, entry);
+}
+
+void 
 pop_buffer_from_stack(Lexer *lexer) {
     Lexer_Buffer *entry = lexer->buffer_stack;
     if (entry->kind == LEXER_BUFFER_MACRO) {
@@ -578,6 +599,9 @@ get_current_loc(Lexer *lexer) {
         Lexer_Buffer *buffer = buffers[cursor];
         switch (buffer->kind) {
         INVALID_DEFAULT_CASE;
+        case LEXER_BUFFER_CONCAT: {
+            current_loc = get_src_loc_macro_arg(lexer->ctx->fr, buffer->symb, current_loc);
+        } break;
         case LEXER_BUFFER_FILE: {
             current_loc = get_src_loc_file(lexer->ctx->fr, buffer->file_id, buffer->line, 
                 buffer->symb, current_loc);
@@ -1142,14 +1166,30 @@ add_arg_expansion_buffer(Lexer *lexer, const char *def) {
     add_buffer_to_stack(lexer, newbuf);
 }
 
-Token *
-peek_tok(Lexer *lexer) {
-    Token *token = get_current_token(lexer);
-    if (token) {
-        return token;
+void 
+restringify_token(Lexer *lexer, Token *token, Out_Stream *stream) {
+    switch (token->kind) {
+    INVALID_DEFAULT_CASE;
+    case TOKEN_IDENT: {
+        out_streamf(stream, "%s", token->ident.str);
+    } break;
+    case TOKEN_NUMBER: {
+        out_streamf(stream, "%s", token->number.string);
+    } break;
+    case TOKEN_PUNCTUATOR: {
+        if (token->punct < 0x100) {
+            out_streamf(stream, "%c", token->punct);
+        } else {
+            out_streamf(stream, "%s", 
+                PUNCTUATOR_STRINGS[token->punct - 0x100]);
+        }
+    } break;
     }
-    
-    token = arena_alloc_struct(lexer->arena, Token);
+}
+
+static Token *
+gen_tok_internal(Lexer *lexer) {
+    Token *token = arena_alloc_struct(lexer->arena, Token);
     
     for (;;) {
         if (!peek_codepoint(lexer)) {
@@ -1179,7 +1219,7 @@ peek_tok(Lexer *lexer) {
                 }
             }
             continue;
-        } else if (peek_codepoint(lexer) == '#') {
+        } else if (peek_codepoint(lexer) == '#' && !lexer->is_in_preprocessor_ctx) {
             advance(lexer, 1);
             parse_preprocessor_directive(lexer);
             continue;
@@ -1205,6 +1245,7 @@ peek_tok(Lexer *lexer) {
             buf[len] = 0;
             
             // First, check if we are inside function-like macro expansion
+            // If so, check if current identifier is macro argument
             {
                 bool is_macro_argument = false;
                 for (Lexer_Buffer *lexbuf = get_current_buf(lexer);
@@ -1252,6 +1293,7 @@ peek_tok(Lexer *lexer) {
                 buffer->size = macro->definition_len;
                 buffer->kind = LEXER_BUFFER_MACRO;
                 buffer->macro = macro;
+                // @TODO(hl): Do not replace if there are not parantesses
                 if (macro->is_function_like) {
                     u8 codepoint = peek_codepoint(lexer);
                     if (codepoint == '(') {
@@ -1264,8 +1306,7 @@ peek_tok(Lexer *lexer) {
                             // If current macro is positional, use , as separator, and if we parse variadic 
                             // arguments, just put this arguments into one
                             if ( codepoint == ',' && 
-                                (!macro->has_varargs || (macro->has_varargs && 
-                                    buffer->macro_arg_count < macro->varargs_idx)) ) {
+                                (!macro->has_varargs || buffer->macro_arg_count < macro->varargs_idx) ) {
                                 // @HACK Currently we insert space so the algorithm can function 
                                 // normally and parse macro properly if it is contained in another macro
                                 // argument
@@ -1306,7 +1347,6 @@ peek_tok(Lexer *lexer) {
                 }
             }
             // If keyword does no exist, use it as identifier
-            
             if (keyword_enum) {
                 token->kind = TOKEN_KEYWORD;
                 token->kw = keyword_enum;
@@ -1343,16 +1383,60 @@ peek_tok(Lexer *lexer) {
             assert(false);
         }
     }
-    
+    return token;
+}
+
+static Token *
+peek_tok_internal(Lexer *lexer) {
+    Token *token = gen_tok_internal(lexer);
     add_token_to_stack(lexer, token);
+    // If we are in preprocessor, we have to make sure we don't meet concatenation as next token
+    if (lexer->is_in_preprocessor_ctx) {
+        u32 current_stack_size = lexer->token_stack_size;
+        Token *next_token = peek_tok_forward(lexer, current_stack_size + 1);
+        if (IS_PUNCT(next_token, PUNCTUATOR_DOUBLE_HASH)) {
+            Token *first_to_concat = token;
+            Token *second_to_concat = peek_tok_forward(lexer, current_stack_size + 2);
+            Out_Stream concat = out_stream_buffer(lexer->scratch_buffer, lexer->scratch_buf_capacity);
+            restringify_token(lexer, first_to_concat, &concat);
+            restringify_token(lexer, second_to_concat, &concat);
+            eat_tok(lexer);
+            eat_tok(lexer);
+            add_buffer_to_stack_concat(lexer);
+            token = gen_tok_internal(lexer);
+            mem_copy(second_to_concat, token, sizeof(*token));
+            token = second_to_concat;
+        }   
+    }
     
     return token;
+}
+
+Token *
+peek_tok(Lexer *lexer) {
+    return peek_tok_forward(lexer, 1);
 }
 
 void 
 eat_tok(Lexer *lexer) {
     pop_token_from_stack(lexer);
 }
+
+Token *
+peek_tok_forward(Lexer *lexer, u32 forward) {
+    Token *token = 0;
+    assert(forward);
+    while (lexer->token_stack_size < forward) {
+        peek_tok_internal(lexer);
+    }   
+    Token_Stack_Entry *stack = lexer->token_stack; 
+    while (--forward) {
+        stack = stack->next;
+    }
+    token = stack->token;
+    return token;
+}
+
 
 Lexer *
 create_lexer(struct Compiler_Ctx *ctx, const char *filename) {
@@ -1361,6 +1445,8 @@ create_lexer(struct Compiler_Ctx *ctx, const char *filename) {
     lexer->macro_hash.num_buckets = MAX_PREPROCESSOR_MACROS;
     lexer->macro_hash.keys = arena_alloc_arr(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
     lexer->macro_hash.values = arena_alloc_arr(lexer->arena, MAX_PREPROCESSOR_MACROS, u64);
+    lexer->scratch_buf_capacity = LEX_SCRATCH_BUF_SIZE;
+    lexer->scratch_buffer = arena_alloc(lexer->arena, lexer->scratch_buf_capacity);
     add_buffer_to_stack_file(lexer, filename);
     
     return lexer;

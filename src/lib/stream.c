@@ -55,7 +55,7 @@ init_out_streamf(OS_File_Handle file_handle, void *buf, u32 buf_size) {
 }
 
 Out_Stream
-init_out_stream_on_demand(struct Memory_Arena *arena, u32 chunk_size) {
+out_stream_on_demand(struct Memory_Arena *arena, u32 chunk_size) {
     Out_Stream stream = {0};
     stream.mode = STREAM_ON_DEMAND;
     stream.arena = arena;
@@ -66,7 +66,7 @@ init_out_stream_on_demand(struct Memory_Arena *arena, u32 chunk_size) {
 }
 
 Out_Stream
-init_out_stream_buffer(void *buffer, u32 buffer_size) {
+out_stream_buffer(void *buffer, u32 buffer_size) {
     Out_Stream stream = {0};
     stream.mode = STREAM_BUFFER;
     stream.first_chunk.buf = buffer;

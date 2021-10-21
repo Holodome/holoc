@@ -39,8 +39,6 @@ enum {
     TOKEN_PP_FILENAME          = 0x107,
     // Similar to strings, contains all that goes after #define AAA till the end of the string
     TOKEN_PP_DEFINE_DEFINITION = 0x108,
-    // __VA_ARGS__. Needed for special case of , ##__VA_ARGS__ being replaced to either , or none depending on varargs 
-    TOKEN_PP_VARARGS           = 0x10A,
 };
 
 enum {
@@ -149,6 +147,7 @@ enum {
     PUNCTUATOR_LEQ     = 0x114, // <= 
     PUNCTUATOR_GEQ     = 0x115, // >= 
     PUNCTUATOR_ARROW   = 0x116, // ->
+    PUNCTUATOR_DOUBLE_HASH = 0x117, // ##
     
     PUNCTUATOR_SENTINEL,
 };
@@ -173,15 +172,19 @@ typedef struct Token {
         u32 punct;
         struct {
             u32 type;
-            union {
-                u64 uint_value;
-                i64 sint_value;
-                long double real_value;
-                // Float_Literal float_literal;
-            };
+            const char *string;
+            // @TODO(hl):
+            // union {
+            //     u64 uint_value;
+            //     i64 sint_value;
+            //     long double real_value;
+            //     Float_Literal float_literal;
+            // };
         } number;
     };
 } Token;
+
+#define IS_PUNCT(_tok, _punct) ((_tok)->kind == TOKEN_PUNCTUATOR && (_tok)->punct == (_punct))
 
 u32 fmt_token_kind(struct Out_Stream *stream, u32 kind);
 u32 fmt_token(struct Out_Stream *stream, Token *token);
@@ -192,9 +195,14 @@ typedef struct Token_Stack_Entry {
 } Token_Stack_Entry;
 
 enum {
+    // Reading from file
     LEXER_BUFFER_FILE      = 0x1,
+    // Macro expansion
     LEXER_BUFFER_MACRO     = 0x2,
+    // Macro argument expansion
     LEXER_BUFFER_MACRO_ARG = 0x3,
+    // Concatenated string expansion 
+    LEXER_BUFFER_CONCAT    = 0x4, 
 };
 
 // Represents buffer from which data needs to be parsed as source.
@@ -278,6 +286,7 @@ typedef struct Lexer {
 
 Lexer *create_lexer(struct Compiler_Ctx *ctx, const char *filename);
 Token *peek_tok(Lexer *lexer);
+Token *peek_tok_forward(Lexer *lexer, u32 forward);
 void eat_tok(Lexer *lexer);
 
 void pp_push_nested_if(Lexer *lexer, bool is_handled);
@@ -293,6 +302,7 @@ void add_buffer_to_stack(Lexer *lexer, Lexer_Buffer *entry);
 void add_buffer_to_stack_file(Lexer *lexer, const char *filename);
 void add_buffer_to_stack_macro_expansion(Lexer *lexer, PP_Macro *macro);
 void add_buffer_to_stack_macro_arg_expansion(Lexer *lexer, PP_Macro *macro, Lexer_Buffer *lexbuf);
+void add_buffer_to_stack_concat(Lexer *lexer);
 void pop_buffer_from_stack(Lexer *lexer);
 Lexer_Buffer *get_current_buf(Lexer *lexer);
 
