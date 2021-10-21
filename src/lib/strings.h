@@ -23,6 +23,7 @@ bool is_ident_start(u32 symb);
 bool is_punct(u32 symb);
 bool is_real(u32 symb);
 bool is_int(u32 symb);
+bool is_printable(u32 symb);
 
 f64 z2f64(const char *str);
 i64 z2i64(const char *str);

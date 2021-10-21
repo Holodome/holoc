@@ -8,6 +8,28 @@
 #include "lexer.h"
 #include "ast.h"
 
+static void 
+fmt_src_loc(Out_Stream *stream, const Src_Loc *loc, File_Registry *fr, u32 depth) {
+    switch (loc->kind) {
+    case SRC_LOC_FILE: {
+        out_streamf(stream, "%*c FILE '%s'%u:%u ", 
+            depth, ' ',
+            get_file_path(fr, loc->file), loc->line + 1, loc->symb + 1);
+    } break;
+    case SRC_LOC_MACRO: {
+        out_streamf(stream, "%*c MACRO %u", depth, ' ', loc->symb + 1);
+        // fmt_src_loc(stream, loc->parent, fr, depth + 1);
+    } break;
+    case SRC_LOC_MACRO_ARG: {
+        out_streamf(stream, "%*c MACRO ARG: %u", depth, ' ', loc->symb + 1);
+    } break;
+    }
+    if (loc->parent) {
+        out_streamf(stream, "\n");
+        fmt_src_loc(stream, loc->parent, fr, depth + 1);
+    }
+}
+
 void 
 report_errorv(Error_Reporter *er, const Src_Loc *src_loc, const char *msg, va_list args) {
 #if 0
@@ -50,7 +72,12 @@ report_errorv(Error_Reporter *er, const Src_Loc *src_loc, const char *msg, va_li
     out_stream_flush(out);
     ++er->error_count;
     DBG_BREAKPOINT;
-#endif
+#else
+    Out_Stream *stream = get_stderr_stream();
+    fmt_src_loc(stream, src_loc, er->ctx->fr, 0);
+    out_streamf(stream, "\033[31merror\033[0m:");
+    out_streamv(stream, msg, args);
+#endif 
 }
 
 void 

@@ -49,6 +49,10 @@ bool is_ident(u32 symb) {
     return is_alpha(symb) || is_digit(symb) || symb == '_';
 }
 
+bool is_printable(u32 symb) {
+    return is_alpha(symb) || is_digit(symb) || is_punct(symb) || symb == ' ';    
+}
+
 bool is_punct(u32 symb) {
     return symb == '!' || symb == '\"' || symb == '#' || symb == '$' || symb == '%' || symb == '&' 
         || symb == '\'' || symb == '(' || symb == ')' || symb == '*' || symb == '+' || symb == ',' 

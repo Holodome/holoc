@@ -1243,7 +1243,6 @@ gen_tok_internal(Lexer *lexer) {
                 }
             }
             buf[len] = 0;
-            
             // First, check if we are inside function-like macro expansion
             // If so, check if current identifier is macro argument
             {
@@ -1390,7 +1389,7 @@ static Token *
 peek_tok_internal(Lexer *lexer) {
     Token *token = gen_tok_internal(lexer);
     add_token_to_stack(lexer, token);
-    // If we are in preprocessor, we have to make sure we don't meet concatenation as next token
+    // If we are in preprocessor, check if we meet the ## as next token
     if (lexer->is_in_preprocessor_ctx) {
         u32 current_stack_size = lexer->token_stack_size;
         Token *next_token = peek_tok_forward(lexer, current_stack_size + 1);
