@@ -4,6 +4,8 @@
 #include "lib/lists.h"
 #include "lib/memory.h"
 
+#include "compiler_ctx.h"
+
 static String_Storage_Buffer *
 get_buffer_for_writing(String_Storage *ss, u32 size) {
     String_Storage_Buffer *buffer = ss->buffer;
@@ -13,7 +15,7 @@ get_buffer_for_writing(String_Storage *ss, u32 size) {
             STACK_POP(ss->first_free_buffer);
             mem_zero(buffer, sizeof(*buffer));
         } else {
-            buffer = arena_alloc_struct(ss->arena, String_Storage_Buffer);
+            buffer = arena_alloc_struct(ss->ctx->arena, String_Storage_Buffer);
         }
         STACK_ADD(ss->buffer, buffer);
         ++ss->buffer_count;
@@ -47,12 +49,12 @@ roll_back_to_location(String_Storage *ss, u64 loc) {
 }
 
 String_Storage * 
-create_string_storage(Memory_Arena *arena) {
-    String_Storage *storage = arena_alloc_struct(arena, String_Storage);
-    storage->arena = arena;
+create_string_storage(Compiler_Ctx *ctx) {
+    String_Storage *storage = arena_alloc_struct(ctx->arena, String_Storage);
+    storage->ctx = ctx;
     storage->hash_table.num_buckets = STRING_STORAGE_HASH_SIZE;
-    storage->hash_table.keys = arena_alloc_arr(arena, STRING_STORAGE_HASH_SIZE, u64);
-    storage->hash_table.values = arena_alloc_arr(arena, STRING_STORAGE_HASH_SIZE, u64);
+    storage->hash_table.keys = arena_alloc_arr(ctx->arena, STRING_STORAGE_HASH_SIZE, u64);
+    storage->hash_table.values = arena_alloc_arr(ctx->arena, STRING_STORAGE_HASH_SIZE, u64);
     return storage;
 }
 

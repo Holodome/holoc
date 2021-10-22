@@ -8,47 +8,47 @@ Version: 0
 #define AST_H
 #include "lib/general.h"
 
-#include "file_registry.h"
-
 struct Memory_Arena;
+struct Src_Loc;
 
 enum {
-    AST_IDENT     = 0x1, // value
-    AST_LITERAL   = 0x2, // 1, 1.0, "assa", 'a'
-    AST_UNARY     = 0x3, // -a
-    AST_BINARY    = 0x4, // a - b
-    AST_COND      = 0x5, // a ? b : c
-    AST_IF        = 0x6, // if 
-    AST_FOR       = 0x7, // for, while
-    AST_DO        = 0x8, // do
-    AST_SWITCH    = 0x9, // switch
-    AST_CASE      = 0xA, // case 
-    AST_BLOCK     = 0xB, // {}
-    AST_GOTO      = 0xC, // goto
-    AST_LABEL     = 0xD, // label: 
-    AST_FUNC_CALL = 0xE, // func(a)
-    AST_ASSIGN    = 0xF, // a = b
-    AST_CAST      = 0x10, // (int)a
-    AST_MEMB      = 0x11, // a.b
-    AST_RETURN    = 0x12, // return 
-    AST_DECL      = 0x13, // int a = b;
-    AST_ADDR      = 0x14, // &
-    AST_DEREF     = 0x15, // *
-    AST_TYPEDEF   = 0x16, // 
+    AST_IDENT      = 0x1, // value
+    AST_STRING_LIT = 0x2,
+    AST_NUMBER_LIT = 0x3,
+    AST_UNARY      = 0x4, // -a
+    AST_BINARY     = 0x5, // a - b
+    AST_COND       = 0x6, // a ? b : c
+    AST_IF         = 0x7, // if 
+    AST_FOR        = 0x8, // for, while
+    AST_DO         = 0x9, // do
+    AST_SWITCH     = 0xA, // switch
+    AST_CASE       = 0xB, // case 
+    AST_BLOCK      = 0xC, // {}
+    AST_GOTO       = 0xD, // goto
+    AST_LABEL      = 0xE, // label: 
+    AST_FUNC_CALL  = 0xF, // func(a)
+    AST_CAST       = 0x10, // (int)a
+    AST_MEMB       = 0x11, // a.b
+    AST_RETURN     = 0x12, // return 
 };
 
+typedef struct Ast_Link {
+    struct Ast_Link *next;
+    struct Ast_Link *prev;    
+} Ast_Link;
+
 #define AST_FIELDS \
+Ast_Link link;     \
 u32 ast_kind;      \
-Src_Loc *src_loc;  \
-struct Ast *next;  \
-struct Ast *prev;
+struct Src_Loc *src_loc;  
 
 typedef struct Ast {
     AST_FIELDS;
 } Ast;
 
 typedef struct {
-    Ast sentinel;
+    bool is_initialized;
+    Ast_Link sentinel;
 } Ast_List;
 
 typedef struct {
@@ -56,31 +56,41 @@ typedef struct {
     const char *ident;
 } Ast_Ident;
 
-// enum {
-    
-// };
+typedef struct Ast_Number_Lit {
+    AST_FIELDS;
+    u32 type;
+    union {
+        // @NOTE(hl): No negative numbers here
+        u64         int_value;
+        long double float_value;  
+    };
+} Ast_Number_Lit;
 
-typedef struct {
-    AST_FIELDS
-    u32 kind;  
-} Ast_Literal;
+typedef struct Ast_String_Lit {
+    AST_FIELDS;
+    u32 type;
+    const char *string;  
+} Ast_String_Lit;
 
 enum {
     AST_UNARY_MINUS       = 0x1, // -
     AST_UNARY_PLUS        = 0x2, // +
-    AST_UNARY_LOGICAL_NOT = 0x3, // ~
-    AST_UNARY_NOT         = 0x4, // !
+    AST_UNARY_LOGICAL_NOT = 0x3, // !
+    AST_UNARY_NOT         = 0x4, // ~
     
+    AST_UNARY_SUFFIX_INC  = 0x5, // ++
+    AST_UNARY_POSTFIX_INC = 0x6, // ++
+    AST_UNARY_SUFFIX_DEC  = 0x7, // --
+    AST_UNARY_POSTFIX_DEC = 0x8, // --
     
-    PP_AST_UNARY_SUFFIX_INC  = 0x5, // ++
-    PP_AST_UNARY_POSTFIX_INC = 0x6, // ++
-    PP_AST_UNARY_SUFFIX_DEC  = 0x7, // --
-    PP_AST_UNARY_POSTFIX_DEC = 0x8, // --
+    AST_UNARY_DEREF       = 0x9, // *
+    AST_UNARY_ADDR        = 0xA, // &
 };
 
 typedef struct Ast_Unary {
     AST_FIELDS
     u32 kind;
+    Ast *expr;
 } Ast_Unary;
 
 enum {
@@ -103,26 +113,34 @@ enum {
     AST_BINARY_LOGICAL_AND = 0x11, // &&
     AST_BINARY_LOGICAL_OR  = 0x12, // ||
     
+    AST_BINARY_A           = 0x13, // =
+    AST_BINARY_ADDA        = 0x14, // +=
+    AST_BINARY_SUBA        = 0x16, // -=  
+    AST_BINARY_DIVA        = 0x17, // /=  
+    AST_BINARY_MULA        = 0x18, // *=  
+    AST_BINARY_MODA        = 0x19, // %=  
+    AST_BINARY_LSHIFTA     = 0x1A, // <<=   
+    AST_BINARY_RSHIFTA     = 0x1B, // >>=   
+    AST_BINARY_ANDA        = 0x1C, // &=   
+    AST_BINARY_ORA         = 0x1D, // |=   
+    AST_BINARY_XORA        = 0x1E, // ^=   
     
-    PP_AST_BINARY_A           = 0x13, // =
-    PP_AST_BINARY_ADDA        = 0x13, // +=
-    PP_AST_BINARY_SUBA        = 0x13, // -=  
-    PP_AST_BINARY_DIVA        = 0x13, // /=  
-    PP_AST_BINARY_MULA        = 0x13, // *=  
-    PP_AST_BINARY_MODA        = 0x13, // %=  
-    PP_AST_BINARY_LSHIFTA     = 0x13, // <<=   
-    PP_AST_BINARY_RSHIFTA     = 0x13, // >>=   
-    PP_AST_BINARY_ANDA        = 0x13, // &=   
-    PP_AST_BINARY_ORA         = 0x13, // |=   
-    PP_AST_BINARY_XORA        = 0x13, // ^=   
+    AST_BINARY_ASSIGN      = 0x1F, // =   
+    AST_BINARY_COMMA       = 0x20, // ,
 };
 
 typedef struct Ast_Binary {
     AST_FIELDS
+    u32 kind;
+    Ast *left;
+    Ast *right;
 } Ast_Binary;
 
 typedef struct Ast_Cond {
     AST_FIELDS
+    Ast *cond;
+    Ast *expr;
+    Ast *else_expr;
 } Ast_Cond;
 
 typedef struct Ast_If {
@@ -176,14 +194,10 @@ typedef struct Ast_Func_Call {
     Ast_List arguments;
 } Ast_Func_Call;
 
-typedef struct Ast_Assign {
-    AST_FIELDS
-    Ast *left;
-    Ast *right;
-} Ast_Assign;
-
 typedef struct Ast_Cast {
     AST_FIELDS
+    struct C_Type *type;
+    Ast *expr;
 } Ast_Cast;
 
 typedef struct Ast_Member {
@@ -196,20 +210,8 @@ typedef struct Ast_Return {
     Ast *expr;
 } Ast_Return;
 
-typedef struct Ast_Decl {
-    AST_FIELDS
-    Ast *left;
-    Ast *assign;
-} Ast_Decl;
-
-typedef struct Ast_Addr {
-    AST_FIELDS
-    Ast *expr;
-} Ast_Addr;
-
-typedef struct Ast_Deref {
-    AST_FIELDS
-    Ast *expr;
-} Ast_Deref;
+Ast_List ast_list(void);
+void ast_list_add(Ast_List *list, Ast *ast);
+Ast *ast_new(struct Memory_Arena *arena, u32 kind);
 
 #endif 

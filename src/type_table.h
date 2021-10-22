@@ -10,7 +10,7 @@ Version: 0
 #define TYPE_TABLE_HASH_SIZE 1024
 
 struct Src_Loc;
-struct Memory_Arena;
+struct Compiler_Ctx;
 
 enum {
     C_TYPE_VOID   = 0x0, // void
@@ -49,18 +49,22 @@ enum {
     C_TYPE_UNION  = 0x1B, // union
 };
 
+#define C_TYPE_IS_DECIMAL(_kind) \
+(((_kind) == C_TYPE_DECIMAL32) || ((_kind) == C_TYPE_DECIMAL64) || ((_kind) == C_TYPE_DECIMAL128))
 #define C_TYPE_IS_FLOAT(_kind) \
 (((_kind) == C_TYPE_FLOAT) || ((_kind) == C_TYPE_DOUBLE) || ((_kind) == C_TYPE_LDOUBLE))
-#define C_TYPE_IS_UNSIGNED(_kind) \
+#define C_TYPE_IS_UNSIGNED_INT(_kind) \
 (((_kind) == C_TYPE_UINT) || ((_kind) == C_TYPE_ULINT) || ((_kind) == C_TYPE_ULLINT) \
 || ((_kind) == C_TYPE_USINT) || ((_kind) == C_TYPE_UCHAR))
-#define C_TYPE_IS_SIGNED(_kind) \
+#define C_TYPE_IS_SIGNED_INT(_kind) \
 (((_kind) == C_TYPE_SINT) || ((_kind) == C_TYPE_SLINT) || ((_kind) == C_TYPE_SLLINT) \
 || ((_kind) == C_TYPE_SSINT) || ((_kind) == C_TYPE_SCHAR))
 #define C_TYPE_IS_INT(_kind) \
-(C_TYPE_IS_SIGNED(_kind) || C_TYPE_IS_UNSIGNED(_kind) || ((_kind) == C_TYPE_BOOL) || ((_kind) == C_TYPE_CHAR))
+(C_TYPE_IS_SIGNED_INT(_kind) || C_TYPE_IS_UNSIGNED_INT(_kind) || ((_kind) == C_TYPE_BOOL) || ((_kind) == C_TYPE_CHAR))
 #define C_TYPE_IS_NUMERIC(_kind) \
-(C_TYPE_IS_INT(_kind) || C_TYPE_IS_FLOAT(_kind))
+((u32)(_kind) <= C_TYPE_BOOL)
+#define C_TYPE_IS_UNSIGNED(_kind) \
+(C_TYPE_IS_UNSIGNED_INT(_kind) || ((_kind) == C_TYPE_PTR) || ((_kind) == C_TYPE_ARRAY))
 
 typedef struct C_Struct_Member_Link {
     struct C_Struct_Member_Link *next;
@@ -128,21 +132,23 @@ typedef struct Type_Table_Hash_Entry {
 } Type_Table_Hash_Entry;
 
 typedef struct Type_Table {
-    struct Memory_Arena *arena;
+    struct Compiler_Ctx *ctx;
     
     C_Type *standard_types[0x16];
-    Type_Table_Hash_Entry type_hash[TYPE_TABLE_HASH_SIZE];
+    Type_Table_Hash_Entry *type_hash[TYPE_TABLE_HASH_SIZE];
 } Type_Table;
 
-Type_Table *create_type_table(struct Memory_Arena *arena);
+Type_Table *create_type_table(struct Compiler_Ctx *ctx);
 // Returns C_Type corresponding to standard type
-// (enum values 0x0 - 0x14) if value is greater 0 is returned
+// (enum values 0x0 - 0x14)
 C_Type *tt_get_standard_type(Type_Table *tt, u32 c_type);
 // Get typedefed or default type
 C_Type *tt_get_untagged(Type_Table *tt, const char *name);
+// Get type with tag (struct Foo vs Foo)
 C_Type *tt_get_struct(Type_Table *tt, const char *name);
 C_Type *tt_get_union(Type_Table *tt, const char *name);
 C_Type *tt_get_enum(Type_Table *tt, const char *name);
+C_Type *tt_get_ptr(Type_Table *tt, C_Type *underlying);
 
 C_Type *tt_make_typedef(Type_Table *tt, C_Type *type, const char *name);
 // Does search for member respecting unnamed structs and unions

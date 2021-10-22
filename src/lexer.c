@@ -5,12 +5,12 @@
 #include "lib/strings.h"
 #include "lib/stream.h"
 
-#include "c_lang.h"
 #include "ast.h"
 #include "string_storage.h"
 #include "compiler_ctx.h"
 #include "file_registry.h"
 #include "error_reporter.h"
+#include "type_table.h"
 
 #define LEX_STR_HASH_FUNC    fnv64
 #define LEX_SCRATCH_BUF_SIZE KB(16)
@@ -913,6 +913,162 @@ pp_skip_to_next_matching_if(Lexer *lexer) {
         }
     }
     assert(depth == 0);
+}
+
+// Precedence:
+// 0: Ident, Literal
+// 1: ! ~ (type) sizeof() _Alignof()
+// 2: * / %
+// 3: + -
+// 4: << >>
+// 5: < <=
+// 6: > >=
+// 7: == !=
+// 8: &
+// 9: |
+// 10: &&
+// 10: ||
+// 10: ? :
+// 10: ,
+
+
+static Ast *
+pp_parse_expr(Lexer *lexer) {
+    Token *token = pp_peek_tok(lexer);
+    
+
+    return 0;
+}
+
+static i64
+pp_eval_expr(Lexer *lexer, Ast *expr) {
+    i64 result = 0;
+    
+    switch (expr->ast_kind) {
+    case AST_BINARY: {
+        Ast_Binary *binary = (Ast_Binary *)expr;
+        i64 left_eval = pp_eval_expr(lexer, binary->left);
+        i64 right_eval = pp_eval_expr(lexer, binary->right);
+        switch (binary->kind) {
+        INVALID_DEFAULT_CASE;
+        case AST_BINARY_COMMA: {
+            result =  right_eval;
+        } break;
+        case AST_BINARY_ADD: {
+            result = left_eval + right_eval;
+        } break;
+        case AST_BINARY_SUB: {
+            result = left_eval - right_eval;
+        } break;
+        case AST_BINARY_MUL: {
+            result = left_eval * right_eval;
+        } break;
+        case AST_BINARY_DIV: {
+            result = left_eval / right_eval;
+        } break;
+        case AST_BINARY_MOD: {
+            result = left_eval % right_eval;
+        } break;
+        case AST_BINARY_LE: {
+            result = left_eval <= right_eval;
+        } break;
+        case AST_BINARY_L: {
+            result = left_eval < right_eval;
+        } break;
+        case AST_BINARY_GE: {
+            result = left_eval >= right_eval;
+        } break;
+        case AST_BINARY_G: {
+            result = left_eval > right_eval;
+        } break;
+        case AST_BINARY_EQ: {
+            result = left_eval == right_eval;
+        } break;
+        case AST_BINARY_NEQ: {
+            result = left_eval != right_eval;
+        } break;
+        case AST_BINARY_AND: {
+            result = left_eval & right_eval;
+        } break;
+        case AST_BINARY_OR: {
+            result = left_eval | right_eval;
+        } break;
+        case AST_BINARY_XOR: {
+            result = left_eval ^ right_eval;
+        } break;
+        case AST_BINARY_LSHIFT: {
+            result = left_eval << right_eval;
+        } break;
+        case AST_BINARY_RSHIFT: {
+            result = left_eval >> right_eval;
+        } break;
+        case AST_BINARY_LOGICAL_AND: {
+            result = left_eval && right_eval;
+        } break;
+        case AST_BINARY_LOGICAL_OR: {
+            result = left_eval || right_eval;
+        } break;
+        }
+    } break;
+    case AST_UNARY: {
+        Ast_Unary *unary = (Ast_Unary *)expr;
+        i64 subexpr_eval = pp_eval_expr(lexer, unary->expr);
+        switch (unary->kind) {
+        INVALID_DEFAULT_CASE;
+        case AST_UNARY_MINUS: {
+            result = -subexpr_eval;
+        } break;
+        case AST_UNARY_PLUS: {
+            result = subexpr_eval;
+        } break;
+        case AST_UNARY_LOGICAL_NOT: {
+            result = !subexpr_eval;
+        } break;
+        case AST_UNARY_NOT: {
+            result = ~subexpr_eval;
+        } break;
+        }
+    } break;
+    case AST_COND: {
+        Ast_Cond *cond = (Ast_Cond *)expr;
+        i64 cond_eval = pp_eval_expr(lexer, cond->cond);
+        if (cond_eval) {
+            result = pp_eval_expr(lexer, cond->expr);
+        } else {
+            result = pp_eval_expr(lexer, cond->else_expr);
+        }
+    } break;
+    case AST_NUMBER_LIT: {
+        Ast_Number_Lit *lit = (Ast_Number_Lit *)expr;
+        if (C_TYPE_IS_FLOAT(lit->type)) {
+            result = (i64)lit->float_value;
+        } else {
+            assert(C_TYPE_IS_INT(lit->type));
+            result = lit->int_value;
+        }
+    } break;
+    case AST_CAST: {
+        Ast_Cast *cast = (Ast_Cast *)expr;
+        i64 expr_eval = pp_eval_expr(lexer, cast->expr);
+        bool is_unsigned = C_TYPE_IS_UNSIGNED(cast->type->kind);
+        switch (cast->type->size) {
+        case 1: {
+            result = ( is_unsigned ? (u8)expr_eval : (i8)expr_eval );
+        } break;
+        case 2: {
+            result = ( is_unsigned ? (u16)expr_eval : (i16)expr_eval );
+        } break;
+        case 4: {
+            result = ( is_unsigned ? (u32)expr_eval : (i32)expr_eval );
+        } break;
+        default: {
+            result = expr_eval;
+        } break;
+        }
+    } break;
+    }
+
+    return result;
 }
 
 static void 
