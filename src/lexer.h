@@ -184,6 +184,7 @@ typedef struct Token {
     };
 } Token;
 
+#define IS_KW(_tok, _kw) ((_tok)->kind == TOKEN_KEYWORD && (_tok)->kw == (_kw))
 #define IS_PUNCT(_tok, _punct) ((_tok)->kind == TOKEN_PUNCTUATOR && (_tok)->punct == (_punct))
 
 u32 fmt_token_kind(struct Out_Stream *stream, u32 kind);

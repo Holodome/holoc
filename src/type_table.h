@@ -76,6 +76,7 @@ typedef struct C_Struct_Member {
     const char *name;
     struct Src_Loc *decl_loc;
     
+    struct C_Type *type;
     u32 index;  // index in structure
     u32 align;  // align 
     u32 offset; // byte offset
@@ -113,20 +114,21 @@ typedef struct C_Type {
     };
 } C_Type;
 
+// Tags prefix types in C - for example, struct Foo and Foo are different types
 enum {
     C_TYPE_TAG_NONE    = 0x0,
     C_TYPE_TAG_STRUCT  = 0x1,
     C_TYPE_TAG_ENUM    = 0x2,
     C_TYPE_TAG_UNION   = 0x3,
-    C_TYPE_TAG_TYPEDEF = 0x4,
 };
 
 typedef struct Type_Table_Hash_Entry {
     struct Type_Table_Hash_Entry *next;
   
-    u32         kind;  
     u32         hash;
+    u32         kind;
     const char *name;
+    u32         scope;
     
     C_Type *type;
 } Type_Table_Hash_Entry;
@@ -142,14 +144,11 @@ Type_Table *create_type_table(struct Compiler_Ctx *ctx);
 // Returns C_Type corresponding to standard type
 // (enum values 0x0 - 0x14)
 C_Type *tt_get_standard_type(Type_Table *tt, u32 c_type);
-// Get typedefed or default type
-C_Type *tt_get_untagged(Type_Table *tt, const char *name);
-// Get type with tag (struct Foo vs Foo)
-C_Type *tt_get_struct(Type_Table *tt, const char *name);
-C_Type *tt_get_union(Type_Table *tt, const char *name);
-C_Type *tt_get_enum(Type_Table *tt, const char *name);
+void tt_get_type(Type_Table *tt, const char *name, u32 tag);
 C_Type *tt_get_ptr(Type_Table *tt, C_Type *underlying);
-
-C_Type *tt_make_typedef(Type_Table *tt, C_Type *type, const char *name);
+void tt_remove_type(Type_Table *tt, const char *name);
+C_Type *tt_make_typedef(Type_Table *tt, C_Type *type, u32 scope, const char *name);
+C_Type *tt_get_new_type(Type_Table *tt, u32 tag, u32 scope, const char *name);
+C_Type *tt_get_forward_decl(Type_Table *tt, u32 tag, const char *name);
 // Does search for member respecting unnamed structs and unions
 C_Struct_Member *get_struct_member(C_Type *struct_type, const char *name);

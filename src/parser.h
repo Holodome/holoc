@@ -9,26 +9,41 @@ Version: 0
 
 #include "lib/general.h"
 
-struct Memory_Arena;
+#define SCOPE_VARIABLE_HASH_SIZE 1024
+#define SCOPE_TAG_HASH_SIZE      256
 
-typedef struct {
-    bool is_default;
-    
-} Type;
+struct Compiler_Ctx;
+struct Ast;
+struct Lexer;
+struct C_Type;
 
-typedef struct {
+// Variable is anyhting scoped - type, function, enum values
+typedef union {
+    i32     enum_value;
+    C_Type *type;
     
-} Variable;
+} Parser_Var;
+
+typedef struct Parser_Obj {
+    const char *name;
+    struct C_Type *type;
+    struct Src_Loc *declared_at;
+} Parser_Obj;
+
+typedef struct Parser_Scope {
+    
+    
+    struct Parser_Scope *next;
+} Parser_Scope;
 
 typedef struct Parser {
-    struct Memory_Arena *arena;
+    C_Type standard_types[0x16];
     
-    
+    struct Compiler_Ctx *ctx;
+    struct Lexer *lex;    
 } Parser;
 
-void push_scope(Parser *parser);
-void pop_scope(Parser *parser);
-
-
+Parser *create_parser(struct Compiler_Ctx *ctx);
+struct Ast *parse_toplevel(Parser *parser);
 
 #endif

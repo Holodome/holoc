@@ -20,45 +20,18 @@ tt_get_hash_entry(Type_Table *table, u32 hash) {
     return hash_entry;
 }
 
-static u32 
-hash_type(const char *name, u32 kind) {
-    // @TODO(hl): Better hash func
-    const static u32 kind_masks[] = {
-        0xFF000000,
-        0x00FF0000,
-        0x0000FF00,
-        0x000000FF,
-        0xFFFF0000,
-    };
-    u32 name_hash = fnv64(name, zlen(name));
-    u32 result_hash = name_hash ^ kind_masks[kind];
-    return result_hash;
-}
-
-
-#define get_new_type(_table, _name, ...) get_new_type_(_table, _name, (0, ##__VA_ARGS__))
-static C_Type *
-get_new_type_(Type_Table *tt, const char *name, u32 kind) {
-    // u32 type_hash = hash_type(name, kind);
-    // Type_Table_Hash_Entry **table_entry = tt_get_hash_entry(tt, type_hash);
-    // if (*table_entry) {
-        
-    // } else {
-        
-    // }
-    // C_Type *new_type = arena_alloc_struct(tt->ctx->arena, C_Type);
-    // assert(*typep);
-    // *typep = new_type;
-    // return new_type;
-    return 0;
-}
-
 static C_Type *
 init_type(C_Type *type, u32 kind, u32 align, u32 size) {
     type->kind = kind;
     type->align = align;
     type->size = size;
     return type;
+}
+
+static C_Type *
+get_new_type(Type_Table *tt, const char *name) {
+    NOT_IMPLEMENTED;
+    return 0;
 }
 
 static void 
@@ -145,54 +118,27 @@ create_type_table(struct Compiler_Ctx *ctx) {
     return tt;
 }
 
-C_Type *
-tt_get_standard_type(Type_Table *tt, u32 c_type) {
-    C_Type *type = 0;
-    
-    return type;    
-}
-
-C_Type *
-tt_get_untagged(Type_Table *tt, const char *name) {
-    C_Type *type = 0;
-    
-    return type;
-}
-
-C_Type *
-tt_get_struct(Type_Table *tt, const char *name) {
-    C_Type *type = 0;
-    
-    return type;
-}
-
-C_Type *
-tt_get_union(Type_Table *tt, const char *name) {
-    C_Type *type = 0;
-    
-    return type;
-}
-
-C_Type *
-tt_get_enum(Type_Table *tt, const char *name) {
-    C_Type *type = 0;
-    
-    return type;
+void 
+tt_get_type(Type_Table *tt, const char *name, u32 tag) {
+       
 }
 
 C_Type *
 tt_get_ptr(Type_Table *tt, C_Type *underlying) {
-    C_Type *type = 0;
-    
-    return type;
+    NOT_IMPLEMENTED;
+    return 0;
+}
+
+void 
+tt_remove_type(Type_Table *tt, const char *name) {
+    NOT_IMPLEMENTED;
 }
 
 C_Type *
-tt_make_typedef(Type_Table *tt, C_Type *underlying, const char *name) {
-    C_Type *type = 0;
-    
-    return type;
+tt_get_new_type(Type_Table *tt, u32 tag, const char *name) {
+    return 0;
 }
+
 // Does search for member respecting unnamed structs and unions
 C_Struct_Member *
 get_struct_member(C_Type *struct_type, const char *name) {
