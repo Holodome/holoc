@@ -66,54 +66,7 @@ enum {
 #define C_TYPE_IS_UNSIGNED(_kind) \
 (C_TYPE_IS_UNSIGNED_INT(_kind) || ((_kind) == C_TYPE_PTR) || ((_kind) == C_TYPE_ARRAY))
 
-typedef struct C_Struct_Member_Link {
-    struct C_Struct_Member_Link *next;
-    struct C_Struct_Member_Link *prev;
-} C_Struct_Member_Link;
-
-typedef struct C_Struct_Member {
-    C_Struct_Member_Link link;
-    const char *name;
-    struct Src_Loc *decl_loc;
-    
-    struct C_Type *type;
-    u32 index;  // index in structure
-    u32 align;  // align 
-    u32 offset; // byte offset
-} C_Struct_Member;
-
-typedef struct C_Type_Link {
-    struct C_Type_Link *next;
-    struct C_Type_Link *prev;
-} C_Type_Link;
-
-typedef struct C_Type {
-    C_Type_Link link;
-    u32 align;
-    u32 size;  // value returned by sizeof operator
-    
-    u32 kind;
-    struct Src_Loc *decl_loc;
-    union {
-        struct C_Type *ptr_to;
-        struct {
-            struct C_Type *array_base;
-            u64 array_size;  
-        };
-        struct {
-            bool is_variadic;
-            struct C_Type *return_type;
-            C_Type_Link param_sentinel;
-            u32 param_count;
-        };
-        struct {
-            bool is_packed;
-            u32 member_count;   
-            C_Struct_Member_Link member_sentinel;
-        };
-    };
-} C_Type;
-
+#if 0
 // Tags prefix types in C - for example, struct Foo and Foo are different types
 enum {
     C_TYPE_TAG_NONE    = 0x0,
@@ -152,3 +105,4 @@ C_Type *tt_get_new_type(Type_Table *tt, u32 tag, u32 scope, const char *name);
 C_Type *tt_get_forward_decl(Type_Table *tt, u32 tag, const char *name);
 // Does search for member respecting unnamed structs and unions
 C_Struct_Member *get_struct_member(C_Type *struct_type, const char *name);
+#endif

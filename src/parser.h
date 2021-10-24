@@ -17,6 +17,54 @@ struct Ast;
 struct Lexer;
 struct C_Type;
 
+typedef struct C_Struct_Member_Link {
+    struct C_Struct_Member_Link *next;
+    struct C_Struct_Member_Link *prev;
+} C_Struct_Member_Link;
+
+typedef struct C_Struct_Member {
+    C_Struct_Member_Link link;
+    const char *name;
+    struct Src_Loc *decl_loc;
+    
+    struct C_Type *type;
+    u32 index;  // index in structure
+    u32 align;  // align 
+    u32 offset; // byte offset
+} C_Struct_Member;
+
+typedef struct C_Type_Link {
+    struct C_Type_Link *next;
+    struct C_Type_Link *prev;
+} C_Type_Link;
+
+typedef struct C_Type {
+    C_Type_Link link;
+    u32 align;
+    u32 size;  // value returned by sizeof operator
+    
+    u32 kind;
+    struct Src_Loc *decl_loc;
+    union {
+        struct C_Type *ptr_to;
+        struct {
+            struct C_Type *array_base;
+            u64 array_size;  
+        };
+        struct {
+            bool is_variadic;
+            struct C_Type *return_type;
+            C_Type_Link param_sentinel;
+            u32 param_count;
+        };
+        struct {
+            bool is_packed;
+            u32 member_count;   
+            C_Struct_Member_Link member_sentinel;
+        };
+    };
+} C_Type;
+
 // Variable is anyhting scoped - type, function, enum values
 typedef union {
     i32     enum_value;

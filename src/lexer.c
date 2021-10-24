@@ -121,8 +121,8 @@ static const char *PUNCTUATOR_STRINGS[] = {
     "##",
 };
 
-static const char *ALPHABET       = "0123456789ABCDEF";
-static const char *ALPHABET_LOWER = "0123456789abcdef";
+// static const char *ALPHABET       = "0123456789ABCDEF";
+// static const char *ALPHABET_LOWER = "0123456789abcdef";
 
 u32 
 fmt_token_kind(Out_Stream *stream, u32 kind) {
@@ -934,9 +934,9 @@ pp_skip_to_next_matching_if(Lexer *lexer) {
 
 static Ast *
 pp_parse_expr(Lexer *lexer) {
-    Token *token = pp_peek_tok(lexer);
+    // Token *token = pp_peek_tok(lexer);
     
-
+    NOT_IMPLEMENTED;   
     return 0;
 }
 
