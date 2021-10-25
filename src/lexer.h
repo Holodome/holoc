@@ -3,6 +3,30 @@ Author: Holodome
 Date: 10.10.2021
 File: src/new_lexer.h
 Version: 0
+
+This file contains lexer for C. Lexer is a subprogram that accepts text input and returns
+tokenized output, where each symbol is converted into corresponding language literal understood by compiler.
+
+This lexer does preprocessing inline, not as separate stage. So the single lexer object is responsible 
+for all lexing in C language.
+Because of that, in consists of two parts - usual c lexer, that is fairly straightforward and a preprocessor
+lexer, parser and interprenter. 
+
+Because of the nature of the C languge, the preprocessor can be though as a whole different language with its
+specific grammatic rules (for example, its parsing of #if directive expresions is a very simplified version of c
+expressions). Because of that, there is a need for whole different language parser. 
+By first looking at the code complexity of the lexing algorithm can seem big, but it can be easilly broken down
+into several subparts.
+
+First of all, if current lexing context is the regular C text (not a macro exapnsion), we can just parse it as usual 
+into tokens directly. But if compiler does macro expansion of any sort, it splits the generation of tokens into two
+parts. Firstly, they are parsed as text to buffer. This is done in order to make concatenation in stringifying 
+(# and ## in preprocessor) possible.
+After that, it checks if next preprocessor token equals to one of said above ones. Depending on this condition,
+it can parse next token and join them, generate string with token text or generate correct c token.
+
+This complexity was intoduced in order to make the compilation single-passed, without doing actual textual 
+replacements done by preprocessor, by maintaining stack-like structure for buffers that are being parsed.
 */
 #ifndef LEXER_H
 #define LEXER_H
@@ -189,6 +213,7 @@ typedef struct Token {
 
 u32 fmt_token_kind(struct Out_Stream *stream, u32 kind);
 u32 fmt_token(struct Out_Stream *stream, Token *token);
+u32 fmt_token_as_code(struct Out_Stream *stream, Token *token);
 
 typedef struct Token_Stack_Entry {
     Token *token;
@@ -273,8 +298,6 @@ typedef struct Lexer {
     // Needs to be stored so we know whether next #if should be checked or skipped 
     PP_Nested_If nested_ifs[MAX_NESTED_IFS];
     u32          nested_if_cursor;
-    // Preprocessor    preprocessor;
-    // @NOTE(hl): Stack structure used to temporarily store tokens when peekign ahead of current.
     // Because we can't really tell how much tokens we would want to peek, it is free-list based.
     u32                token_stack_size;
     Token_Stack_Entry *token_stack;
@@ -283,6 +306,10 @@ typedef struct Lexer {
     char *scratch_buffer;
     u32 scratch_buf_size;
     u32 scratch_buf_capacity;
+    
+    u32 expected_token_kind;
+    u32 last_line_with_tokens;
+    bool line_had_tokens;
 } Lexer;
 
 Lexer *create_lexer(struct Compiler_Ctx *ctx, const char *filename);
@@ -315,5 +342,10 @@ u8 peek_codepoint(Lexer *lexer);
 void advance(Lexer *lexer, u32 n);
 bool parse(Lexer *lexer, const char *lit);
 bool skip_spaces(Lexer *lexer);
+
+void preprocess(Lexer *lexer, struct Out_Stream *stream);
+
+void lexer_gen_pp_token(Lexer *lexer);
+void lexer_convert_pp_token(Lexer *lexer);
 
 #endif

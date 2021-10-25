@@ -1,5 +1,5 @@
 #include "parser.h"
-
+#if 0
 #include "ast.h"
 #include "lexer.h"
 #include "type_table.h"
@@ -258,3 +258,4 @@ parse_toplevel(Parser *parser) {
         declspec_global_scope();
     }
 }
+#endif 

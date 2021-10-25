@@ -100,7 +100,7 @@ os_get_file_size(OS_File_Handle id) {
 OS_Stat 
 os_stat(const char *filename) {
     OS_Stat result = {0};
-    struct stat stat_st;
+    struct stat stat_st = {0};
     int posix_result = stat(filename, &stat_st);
     if (posix_result == 0) {
         result.exists = true;

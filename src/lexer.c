@@ -185,6 +185,40 @@ fmt_token(Out_Stream *stream, Token *token) {
     return result;
 }
 
+
+u32 
+fmt_token_as_code(struct Out_Stream *stream, Token *token) {
+        u32 result = 0;
+    switch (token->kind) {
+    INVALID_DEFAULT_CASE;
+    case TOKEN_EOS: {
+    } break;
+    case TOKEN_IDENT: {
+        result = out_streamf(stream, "%s", token->ident.str);
+    } break;
+    case TOKEN_KEYWORD: {
+        result = out_streamf(stream, "%s", KEYWORD_STRINGS[token->kw]);
+    } break;
+    case TOKEN_STRING: {
+        result = out_streamf(stream, "\"%s\"", token->str.str);
+    } break;
+    case TOKEN_NUMBER: {
+        result = out_streamf(stream, "%s", 
+            token->number.string);
+    } break;
+    case TOKEN_PUNCTUATOR: {
+        if (token->punct < 0x100) {
+            result += out_streamf(stream, "%c", token->punct);
+        } else {
+            result += out_streamf(stream, "%s", 
+                PUNCTUATOR_STRINGS[token->punct - 0x100]);
+        }
+    } break;
+    }    
+    return result;
+
+}
+
 u8 
 lexbuf_peek(Lexer_Buffer *buffer) {
     u8 result = 0;
@@ -211,14 +245,20 @@ lexbuf_advance(Lexer_Buffer *buffer, u32 n) {
 }
 
 bool 
-lexbuf_parse(Lexer_Buffer *buffer, const char *lit) {
+lexbuf_next_eq(Lexer_Buffer *buffer, const char *lit) {
     u32 length = zlen(lit);
     bool result = false;
     if (buffer->at + length < buffer->buf + buffer->size) {
         result = mem_eq(buffer->at, lit, length);
-        if (result) {
-            lexbuf_advance(buffer, length);
-        }
+    }
+    return result;
+}
+
+bool 
+lexbuf_parse(Lexer_Buffer *buffer, const char *lit) {
+    bool result = lexbuf_next_eq(buffer, lit);
+    if (result) {
+        lexbuf_advance(buffer, zlen(lit));
     }
     return result;
 }
@@ -452,6 +492,10 @@ parse_character_literal(Lexer *lexer, Token *token) {
     token->kind = TOKEN_NUMBER;
     // token->number.sint_value = value;
     token->number.type = C_TYPE_SINT;
+    
+    char new_buf[4096];
+    fmt(new_buf, sizeof(new_buf), "'%s'", char_buf);
+    token->number.string = mem_alloc_str(new_buf);
 }
 
 static Token_Stack_Entry *
@@ -716,6 +760,16 @@ advance(Lexer *lexer, u32 n) {
     }
 }
 
+bool
+next_eq(Lexer *lexer, const char *lit) {
+    bool result = false;
+    Lexer_Buffer *buffer = get_current_buf(lexer);
+    if (buffer) {
+        result = lexbuf_peek(buffer, lit);
+    }
+    return result;
+}
+
 bool 
 parse(Lexer *lexer, const char *lit) {
     bool result = false;
@@ -939,7 +993,7 @@ pp_parse_expr(Lexer *lexer) {
     NOT_IMPLEMENTED;   
     return 0;
 }
-
+#if 0
 static i64
 pp_eval_expr(Lexer *lexer, Ast *expr) {
     i64 result = 0;
@@ -1071,6 +1125,7 @@ pp_eval_expr(Lexer *lexer, Ast *expr) {
     return result;
 }
 
+#endif
 static void 
 parse_preprocessor_directive(Lexer *lexer) {
     Token *token = 0;
@@ -1383,8 +1438,38 @@ gen_tok_internal(Lexer *lexer) {
         
         // all cases below should break the loop
         token->src_loc = get_current_loc(lexer); 
+        // @TODO(hl): Peek forward to detect some floating-point numbers
         if (is_digit(peek_codepoint(lexer))) {
-            parse_number(lexer, token);
+            char buf[4096];
+            u32 len = 0;
+            for (;;) {
+                u8 codepoint = peek_codepoint(lexer);
+                if (is_int(codepoint) || is_real(codepoint)) {
+                    buf[len++] = codepoint;
+                    advance(lexer, 1);
+                } else {
+                    break;
+                }
+            }
+            buf[len] = 0;
+            if (parse(lexer, "LLU") || parse(lexer, "LLu") ||
+                parse(lexer, "llU") || parse(lexer, "llu") ||
+                parse(lexer, "ULL") || parse(lexer, "Ull") ||
+                parse(lexer, "uLL") || parse(lexer, "ull")) {
+                // mask = MASK_LL | MASK_U;
+            } else if (parse(lexer, "ll") || parse(lexer, "LL")) {
+                // mask = MASK_LL;
+            } else if (parse(lexer, "LU") || parse(lexer, "Lu") || 
+                    parse(lexer, "lU") || parse(lexer, "lu")) {
+                // mask = MASK_L | MASK_U;
+            } else if (parse(lexer, "L") || parse(lexer, "l")) {
+                // mask = MASK_L;
+            } else if (parse(lexer, "U") || parse(lexer, "u")) {
+                // mask = MASK_U;
+            }
+            token->kind = TOKEN_NUMBER;
+            token->number.string = mem_alloc_str(buf);
+            // parse_number(lexer, token);
             break;
         } else if (is_ident_start(peek_codepoint(lexer))) {
             char buf[4096];
@@ -1605,4 +1690,263 @@ create_lexer(struct Compiler_Ctx *ctx, const char *filename) {
     add_buffer_to_stack_file(lexer, filename);
     
     return lexer;
+}
+
+
+void 
+preprocess(Lexer *lexer, Out_Stream *stream) {
+    for (;;) {
+        Token *token = peek_tok(lexer);
+        if (token->kind == TOKEN_EOS) {
+            break;
+        }
+        out_streamf(STDOUT, "\n");
+        fmt_token_as_code(STDOUT, token);
+        // fmt_src_loc(STDOUT, token->src_loc, ctx->fr, 1);
+        eat_tok(lexer);
+    }
+}
+
+void 
+lexer_gen_pp_token(Lexer *lexer) {
+start:
+    if (!peek_codepoint(lexer)) {
+        lexer->expected_token_kind = TOKEN_EOS;
+        goto token_generated;
+    }
+    
+    bool is_space_advanced = false;
+    while (is_space(peek_codepoint(lexer))) {
+        advance(lexer, 1);
+        is_space_advanced = true;
+    }
+    
+    if (is_space_advanced) {
+        goto start;
+    }
+    
+    if (parse(lexer, "/*")) {
+        while (!parse(lexer, "*/")) {
+            advance(lexer, 1);
+        }
+        goto start;
+    }
+    
+    if (peek_codepoint(lexer) == '#' && 
+        !lexer->is_in_preprocessor_ctx
+        && !lexer->line_had_tokens) {
+        // Copy whole preprocessing line in the buffer with respect to
+        // rules of \\n, while also deleting comments 
+        lexer->scratch_buf_size = 0;
+        for (;;) {
+            if (parse(lexer, "\\n")) {
+                assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
+                lexer->scratch_buffer[lexer->scratch_buf_size++] = ' ';
+                continue;
+            } else if (parse(lexer, "//")) {
+                for (;;) {
+                    u8 codepoint = peek_codepoint(lexer);
+                    if (!codepoint && codepoint != '\\' && codepoint != '\n') {
+                        break;
+                    }
+                    advance(lexer, 1);
+                }
+                continue;
+            } else if (parse(lexer, "/*")) {
+                bool should_end_line = false;
+                for (;;) {
+                    if (!get_current_buf(lexer) || parse(lexer, "*/")) {
+                        break;
+                    }
+                    if (peek_codepoint(lexer) == '\n') {
+                        should_end_line = true;
+                    }
+                    advance(lexer, 1);
+                }
+                
+                assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
+                lexer->scratch_buffer[lexer->scratch_buf_size++] = ' ';
+                if (should_end_line) {
+                    break;
+                }
+            }
+            u8 codepoint = peek_codepoint(lexer);
+            if (codepoint == '\n' || !codepoint) {
+                advance(lexer, 1);
+                break;
+            } else {
+                assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
+                lexer->scratch_buffer[lexer->scratch_buf_size++] = codepoint;
+                advance(lexer, 1);
+            }
+        }
+        assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
+        lexer->scratch_buffer[lexer->scratch_buf_size] = 0;
+        // Parse the preprocessor directive
+        //
+        // The evaluation of preprocessing lines can be done inline,
+        // there is no need for separate Lexer_Buffer for it
+        //
+        // @NOTE(hl): There is no actual need to skip spaces here because 
+        // we always start line from # 
+        const char *cursor = lexer->scratch_buffer;
+        while (*cursor && is_space(*cursor)) {
+            ++cursor;
+        }
+        
+        if (*cursor == '#') {
+            ++cursor;
+            while (*cursor && is_space(*cursor)) {
+                ++cursor;
+            }
+            
+            if (zeq(cursor, "define")) {
+                cursor += zlen("define");
+                while (*cursor && is_space(*cursor)) {
+                    ++cursor;
+                }
+                
+                if (is_ident_start(*cursor)) {
+                    const char *ident_start = cursor++;
+                    while (*cursor && is_ident(*cursor)) {
+                        ++cursor;
+                    }
+                    const char *ident_end = cursor;
+                    
+                    PP_Macro *macro = 0;
+                    {
+                        char macro_name_buffer[4096];
+                        fmt(macro_name_buffer, sizeof(macro_name_buffer),
+                            "%.*s", ident_end - ident_start, ident_start);
+                        macro = pp_define(lexer, macro_name_buffer);
+                    }
+                    // @TODO(hl): Warn if macro is already defined
+                    
+                    // Parse function-like macro
+                    if (*cursor == '(') {
+                        ++cursor;
+                        macro->is_function_like = true;
+                        
+                        while (*cursor && *cursor != ')') {
+                            if (is_ident_start(*cursor)) {
+                                if (macro->has_varargs) {
+                                    NOT_IMPLEMENTED;
+                                }
+                                
+                                const char *ident_start = cursor;
+                                while (*cursor && is_ident(*cursor)) {
+                                    ++cursor;
+                                }
+                                
+                                const char *ident_end = cursor;
+                                {
+                                    char ident_buffer[4096];
+                                    fmt(ident_buffer, sizeof(ident_buffer),
+                                        "%.*s", ident_end - ident_start, ident_start);
+                                    assert(macro->arg_count < MAX_PP_MACRO_ARGS);
+                                    macro->arg_names[macro->arg_count++] = mem_alloc_str(ident_buffer);
+                                }
+                            } else if (zeq(cursor, "...")) {
+                                cursor += zlen("...");
+                                if (macro->has_varargs) {
+                                    NOT_IMPLEMENTED;
+                                }
+                                macro->has_varargs = true;
+                            } else if (*cursor == ',') {
+                                ++cursor;
+                            } else if (is_space(*cursor)) {
+                                while (*cursor && is_space(*cursor)) {
+                                    ++cursor;
+                                }
+                            } else {
+                                NOT_IMPLEMENTED;
+                                break;
+                            }
+                        }    
+                        
+                        if (*cursor == ')') {
+                            ++cursor;
+                        } else {
+                            NOT_IMPLEMENTED;
+                        }
+                    }
+                     
+                    const char *definition_start = cursor;
+                    const char *definition_end = lexer->scratch_buffer + 
+                        lexer->scratch_buf_size;
+                    {
+                        u32 len = fmt(macro->definition, sizeof(macro->definition),
+                            "%.*s", definition_end - definition_start, definition_start);
+                        macro->definition_len = len;
+                    }
+                } else {
+                    NOT_IMPLEMENTED;
+                }
+                 
+            } else if (zeq(cursor, "undef")) {
+                cursor += zlen("undef");
+                while (*cursor && is_space(*cursor)) {
+                    ++cursor;
+                }
+                
+                if (is_ident_start(*cursor)) {
+                    const char *ident_start = cursor++;
+                    while (*cursor && is_ident(*cursor)) {
+                        ++cursor;
+                    }
+                    const char *ident_end = cursor;
+                    
+                    char macro_name_buffer[4096];
+                    fmt(macro_name_buffer, sizeof(macro_name_buffer),
+                        "%.*s", ident_end - ident_start, ident_start);
+                    pp_undef(lexer, macro_name_buffer);
+                } else {
+                    NOT_IMPLEMENTED;
+                }
+            } else if (zeq(cursor, "include")) {
+                
+            } else if (zeq(cursor, "ifdef")) {
+                
+            } else if (zeq(cursor, "ifndef")) {
+                
+            } else if (zeq(cursor, "endif")) {
+                
+            } else if (zeq(cursor, "else")) {
+                
+            } else if (zeq(cursor, "elifdef")) {
+                 
+            } else if (zeq(cursor, "elifndef")) {
+                
+            } else if (zeq(cursor, "if")) {
+                
+            } else if (zeq(cursor, "elif")) {
+                
+            } else if (zeq(cursor, "pragma")) {
+                
+            }
+            
+        } else {
+            NOT_IMPLEMENTED;
+        }
+        
+        while (*cursor && is_space(*cursor)) {
+            ++cursor;
+        }
+        if (*cursor) {
+            // Unexpected token
+            NOT_IMPLEMENTED;
+        }
+        
+        goto start;
+    }
+
+    
+token_generated:    
+    return;
+}
+
+
+void 
+lexer_convert_pp_token(Lexer *lexer) {
+    
 }

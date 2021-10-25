@@ -105,7 +105,7 @@ double ieee754_convert_f64(const char *str, int unsigned length) {
     // adjust the exponent
     ieee754_convert_u64 exponent_bias = (1 << (info.exponent_bits - 1)) - 1;
     ieee754_convert_u64 exponent_biased = exponent + exponent_bias;
-    assert(exponent_biased < (1 << info.exponent_bits));
+    // assert(exponent_biased < (1 << info.exponent_bits));
     // normalize the mantissa
     // remove leading 1
     ieee754_convert_u64 mantissa = combined & ((1llu << combined_point_index) - 1);

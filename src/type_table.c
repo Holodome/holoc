@@ -1,5 +1,6 @@
 #include "type_table.h"
 
+#if 0
 #include "lib/hashing.h"
 #include "lib/strings.h"
 #include "lib/memory.h"
@@ -146,3 +147,4 @@ get_struct_member(C_Type *struct_type, const char *name) {
     
     return type;
 }
+#endif 

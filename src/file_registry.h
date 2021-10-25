@@ -6,9 +6,11 @@ Version: 0
 
 System to store information about files that are opened during the compilation process.
 Caches data, stores inclusion
+
+@TODO(hl): Strip slashes at the end and start
 */
-#ifndef GILE_REGISTRY_H
-#define GILE_REGISTRY_H
+#ifndef FILE_REGISTRY_H
+#define FILE_REGISTRY_H
 #include "lib/general.h"
 
 #include "lib/hashing.h" // Hash64
