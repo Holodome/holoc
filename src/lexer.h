@@ -63,6 +63,12 @@ enum {
     TOKEN_PP_FILENAME          = 0x107,
     // Similar to strings, contains all that goes after #define AAA till the end of the string
     TOKEN_PP_DEFINE_DEFINITION = 0x108,
+    
+    TOKEN_PP_CHAR_LIT = 0x110,
+    TOKEN_PP_STRING_LIT = 0x110,
+    TOKEN_PP_NUMBER_LIT = 0x110,
+    
+    
 };
 
 enum {
@@ -308,6 +314,8 @@ typedef struct Lexer {
     u32 scratch_buf_capacity;
     
     u32 expected_token_kind;
+    u32 expected_punct;
+    u32 expected_keyword;
     u32 last_line_with_tokens;
     bool line_had_tokens;
 } Lexer;

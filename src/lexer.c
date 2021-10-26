@@ -1940,13 +1940,103 @@ start:
         goto start;
     }
 
+    if (peek_codepoint(lexer) == '\'') {
+        lexer->expected_token_kind = TOKEN_PP_CHAR_LIT;
+        goto token_generated;    
+    } 
     
+    if (peek_codepoint(lexer) == '\'"') {
+        lexer->expected_token_kind = TOKEN_PP_STRING_LIT;
+        goto token_generated;
+    }
+    
+    if (is_digit(peek_codepoint(lexer))) {
+        lexer->expected_token_kind = TOKEN_PP_NUMBER_LIT;
+        goto token_generated;
+    }
+    
+    if (is_ident_start(peek_codepoint(lexer))) {
+        lexer->expected_token_kind = TOKEN_IDENT;
+        goto token_generated;
+    }
+    
+    if (is_punct(peek_codepoint(lexer))) {
+        
+        goto token_generated;
+    }
 token_generated:    
     return;
 }
 
-
 void 
 lexer_convert_pp_token(Lexer *lexer) {
     
+}
+
+#define x(_a) #_a
+const char *a = x(1221 + 3);
+
+Token *
+lexer_peek_token_new(Lexer *lexer) {
+start:
+    lexer->scratch_buf_size = 0;
+    lexer_gen_pp_token(lexer);
+    u32 expected1 = lexer->expected_token_kind;
+    
+    bool stringify = false;
+    if (lexer->is_in_preprocessor_ctx) {
+        if (expected1 == TOKEN_PUNCTUATOR && lexer->expected_punct == '#') {
+            lexer->scratch_buf_size = 0;
+            lexer_gen_pp_token(lexer);
+            expected1 = lexer->expected_token_kind;
+            stringify = true;
+
+            goto generate_token;
+        }
+    }
+    
+check_concat:
+    if (lexer->is_in_preprocessor_ctx) {
+        while (is_space(peek_codepoint(lexer))) {
+            advance(lexer, 1);
+        }   
+    
+        u8 codepoint = peek_codepoint(lexer);
+        if (parse(lexer, "##")) {
+            lexer_gen_pp_token(lexer);
+            u32 expected2 = lexer->expected_token_kind;
+            add_buffer_to_stack_concat(lexer);
+            
+            expected1 = expected2;
+            goto check_concat;
+        }
+    }
+    
+check_string:
+    while (is_space(peek_codepoint(lexer))) {
+        advance(lexer, 1);
+    }
+    
+    if (peek_codepoint(lexer) == '\"') {
+        lexer_gen_pp_token(lexer);
+        goto check_string;
+    }
+    
+generate_token:
+
+    if (stringify) {
+        NOT_IMPLEMENTED;
+    } else if (expected1 == TOKEN_IDENT) {
+            
+    } else if (expected1 == TOKEN_PUNCTUATOR) {
+        
+    } else if (expected1 == TOKEN_PP_CHAR_LIT) {
+        
+    } else if (expected1 == TOKEN_PP_STRING_LIT) {
+        
+    } else {
+        NOT_IMPLEMENTED;
+    }
+    
+    return 0;
 }
