@@ -12,5 +12,8 @@
 
 // int yy = D();
 
-#define E(_a, ...) (_a + 1), __VA_ARGS__
+// #define E(_a, ...) (_a + 1), __VA_ARGS__
+// int E(a, b, c, d);
+
+#define E(a, ...) __VA_ARGS__
 int E(a, b, c, d);

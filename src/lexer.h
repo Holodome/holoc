@@ -1,8 +1,8 @@
 /*
 Author: Holodome
 Date: 10.10.2021
-File: src/new_lexer.h
-Version: 0
+File: src/lexer.h
+Version: 2
 
 This file contains lexer for C. Lexer is a subprogram that accepts text input and returns
 tokenized output, where each symbol is converted into corresponding language literal understood by compiler.
@@ -64,9 +64,9 @@ enum {
     // Similar to strings, contains all that goes after #define AAA till the end of the string
     TOKEN_PP_DEFINE_DEFINITION = 0x108,
     
-    TOKEN_PP_CHAR_LIT = 0x110,
-    TOKEN_PP_STRING_LIT = 0x110,
-    TOKEN_PP_NUMBER_LIT = 0x110,
+    TOKEN_PP_CHAR_LIT   = 0x109,
+    TOKEN_PP_STRING_LIT = 0x10A,
+    TOKEN_PP_NUMBER_LIT = 0x10B,
     
     
 };
@@ -202,14 +202,14 @@ typedef struct Token {
         u32 punct;
         struct {
             u32 type;
-            const char *string;
+            // const char *string;
             // @TODO(hl):
-            // union {
-            //     u64 uint_value;
-            //     i64 sint_value;
-            //     long double real_value;
-            //     Float_Literal float_literal;
-            // };
+            union {
+                u64 uint_value;
+                i64 sint_value;
+                long double real_value;
+                // Float_Literal float_literal;
+            };
         } number;
     };
 } Token;
@@ -309,7 +309,7 @@ typedef struct Lexer {
     Token_Stack_Entry *token_stack;
     Token_Stack_Entry *token_stack_freelist;
     
-    char *scratch_buffer;
+    char *scratch_buf;
     u32 scratch_buf_size;
     u32 scratch_buf_capacity;
     

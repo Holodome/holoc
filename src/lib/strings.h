@@ -37,6 +37,7 @@ bool zeq(const char *a, const char *b);
 bool zeqn(const char *a, const char *b, uptr n);
 // Returns string length
 uptr zlen(const char *str);
+bool zstartswith(const char *a, const char *b);
 
 // Returns length of utf8-encoded symbol. 
 // 0 means error

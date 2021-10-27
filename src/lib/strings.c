@@ -118,6 +118,16 @@ uptr zlen(const char *str) {
     return result;
 }
 
+bool 
+zstartswith(const char *a, const char *b) {
+    bool result = false;
+    u32 len = zlen(b);
+    if (zlen(a) >= len) {
+        result = mem_eq(a, b, len);
+    }
+    return result;   
+}
+
 u32 
 utf8_encode(u32 utf32, u8 *dst) {
     u32 len = 0;
