@@ -67,8 +67,7 @@ enum {
     TOKEN_PP_CHAR_LIT   = 0x109,
     TOKEN_PP_STRING_LIT = 0x10A,
     TOKEN_PP_NUMBER_LIT = 0x10B,
-    
-    
+    TOKE_PP_STATEMENT_END = 0x10C
 };
 
 enum {
@@ -235,6 +234,8 @@ enum {
     LEXER_BUFFER_MACRO_ARG = 0x3,
     // Concatenated string expansion 
     LEXER_BUFFER_CONCAT    = 0x4, 
+    // Macro statement. Must return 0 at the end so the program knowns where to terminate
+    LEXER_BUFFER_MACRO_STATEMENT = 0x5,
 };
 
 // Represents buffer from which data needs to be parsed as source.

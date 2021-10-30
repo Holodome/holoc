@@ -9,6 +9,11 @@
 
 #include "compiler_ctx.h"
 
+static void 
+prepare_source_file(File_Registry_Entry *file) {
+    const char *cursor = file->data.data;
+}
+
 File_Registry *
 create_file_registry(Compiler_Ctx *ctx) {
     File_Registry *fr = arena_alloc_struct(ctx->arena, File_Registry);
@@ -125,6 +130,7 @@ get_file_data(File_Registry *fr, File_ID id) {
                 file->data.size = file_size;
                 os_close_file(file_handle);
                 result.is_valid = true;
+                prepare_source_file(file);
             } else {
                 // @TODO logging
                 NOT_IMPLEMENTED;

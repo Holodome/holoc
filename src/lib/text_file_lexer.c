@@ -13,6 +13,7 @@ text_lexer(void *buf, uintptr_t buf_size,
     lexer.symb = 1;
     lexer.string_buf = string_buf;
     lexer.string_buf_size = string_buf_size;
+    lexer.should_make_new = true;
     return lexer;
 }
                       
@@ -47,24 +48,37 @@ advance(Text_Lexer *lexer) {
         }
     }
 }
+
+static bool 
+skip_spaces(Text_Lexer *lexer) {
+    bool is_space_advanced = false;
+    u8 codepoint = peek_codepoint(lexer);
+    while (is_space(codepoint)) {
+        advance(lexer);
+        codepoint = peek_codepoint(lexer);
+        is_space_advanced = true;
+    }
+    return is_space_advanced;
+}
                       
 bool 
 text_lexer_token(Text_Lexer *lexer) {
     bool result = false;
     
     u32 codepoint;
+    
+    if (!lexer->should_make_new) {
+        goto end;
+    }
 start:
+    lexer->should_make_new = false;
     codepoint = peek_codepoint(lexer);
     if (!codepoint) {
-        lexer->token_kind = TEXT_FILE_TOKEN_EOF;
+        lexer->token_kind = TEXT_LEXER_TOKEN_EOF;
         goto end;    
     }
     
-    bool is_space_advanced = false;
-    while (is_space(codepoint)) {
-        advance(lexer);
-        codepoint = peek_codepoint(lexer);
-    }
+    bool is_space_advanced = skip_spaces(lexer);
     if (is_space_advanced) {
         goto start;
     }
@@ -83,7 +97,7 @@ start:
         assert(length < lexer->string_buf_size);
         lexer->string_buf[length] = 0;
         
-        lexer->token_kind = TEXT_FILE_TOKEN_IDENT;
+        lexer->token_kind = TEXT_LEXER_TOKEN_IDENT;
         goto end;    
     } 
     
@@ -107,10 +121,10 @@ start:
         lexer->string_buf[length] = 0;
         
         if (is_real_lit) {
-           lexer->token_kind = TEXT_FILE_TOKEN_REAL;
+           lexer->token_kind = TEXT_LEXER_TOKEN_REAL;
            lexer->real_value = z2f64((const char *)lexer->string_buf); 
         } else {
-            lexer->token_kind = TEXT_FILE_TOKEN_INT;
+            lexer->token_kind = TEXT_LEXER_TOKEN_INT;
             lexer->int_valie = z2i64((const char *)lexer->string_buf);
         }
         goto end;       
@@ -126,13 +140,14 @@ start:
                 break;
             } else {
                 // @TODO(hl): This is kinda stupid
-                length += utf8_encode(codepoint, lexer->string_buf + length);
+                length += utf8_encode(codepoint, lexer->string_buf_u8 + length);
             }
+            advance(lexer);
         }
         
         assert(length < lexer->string_buf_size);
         lexer->string_buf[length] = 0;
-        lexer->token_kind = TEXT_FILE_TOKEN_STR;
+        lexer->token_kind = TEXT_LEXER_TOKEN_STR;
         goto end;
     }
     
@@ -143,4 +158,15 @@ start:
     }
 end:
     return result;
+}
+
+void 
+text_lexer_eat(Text_Lexer *lexer) {
+    lexer->should_make_new = true;    
+}
+
+bool
+text_lexer_next(Text_Lexer *lexer) {
+    text_lexer_eat(lexer);    
+    return text_lexer_token(lexer);
 }
