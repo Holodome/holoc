@@ -1,3 +1,35 @@
+/* 
+    Stages of translation
+
+Encoding is defined for all source files to be the same. All files are opened and encoded into
+UTF8. This was chosen beacause it supports all ASCII characters needed to aprse language enytax while
+also allowing unicode in places where we need it.
+
+The C standard says that \\n in source should be removed in order co concatenate lines. This behaviour is
+not done directly in order to preserve the source code locations line numbers,
+ however, in places where this affect the program behavoiur (namely, macros & string literals)
+this is implemented in-place.
+
+Trigraphs are not implemented.
+
+'\r\n' is not replaced for ' \n' for now as there are no placed where it would affect the code generation
+ 
+After ending the preparation of source file (if any), the porgram strarts to generate tokens.
+
+Token generation is split into three stages. 
+In first, token is prepared via parsing it to a buffer. This is done to implement some of the language behaviours.
+Second stage involves textual manipulation of tokens, as described by the preprocessor, or concatenation of 
+string literals.
+The third and the last stage does the actual token generation from temporary buffer.
+
+Preprocessor behaviour is implemented in a way to try not to generate tokens ahead, or tokenize whole file at once
+This may seem like unwanted complication, but it has been decided to be a way to go.
+Thus, the program needs to support some kind of data structure to allow storing state of different parsing locations.
+This is implemented via simple stack.
+For example, when the compiler does include of new file, it appens new buffer with file source, and stores location
+of previously parsed file. This is also used to do macro text replacement - instead of manipulating wiht text,
+it pushes new buffers into stack.
+*/
 #include "lib/general.h"
 
 #include "lib/memory.h"

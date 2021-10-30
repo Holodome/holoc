@@ -42,5 +42,6 @@ Ast *
 ast_new(struct Memory_Arena *arena, u32 kind) {
     u64 size = AST_KIND_SIZES[kind];
     Ast *ast = (Ast *)arena_alloc(arena, size);
+    ast->ast_kind = kind;
     return ast;
 }

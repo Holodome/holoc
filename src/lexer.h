@@ -176,38 +176,25 @@ enum {
     PUNCTUATOR_LEQ     = 0x114, // <= 
     PUNCTUATOR_GEQ     = 0x115, // >= 
     PUNCTUATOR_ARROW   = 0x116, // ->
-    PUNCTUATOR_DOUBLE_HASH = 0x117, // ##
     
     PUNCTUATOR_SENTINEL,
 };
-
-typedef struct {
-    u64 whole_number;
-    u64 fraction;
-    u64 fraction_part;
-    u8  exponent_sign;
-    u32 exponent;
-} Float_Literal;
 
 typedef struct Token {
     u32 kind;
     const Src_Loc *src_loc;
     union {
         struct {
-            const char *str;
-            // String_ID str;
+            Str str;
         } str, ident, filename;
         u32 kw;
         u32 punct;
         struct {
             u32 type;
-            // const char *string;
-            // @TODO(hl):
             union {
                 u64 uint_value;
                 i64 sint_value;
                 long double real_value;
-                // Float_Literal float_literal;
             };
         } number;
     };
@@ -218,12 +205,6 @@ typedef struct Token {
 
 u32 fmt_token_kind(struct Out_Stream *stream, u32 kind);
 u32 fmt_token(struct Out_Stream *stream, Token *token);
-u32 fmt_token_as_code(struct Out_Stream *stream, Token *token);
-
-typedef struct Token_Stack_Entry {
-    Token *token;
-    struct Token_Stack_Entry *next;
-} Token_Stack_Entry;
 
 enum {
     // Reading from file
@@ -234,8 +215,6 @@ enum {
     LEXER_BUFFER_MACRO_ARG = 0x3,
     // Concatenated string expansion 
     LEXER_BUFFER_CONCAT    = 0x4, 
-    // Macro statement. Must return 0 at the end so the program knowns where to terminate
-    LEXER_BUFFER_MACRO_STATEMENT = 0x5,
 };
 
 // Represents buffer from which data needs to be parsed as source.
@@ -254,26 +233,31 @@ typedef struct Lexer_Buffer {
             struct PP_Macro *macro;
             // If resolving macro is function-like, save what strings
             // its parameters should be substitueted to
-            const char *macro_args[MAX_PP_MACRO_ARGS];
-            u32         macro_arg_count;
+            Str macro_args[MAX_PP_MACRO_ARGS];
+            u32 macro_arg_count;
         };
     };
     struct Lexer_Buffer *next;
 } Lexer_Buffer;
 
-u8 lexbuf_peek(Lexer_Buffer *buffer);
-u32 lexbuf_advance(Lexer_Buffer *buffer, u32 n);
-bool lexbuf_parse(Lexer_Buffer *buffer, const char *lit);
+u8   lexbuf_peek(Lexer_Buffer *buffer);
+u32  lexbuf_advance(Lexer_Buffer *buffer, u32 n);
+bool lexbuf_parse(Lexer_Buffer *buffer, Str lit);
+
+enum {
+    PP_MACRO_IS_FUNCTION_LIKE_BIT = 0x1,
+    PP_MACRO_HAS_VARARGS_BIT      = 0x2,
+}
 
 typedef struct PP_Macro {
-    u64 id;
-    Src_Loc *loc;
-    const char *name;
-    bool is_function_like;
-    bool has_varargs;
+    u32      hash; 
+    Src_Loc *loc; // Location where defined
+    
+    Str name;
+    u8  flags;
     u32  varargs_idx; // Idx where ... appeared
-    const char *arg_names[MAX_PP_MACRO_ARGS];
-    u32         arg_count;
+    Str arg_names[MAX_PP_MACRO_ARGS];
+    u32 arg_count;
     
     char definition[MAX_PREPROCESSOR_LINE_LENGTH];
     u32  definition_len;
@@ -298,32 +282,22 @@ typedef struct Lexer {
     // could make union to make this more clear
     u32 is_in_preprocessor_ctx;  
     
-    // @TODO(hl): Might want to move this to pointers
-    PP_Macro     macros[MAX_PREPROCESSOR_MACROS];
-    Hash_Table64 macro_hash;
-    u32          next_macro_slot;
+    PP_Macro     *macro_hash[MAX_PREPROCESSOR_MACROS];
     // Needs to be stored so we know whether next #if should be checked or skipped 
     PP_Nested_If nested_ifs[MAX_NESTED_IFS];
     u32          nested_if_cursor;
-    // Because we can't really tell how much tokens we would want to peek, it is free-list based.
-    u32                token_stack_size;
-    Token_Stack_Entry *token_stack;
-    Token_Stack_Entry *token_stack_freelist;
-    
+    // Buffer in which tokens are written to before being generated
     char *scratch_buf;
-    u32 scratch_buf_size;
-    u32 scratch_buf_capacity;
-    
+    u32   scratch_buf_size;
+    u32   scratch_buf_capacity;
+    // Result of writing token text to scratch buf 
     u32 expected_token_kind;
     u32 expected_punct;
     u32 expected_keyword;
-    u32 last_line_with_tokens;
-    bool line_had_tokens;
 } Lexer;
 
 Lexer *create_lexer(struct Compiler_Ctx *ctx, const char *filename);
 Token *peek_tok(Lexer *lexer);
-Token *peek_tok_forward(Lexer *lexer, u32 forward);
 void eat_tok(Lexer *lexer);
 
 void pp_push_nested_if(Lexer *lexer, bool is_handled);
@@ -331,30 +305,18 @@ bool pp_get_nested_if_handled(Lexer *lexer);
 void pp_set_nested_if_handled(Lexer *lexer);
 void pp_pop_nested_if(Lexer *lexer);
 
-PP_Macro *pp_get(Lexer *lexer, const char *name);
-PP_Macro *pp_define(Lexer *lexer, const char *name);
-void pp_undef(Lexer *lexer, const char *name);
+PP_Macro *pp_get(Lexer *lexer, Str name);
+PP_Macro *pp_define(Lexer *lexer, Str name);
+void      pp_undef(Lexer *lexer, Str name);
 
 void add_buffer_to_stack(Lexer *lexer, Lexer_Buffer *entry);
 void add_buffer_to_stack_file(Lexer *lexer, const char *filename);
-void add_buffer_to_stack_macro_expansion(Lexer *lexer, PP_Macro *macro);
-void add_buffer_to_stack_macro_arg_expansion(Lexer *lexer, PP_Macro *macro, Lexer_Buffer *lexbuf);
-void add_buffer_to_stack_concat(Lexer *lexer);
 void pop_buffer_from_stack(Lexer *lexer);
 Lexer_Buffer *get_current_buf(Lexer *lexer);
 
-void add_token_to_stack(Lexer *lexer, Token *token);
-void pop_token_from_stack(Lexer *lexer);
-Token *get_current_token(Lexer *lexer);
-
-u8 peek_codepoint(Lexer *lexer);
+u8   peek_codepoint(Lexer *lexer);
 void advance(Lexer *lexer, u32 n);
 bool parse(Lexer *lexer, const char *lit);
 bool skip_spaces(Lexer *lexer);
-
-void preprocess(Lexer *lexer, struct Out_Stream *stream);
-
-void lexer_gen_pp_token(Lexer *lexer);
-void lexer_convert_pp_token(Lexer *lexer);
 
 #endif

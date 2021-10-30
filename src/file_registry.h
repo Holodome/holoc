@@ -15,7 +15,7 @@ Caches data, stores inclusion
 
 #include "lib/hashing.h" // Hash64
 
-#define MAX_FILES 1024
+#define FILE_REGISTRY_HASH_SIZE 1024
 #define MAX_FILEPATH_LENGTH 4096
 #define MAX_INCLUDE_NESTING 16
 #define FILE_REGISTRY_SRC_LOC_HASH_SIZE 8192
@@ -81,6 +81,8 @@ typedef struct {
 } File_Data_Get_Result;
 
 typedef struct File_Registry_Entry {
+    u32 hash;
+    
     u64  id;
     char path     [MAX_FILEPATH_LENGTH]; // Actual path
     char path_init[MAX_FILEPATH_LENGTH]; // Path supplied by user at creation
@@ -98,20 +100,12 @@ typedef struct File_Registry {
     // so there is little point in doing that
     u64 next_file_idx; 
     
-    Hash_Table64         hash_table;
-    File_Registry_Entry *files[MAX_FILES];
-    
+    File_Registry_Entry *files[FILE_REGISTRY_HASH_SIZE];
     Src_Loc *src_loc_hash[FILE_REGISTRY_SRC_LOC_HASH_SIZE];
 } File_Registry;
 
 File_Registry *create_file_registry(struct Compiler_Ctx *ctx);
-
-// File_ID register_file(File_Registry *fr, const char *filename);
 File_ID register_file(File_Registry *fr, const char *filename, File_ID current_file);
-// Src_Loc *get_new_loc(File_Registry *fr, Src_Loc *parent); 
-const Src_Loc *get_src_loc_file(File_Registry *fr, File_ID id, u32 line, u32 symb, const Src_Loc *parent);
-const Src_Loc *get_src_loc_macro(File_Registry *fr, Src_Loc *declared_at, u32 symb, const Src_Loc *parent);
-const Src_Loc *get_src_loc_macro_arg(File_Registry *fr, u32 symb, const Src_Loc *parent);
 File_Data_Get_Result get_file_data(File_Registry *fr, File_ID id);
 const char *get_file_path(File_Registry *fr, File_ID id);
 
