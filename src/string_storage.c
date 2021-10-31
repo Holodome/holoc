@@ -28,8 +28,12 @@ Str
 string_storage_add(String_Storage *ss, const char *str, u32 len) {
     Str result = {0};
     
-    String_Storage_Buffer *buffer = get_buffer_for_writing(ss, len);
+    String_Storage_Buffer *buffer = get_buffer_for_writing(ss, len + 1);
+    result.data = (const char *)buffer->storage + buffer->used;
+    result.len = len;
+    
     mem_copy(buffer->storage + buffer->used, str, len);
+    buffer->storage[buffer->used + len] = 0;
     buffer->used += len;
     
     return result;

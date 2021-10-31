@@ -32,6 +32,7 @@ typedef struct {
         u8   *string_buf_u8;
         char *string_buf;
     };
+    u32 string_buf_used;
     u32 string_buf_size;
     
     u32 line;

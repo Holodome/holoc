@@ -31,6 +31,7 @@ replacements done by preprocessor, by maintaining stack-like structure for buffe
 #ifndef LEXER_H
 #define LEXER_H
 #include "lib/general.h"
+#include "lib/strings.h"
 
 #include "file_registry.h"  // File_ID
 #include "string_storage.h" // String_ID
@@ -184,9 +185,7 @@ typedef struct Token {
     u32 kind;
     const Src_Loc *src_loc;
     union {
-        struct {
-            Str str;
-        } str, ident, filename;
+        Str str;
         u32 kw;
         u32 punct;
         struct {
@@ -247,7 +246,7 @@ bool lexbuf_parse(Lexer_Buffer *buffer, Str lit);
 enum {
     PP_MACRO_IS_FUNCTION_LIKE_BIT = 0x1,
     PP_MACRO_HAS_VARARGS_BIT      = 0x2,
-}
+};
 
 typedef struct PP_Macro {
     u32      hash; 
@@ -282,7 +281,7 @@ typedef struct Lexer {
     // could make union to make this more clear
     u32 is_in_preprocessor_ctx;  
     
-    PP_Macro     *macro_hash[MAX_PREPROCESSOR_MACROS];
+    PP_Macro     macro_hash[MAX_PREPROCESSOR_MACROS];
     // Needs to be stored so we know whether next #if should be checked or skipped 
     PP_Nested_If nested_ifs[MAX_NESTED_IFS];
     u32          nested_if_cursor;
@@ -316,7 +315,9 @@ Lexer_Buffer *get_current_buf(Lexer *lexer);
 
 u8   peek_codepoint(Lexer *lexer);
 void advance(Lexer *lexer, u32 n);
-bool parse(Lexer *lexer, const char *lit);
+bool parse(Lexer *lexer, Str lit);
 bool skip_spaces(Lexer *lexer);
+
+void preprocess(Lexer *lexer, struct Out_Stream *stream);
 
 #endif

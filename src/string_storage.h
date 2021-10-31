@@ -10,7 +10,7 @@ Provides memory for storing of strings for the program
 #define STRING_STORAGE_H
 
 #include "lib/general.h"
-#include "lib/hashing.h"
+#include "lib/strings.h"
 
 struct Compiler_Ctx;
 

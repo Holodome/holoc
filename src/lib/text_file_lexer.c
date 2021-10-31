@@ -96,7 +96,7 @@ start:
         }
         assert(length < lexer->string_buf_size);
         lexer->string_buf[length] = 0;
-        
+        lexer->string_buf_used = length;
         lexer->token_kind = TEXT_LEXER_TOKEN_IDENT;
         goto end;    
     } 
@@ -119,6 +119,7 @@ start:
         }
         assert(length < lexer->string_buf_size);
         lexer->string_buf[length] = 0;
+        lexer->string_buf_used = length;
         
         if (is_real_lit) {
            lexer->token_kind = TEXT_LEXER_TOKEN_REAL;
@@ -147,6 +148,7 @@ start:
         
         assert(length < lexer->string_buf_size);
         lexer->string_buf[length] = 0;
+        lexer->string_buf_used = length;
         lexer->token_kind = TEXT_LEXER_TOKEN_STR;
         goto end;
     }

@@ -83,7 +83,6 @@ typedef struct {
 typedef struct File_Registry_Entry {
     u32 hash;
     
-    u64  id;
     char path     [MAX_FILEPATH_LENGTH]; // Actual path
     char path_init[MAX_FILEPATH_LENGTH]; // Path supplied by user at creation
     bool      has_data;
@@ -100,8 +99,8 @@ typedef struct File_Registry {
     // so there is little point in doing that
     u64 next_file_idx; 
     
-    File_Registry_Entry *files[FILE_REGISTRY_HASH_SIZE];
-    Src_Loc *src_loc_hash[FILE_REGISTRY_SRC_LOC_HASH_SIZE];
+    File_Registry_Entry files[FILE_REGISTRY_HASH_SIZE];
+    // Src_Loc *src_loc_hash[FILE_REGISTRY_SRC_LOC_HASH_SIZE];
 } File_Registry;
 
 File_Registry *create_file_registry(struct Compiler_Ctx *ctx);
