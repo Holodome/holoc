@@ -609,7 +609,8 @@ pp_get_macro_internal(Lexer *lexer, u32 hash,
     for (u32 offset = 0; offset < MAX_PREPROCESSOR_MACROS; ++offset) {
         u32 hash_value = (hash + offset) & (MAX_PREPROCESSOR_MACROS - 1);    
         PP_Macro *hash_entry = lexer->macro_hash + hash_value;
-        if (hash_entry && (hash_entry->hash == hash || (hash_entry->hash + or_zero))) {
+        if (hash_entry && (hash_entry->hash == hash || 
+            (!hash_entry->hash && or_zero))) {
             result = hash_entry;
             break;
         }
@@ -621,7 +622,7 @@ PP_Macro *
 pp_get(Lexer *lexer, Str name) {
     PP_Macro *result = 0;
     u32 name_hash = LEX_STR_HASH_FUNC(name.data, name.len);
-    return pp_get_macro_internal(lexer, name_hash, 0);
+    return pp_get_macro_internal(lexer, name_hash, false);
 }
 
 PP_Macro * 
@@ -793,6 +794,7 @@ create_lexer(struct Compiler_Ctx *ctx, const char *filename) {
 void 
 lexer_gen_pp_token(Lexer *lexer) {
     bool skip_to_next_matching_if = false;
+    u32 if_skip_depth = 0;
 start:
     if (!peek_codepoint(lexer)) {
         lexer->expected_token_kind = TOKEN_EOS;
@@ -823,17 +825,27 @@ start:
         goto start;
     }
     
+    if (skip_to_next_matching_if) {
+        for (;;) {
+            u8 codepoint = peek_codepoint(lexer);
+            if (codepoint == '#' || !codepoint) {
+                break;
+            }
+            advance(lexer, 1);
+        }
+    }
+    
     if (peek_codepoint(lexer) == '#' && 
         !lexer->is_in_preprocessor_ctx) {
         // Copy whole preprocessing line in the buffer with respect to
         // rules of \\n, while also deleting comments 
         lexer->scratch_buf_size = 0;
         for (;;) {
-            if (parse(lexer, WRAP_Z("\\n"))) {
+            if (parse_no_scratch(lexer, WRAP_Z("\\n"))) {
                 assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
                 lexer->scratch_buf[lexer->scratch_buf_size++] = ' ';
                 continue;
-            } else if (parse(lexer, WRAP_Z("//"))) {
+            } else if (parse_no_scratch(lexer, WRAP_Z("//"))) {
                 for (;;) {
                     u8 codepoint = peek_codepoint(lexer);
                     if (!codepoint && codepoint != '\\' && codepoint != '\n') {
@@ -842,7 +854,7 @@ start:
                     advance(lexer, 1);
                 }
                 continue;
-            } else if (parse(lexer, WRAP_Z("/*"))) {
+            } else if (parse_no_scratch(lexer, WRAP_Z("/*"))) {
                 bool should_end_line = false;
                 for (;;) {
                     if (!get_current_buf(lexer) || parse(lexer, WRAP_Z("*/"))) {
@@ -883,6 +895,7 @@ start:
         text_lexer_token(&pp_lexer);
         if (pp_lexer.token_kind == '#') {
             text_lexer_next(&pp_lexer);
+            
             if (pp_lexer.token_kind == TEXT_LEXER_TOKEN_IDENT) {
                 u32 keyword_iter = 0;
                 u32 keyword_enum = 0;
@@ -895,6 +908,29 @@ start:
                 }
                 text_lexer_next(&pp_lexer);
                 
+                if (skip_to_next_matching_if) {
+                    switch (keyword_enum) {
+                    default: goto start;
+                    case PP_KEYWORD_IFDEF:
+                    case PP_KEYWORD_IFNDEF:
+                    case PP_KEYWORD_IF: {
+                        ++if_skip_depth;
+                        goto start;
+                    } break;
+                    case PP_KEYWORD_ELIF:
+                    case PP_KEYWORD_ELIFDEF:
+                    case PP_KEYWORD_ELIFNDEF:
+                    case PP_KEYWORD_ELSE:
+                    case PP_KEYWORD_ENDIF: {
+                        if (if_skip_depth) {
+                            --if_skip_depth;
+                            goto start;    
+                        } else {
+                            skip_to_next_matching_if = false;
+                        }
+                    } break;
+                    }  
+                }
                 switch (keyword_enum) {
                 default: {
                     NOT_IMPLEMENTED;
@@ -995,9 +1031,8 @@ start:
                         Str macro_name = str(pp_lexer.string_buf, pp_lexer.string_buf_used);
                         PP_Macro *macro = pp_get(lexer, macro_name);
                         bool is_true = macro != 0;
-                        if (is_true) {
-                            pp_push_nested_if(lexer, is_true);
-                        } else {
+                        pp_push_nested_if(lexer, is_true);
+                        if (!is_true) {
                             skip_to_next_matching_if = true;
                         }
                     } else {
@@ -1009,9 +1044,8 @@ start:
                         Str macro_name = str(pp_lexer.string_buf, pp_lexer.string_buf_used);
                         PP_Macro *macro = pp_get(lexer, macro_name);
                         bool is_true = macro == 0;
-                        if (is_true) {
-                            pp_push_nested_if(lexer, is_true);
-                        } else {
+                        pp_push_nested_if(lexer, is_true);
+                        if (!is_true) {
                             skip_to_next_matching_if = true;
                         }
                     } else {
@@ -1019,7 +1053,12 @@ start:
                     }
                 } break;
                 case PP_KEYWORD_ELSE: {
-                    NOT_IMPLEMENTED;
+                    bool is_handled = pp_get_nested_if_handled(lexer);
+                    if (is_handled) {
+                        skip_to_next_matching_if = true;
+                    } else {
+                        pp_set_nested_if_handled(lexer);    
+                    }
                 } break;
                 case PP_KEYWORD_ELIFDEF: {
                     NOT_IMPLEMENTED;
@@ -1335,16 +1374,7 @@ start:
         while (is_space(lexbuf_peek(buffer)) && lexbuf_peek(buffer)) {
             lexbuf_advance(buffer, 1);
         }
-        // _a expands to 1 + 2. 
-        // Then it sees ##
-        // Jump over ##
-        // Save cursor index of scratch
-        // Parse next token
-        // If it is macro expansion, 
-        //  Undo writing it to scratch (reverse to index of start)
-        //  Expand macro 
-        //  _b expands to 2 + 3
-        // Now the correct new buffer is formed
+       
         if (parse_no_scratch(lexer, WRAP_Z("##"))) {
             last_size = lexer->scratch_buf_size;
             // lexer_gen_pp_token(lexer);
@@ -1362,7 +1392,8 @@ check_string:
         while (is_space(peek_codepoint(lexer))) {
             advance(lexer, 1);
         }
-        
+        // @TODO(hl): Fully generate next token to check,
+        // or check begginnigs of all string literals
         if (peek_codepoint(lexer) == '\"') {
             lexer_gen_pp_token(lexer);
             goto check_string;

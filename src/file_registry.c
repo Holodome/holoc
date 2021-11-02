@@ -14,9 +14,10 @@ get_file_internal(File_Registry *fr, u32 hash, bool or_zero) {
     File_Registry_Entry *result = 0;
     CT_ASSERT(IS_POW2(FILE_REGISTRY_HASH_SIZE));
     for (u32 offset = 0; offset < FILE_REGISTRY_HASH_SIZE; ++offset) {
-        u32 hash_value = (hash + offset) & FILE_REGISTRY_HASH_SIZE;    
+        u32 hash_value = (hash + offset) & (FILE_REGISTRY_HASH_SIZE - 1);    
         File_Registry_Entry *hash_entry = fr->files + hash_value;
-        if (hash_entry && (hash_entry->hash == hash || (hash_entry->hash + or_zero))) {
+        if (hash_entry && (hash_entry->hash == hash || 
+            (!hash_entry->hash && or_zero))) {
             result = hash_entry;
             break;
         }
@@ -73,11 +74,12 @@ File_ID
 register_file(File_Registry *fr, const char *filename, File_ID current_file) {
     File_ID result = {0};
     u32 filename_length = zlen(filename);
-    u64 filename_hash = fnv64(filename, filename_length);
+    u32 filename_hash = djb2(filename, filename_length);
     result.opaque = filename_hash;
     // @TODO(hl): Find hash depengin on os filepth not suplied (in case filenames in differnt directories are the same)
-    if (!get_file_internal(fr, filename_hash, false)) {
-        File_Registry_Entry *file = get_file_internal(fr, filename_hash, true);
+    File_Registry_Entry *file = get_file_internal(fr, filename_hash, false);
+    if (!file) {
+        file = get_file_internal(fr, filename_hash, true);
         file->hash = filename_hash;
         
         zcp(file->path_init, sizeof(file->path_init), filename);
@@ -98,6 +100,8 @@ register_file(File_Registry *fr, const char *filename, File_ID current_file) {
                 }
             }
         }
+    } else {
+        assert(file->hash == filename_hash);
     }
     
     return result;       

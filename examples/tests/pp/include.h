@@ -1,6 +1,8 @@
 #define A_H
 #include "a.h"
 
+int inbetween = 0;
+
 #undef A_H
 #include "a.h"
 
