@@ -18,7 +18,7 @@
 
 #define ITER_KEYWORDS(_it) \
 for ((_it) = KEYWORD_AUTO; (_it) < KEYWORD_SENTINEL; ++(_it))
-#define ITER_PREPROCESSOR_KEYWORD(_it) \
+#define ITER_PREPROCESSOR_KEYWORDS(_it) \
 for ((_it) = PP_KEYWORD_DEFINE; (_it) < PP_KEYWORD_SENTINEL; ++(_it))
 #define ITER_PUNCTUATORS(_it) \
 for ((_it) = PUNCTUATOR_IRSHIFT; (_it) < PUNCTUATOR_SENTINEL; ++(_it))
@@ -137,6 +137,34 @@ static Str PUNCTUATOR_STRINGS[] = {
     WRAP_Z("##"),
 };
 
+static u32 
+get_keyword_from_str(Str str) {
+    u32 keyword_iter = 0;
+    u32 found_keyword = 0;
+    ITER_KEYWORDS(keyword_iter) {
+        Str test = KEYWORD_STRINGS[keyword_iter];
+        if (str_eq(test, str)) {
+            found_keyword = keyword_iter;
+            break;
+        }
+    }
+    return found_keyword;
+}
+
+static u32 
+get_pp_keyword_from_str(Str str) {
+    u32 keyword_iter = 0;
+    u32 found_keyword = 0;
+    ITER_PREPROCESSOR_KEYWORDS(keyword_iter) {
+        Str test = PREPROCESSOR_KEYWORD_STRINGS[keyword_iter];
+        if (str_eq(test, str)) {
+            found_keyword = keyword_iter;
+            break;
+        }
+    }
+    return found_keyword;
+}
+
 u32 
 fmt_token_kind(Out_Stream *stream, u32 kind) {
     u32 result = 0;
@@ -197,6 +225,157 @@ fmt_token(Out_Stream *stream, Token *token) {
     return result;
 }
 
+static bool
+is_symb_base(u32 symb, u32 base) {
+    bool result = false;
+    if (base == 2) {
+        result = (symb == '0' || symb == '1');
+    } else if (base == 8) {
+        result = ('0' <= symb && symb <= '7');
+    } else if (base == 16) {
+        result = ('0' <= symb && symb <= '9') || ('A' <= symb && symb <= 'F') || ('a' <= symb && symb <= 'f');
+    } else if (base == 10) {
+        result = ('0' <= symb && symb <= '9');
+    } else {
+        UNREACHABLE;
+    }
+    return result;
+}
+
+static u64 
+symb_to_base(u32 symb, u32 base) {
+    u64 result = 0;
+    if (base == 2 || base == 8 || base == 10) {
+        result = symb & 0xF;
+    } else if (base == 16) {
+        if ('0' <= symb && symb <= '9') {
+            result = symb & 0xF;;
+        } else {
+            result = (symb & 0x1F) - 1;
+        }
+    } else {
+        NOT_IMPLEMENTED;
+    }
+    return result;
+}
+
+typedef struct {
+    const char *cusror;
+    u32 value;
+} Escape_Sequence_Get_Result;
+
+// Escape sequences are defined by backslash and some characters following it
+// C standard specifies that any escape sequnce is valid, but it does not specify what to 
+// do if resulting storage has to space to fit it (for example, character constant)
+static Escape_Sequence_Get_Result
+get_escape_sequency_value(const char *cursor) {    
+    u32 result = 0;
+    assert(*cursor == '\\');
+    ++cursor;
+    
+    switch (*cursor) {
+    case '0':
+    case '1':
+    case '2': 
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7': {
+        // If not handled in other cases, this is octal constant with 3 (or less) digits
+        for (u32 i = 0; i < 3; ++i) {
+            char symb = *cursor;
+            if (!is_symb_base(symb, 8)) {
+                assert(i != 0);
+                break;
+            }
+            result = (result << 3) | symb_to_base(symb, 8);
+            ++cursor;
+        }
+    } break;
+    case 'U': {
+        // Unicode value with 8 digits
+        ++cursor;
+        for (u32 i = 0; i < 8; ++i) {
+            char symb = *cursor++;
+            assert(is_symb_base(symb, 16));
+            result = (result << 4) | symb_to_base(symb, 16); 
+        }
+    } break;
+    case 'u': {
+        // Unicode value with 4 digits
+        ++cursor;
+        for (u32 i = 0; i < 4; ++i) {
+            char symb = *cursor++;
+            assert(is_symb_base(symb, 16));
+            result = (result << 4) | symb_to_base(symb, 16);
+        }
+    } break;
+    case 'x': {
+        // Hex value with arbitrary width
+        ++cursor;
+        for (u32 i = 0; ; ++i) {
+            char symb = *cursor;
+            if (!is_symb_base(symb, 16)) {
+                assert(i != 0);
+                break;
+            }
+            result = (result << 4) | symb_to_base(symb, 16);
+            ++cursor;
+        }
+    } break;
+    case '\'': {
+        cursor += 2;
+        result = '\'';
+    } break;
+    case '\"': {
+        cursor += 2;
+        result = '\"';
+    } break;
+    case '?': {
+        cursor += 2;
+        result = '\?';
+    } break;
+    case '\\': {
+        cursor += 2;
+        result = '\\';
+    } break;
+    case 'a': {
+        cursor += 2;
+        result = '\a';
+    } break;
+    case 'b': {
+        cursor += 2;
+        result = '\b';
+    } break;
+    case 'f': {
+        cursor += 2;
+        result = '\f';
+    } break;
+    case 'n': {
+        cursor += 2;
+        result = '\n';
+    } break;
+    case 'r': {
+        cursor += 2;
+        result = '\r';
+    } break;
+    case 't': {
+        cursor += 2;
+        result = '\t';
+    } break;
+    case 'v': {
+        cursor += 2;
+        result = '\v';
+    } break;
+    }
+    
+    Escape_Sequence_Get_Result get_result = {0};
+    get_result.value = result;
+    get_result.cusror = cursor;
+    return get_result;
+}
+
 u8 
 lexbuf_peek(Lexer_Buffer *buffer) {
     u8 result = 0;
@@ -242,50 +421,6 @@ lexbuf_parse(Lexer_Buffer *buffer, Str str) {
 
 #if 0 
 
-static bool
-is_symb_base(u32 symb, u32 base) {
-    bool result = false;
-    if (base == 2) {
-        result = (symb == '0' || symb == '1');
-    } else if (base == 8) {
-        result = ('0' <= symb && symb <= '7');
-    } else if (base == 16) {
-        result = ('0' <= symb && symb <= '9') || ('A' <= symb && symb <= 'F') || ('a' <= symb && symb <= 'f');
-    } else if (base == 10) {
-        result = ('0' <= symb && symb <= '9');
-    } else {
-        UNREACHABLE;
-    }
-    return result;
-}
-
-static u64 
-symb_to_base(u32 symb, u32 base) {
-    // 0110000 - 0111001 from 0 - 9
-    // 0001111 mask 
-    
-    // 1100001 - 1111010 from  a - z
-    // 1000001 - 1011010 to    A - Z 
-    // 0011111 mask
-    // -1 
-    u64 result = 0;
-    if (base == 2) {
-        result = symb & 0xF;
-    } else if (base == 8) {
-        result = symb & 0xF;;
-    } else if (base == 16) {
-        if ('0' <= symb && symb <= '9') {
-            result = symb & 0xF;;
-        } else {
-            result = (symb & 0x1F) - 1;
-        }
-    } else if (base == 10) {
-        result = symb & 0xF;;
-    } else {
-        UNREACHABLE;
-    }
-    return result;
-}
 
 static u64 
 str_to_u64_base(Lexer *lexer, u32 base) {
@@ -683,6 +818,7 @@ peek_codepoint(Lexer *lexer) {
     }
     return result;
 }
+
 void 
 advance(Lexer *lexer, u32 n) {
     Lexer_Buffer *buffer = get_current_buf(lexer);
@@ -720,7 +856,7 @@ bool
 parse_no_scratch(Lexer *lexer, Str lit) {
     bool result = false;
     Lexer_Buffer *buffer = get_current_buf(lexer);
-    while (!lexbuf_peek(buffer)) {
+    while (buffer && !lexbuf_peek(buffer)) {
         pop_buffer_from_stack(lexer);
         buffer = get_current_buf(lexer);
     }
@@ -811,14 +947,14 @@ start:
         goto start;
     }
     
-    if (parse(lexer, WRAP_Z("/*"))) {
-        while (!parse(lexer, WRAP_Z("*/"))) {
+    if (parse_no_scratch(lexer, WRAP_Z("/*"))) {
+        while (!parse_no_scratch(lexer, WRAP_Z("*/"))) {
             advance(lexer, 1);
         }
         goto start;
     }
     
-    if (parse(lexer, WRAP_Z("//"))) {
+    if (parse_no_scratch(lexer, WRAP_Z("//"))) {
         while (peek_codepoint(lexer) && peek_codepoint(lexer) != '\n') {
             advance(lexer, 1);
         }
@@ -888,7 +1024,8 @@ start:
         // @NOTE(hl): Because we define scratch buffer to be size greater than maximum line length
         //  we can use it for 2 buffers: text and string 
         Text_Lexer pp_lexer = text_lexer(lexer->scratch_buf, lexer->scratch_buf_size,
-            lexer->scratch_buf + lexer->scratch_buf_size + 1, lexer->scratch_buf_capacity - lexer->scratch_buf_size - 1);
+            lexer->scratch_buf + lexer->scratch_buf_size + 1, 
+            lexer->scratch_buf_capacity - lexer->scratch_buf_size - 1);
         //
         // Parse the preprocessor directive
         //
@@ -897,19 +1034,10 @@ start:
             text_lexer_next(&pp_lexer);
             
             if (pp_lexer.token_kind == TEXT_LEXER_TOKEN_IDENT) {
-                u32 keyword_iter = 0;
-                u32 keyword_enum = 0;
-                ITER_PREPROCESSOR_KEYWORD(keyword_iter) {
-                    Str test = str(pp_lexer.string_buf, pp_lexer.string_buf_used);
-                    if (str_eq(test, PREPROCESSOR_KEYWORD_STRINGS[keyword_iter])) {
-                        keyword_enum = keyword_iter;
-                        break;
-                    }
-                }
-                text_lexer_next(&pp_lexer);
+                u32 found_keyword = get_pp_keyword_from_str(str(pp_lexer.string_buf, pp_lexer.string_buf_used));
                 
                 if (skip_to_next_matching_if) {
-                    switch (keyword_enum) {
+                    switch (found_keyword) {
                     default: goto start;
                     case PP_KEYWORD_IFDEF:
                     case PP_KEYWORD_IFNDEF:
@@ -923,7 +1051,7 @@ start:
                     case PP_KEYWORD_ELSE:
                     case PP_KEYWORD_ENDIF: {
                         if (if_skip_depth) {
-                            --if_skip_depth;
+                            if_skip_depth -= (found_keyword == PP_KEYWORD_ENDIF);
                             goto start;    
                         } else {
                             skip_to_next_matching_if = false;
@@ -931,7 +1059,9 @@ start:
                     } break;
                     }  
                 }
-                switch (keyword_enum) {
+                
+                text_lexer_next(&pp_lexer);
+                switch (found_keyword) {
                 default: {
                     NOT_IMPLEMENTED;
                 } break;
@@ -1407,16 +1537,7 @@ generate_token:
     } else if (expected == TOKEN_IDENT) {
         // Try to find keyword 
         {
-            u32 keyword_iter = 0;
-            u32 found_keyword = 0;
-            ITER_KEYWORDS(keyword_iter) {
-                Str test = KEYWORD_STRINGS[keyword_iter];
-                if (str_eq(test, lexbuf_str)) {
-                    found_keyword = keyword_iter;
-                    break;
-                }
-            }
-            
+            u32 found_keyword = get_keyword_from_str(lexbuf_str);
             if (found_keyword) {
                 token = get_new_token(lexer);
                 token->kind = TOKEN_KEYWORD;
@@ -1458,56 +1579,51 @@ generate_token:
         }
         
         i64 value = 0;
+        u32 type = 0;
         switch (lit_kind) {
         case CHAR_LIT_REG: {
-            if (zstartswith(cursor, "\\\'")) {
-                cursor += 2;
-                value = '\'';
-            } else if (zstartswith(cursor, "\\\"")) {
-                cursor += 2;
-                value = '\"';
-            } else if (zstartswith(cursor, "\\\?")) {
-                cursor += 2;
-                value = '\?';
-            } else if (zstartswith(cursor, "\\\\")) {
-                cursor += 2;
-                value = '\\';
-            } else if (zstartswith(cursor, "\\\a")) {
-                cursor += 2;
-                value = '\a';
-            } else if (zstartswith(cursor, "\\\b")) {
-                cursor += 2;
-                value = '\b';
-            } else if (zstartswith(cursor, "\\\f")) {
-                cursor += 2;
-                value = '\f';
-            } else if (zstartswith(cursor, "\\\n")) {
-                cursor += 2;
-                value = '\n';
-            } else if (zstartswith(cursor, "\\\r")) {
-                cursor += 2;
-                value = '\r';
-            } else if (zstartswith(cursor, "\\\t")) {
-                cursor += 2;
-                value = '\t';
-            } else if (zstartswith(cursor, "\\\v")) {
-                cursor += 2;
-                value = '\v';
+            type = C_TYPE_SLINT;
+            if (*cursor == '\\') {
+                Escape_Sequence_Get_Result escape_seq = get_escape_sequency_value(cursor);
+                cursor = escape_seq.cusror;
+                // @NOTE(hl): Truncate all values out of range
+                value = (i32)escape_seq.value;
             } else {
                 value = *cursor++;
             }
         } break;
         case CHAR_LIT_UTF8: {
-            NOT_IMPLEMENTED;
+            // C specification for utf8 character basiclly limits them to be the ASCII single-byte 
+            // subset of the utf8 (without higher bit set)
+            type = C_TYPE_UCHAR;
+            u32 symb = *cursor++;
+            if (is_ascii(symb)) {
+                value = symb;
+            } else {
+                NOT_IMPLEMENTED;
+            }
         } break;
         case CHAR_LIT_U16: {
-            NOT_IMPLEMENTED;
+            type = C_TYPE_CHAR16;
+            u32 decoded = 0;
+            // @NOTE(hl): Source characters are all converted to UTF8, so any multibyte character should be in it.
+            // Difference between the character literals is in the type of their storage
+            cursor = utf8_decode(cursor, &decoded);
+            value = (i16)decoded;
         } break;
         case CHAR_LIT_U32: {
-            NOT_IMPLEMENTED;
+            type = C_TYPE_CHAR32;
+            u32 decoded = 0;
+            cursor = utf8_decode(cursor, &decoded);
+            value = (i32)decoded;
         } break;
         case CHAR_LIT_WIDE: {
-            NOT_IMPLEMENTED;
+            type = C_TYPE_WCHAR;
+            u32 decoded = 0;
+            // @NOTE(hl): Source characters are all converted to UTF8, so any multibyte character should be in it.
+            // Difference between the character literals is in the type of their storage
+            cursor = utf8_decode(cursor, &decoded);
+            value = (i16)decoded;
         } break;
         }
         

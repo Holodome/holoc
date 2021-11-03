@@ -72,20 +72,8 @@ main(int argc, char **argv) {
     Compiler_Ctx *ctx = create_compiler_ctx();
     ctx->fr->include_seach_paths_count = ARRAY_SIZE(include_paths);
     ctx->fr->include_search_paths = include_paths;
-    // Lexer *lexer = create_lexer(ctx, "concat.h");
     Lexer *lexer = create_lexer(ctx, "include.h");
     preprocess(lexer, STDOUT);
-    // for (;;) {
-    //     Token *token = peek_tok(lexer);
-    //     if (token->kind == TOKEN_EOS) {
-    //         break;
-    //     }
-    //     out_streamf(STDOUT, "\n");
-    //     fmt_token(STDOUT, token);
-    //     fmt_src_loc(STDOUT, token->src_loc, ctx->fr, 1);
-    //     eat_tok(lexer);
-    // }
-    // out_stream_flush(get_stdout_stream());
     
     UNUSED(argc);
     UNUSED(argv);
