@@ -165,6 +165,16 @@ get_pp_keyword_from_str(Str str) {
     return found_keyword;
 }
 
+static bool 
+cursor_parse(const char **cusror_p, Str lit) {
+    bool result = false;
+    if (zstartswith(*cusror_p, lit.data)) {
+        (*cusror_p) += lit.len;
+        result = true;
+    }
+    return result;
+}
+
 u32 
 fmt_token_kind(Out_Stream *stream, u32 kind) {
     u32 result = 0;
@@ -376,6 +386,310 @@ get_escape_sequency_value(const char *cursor) {
     return get_result;
 }
 
+typedef struct {
+    u64 result;
+    const char *cursor;
+} Integer_Parse_Result;
+
+static Integer_Parse_Result 
+parse_int(const char *cursor, u32 base) {
+    u64 value = 0;
+    for (;;) {
+        u8 symb = *cursor;
+        if (!is_symb_base(symb, base)) {
+            break;
+        }
+        ++cursor;
+        value = value * base + symb_to_base(symb, base);
+    }
+    
+    Integer_Parse_Result result = {0};
+    result.result = value;
+    result.cursor = cursor;
+    return result;
+}
+
+typedef struct {
+    u64 result;
+    const char *cursor;
+    u32 type;
+} Integer_Literal_Parse_Result;
+
+static Integer_Literal_Parse_Result
+parse_int_lit(const char *cursor) {
+    u32 base = 10;
+    if (cursor_parse(&cursor, WRAP_Z("0x"))) {
+        base = 16;
+    } else if (cursor_parse(&cursor, WRAP_Z("0b"))) {
+        base = 2;
+    } else if (cursor_parse(&cursor, WRAP_Z("0"))) {
+        base = 8;
+    }
+    
+    Integer_Parse_Result int_parse = parse_int(cursor, base);
+    u64 value = int_parse.result;
+    cursor = int_parse.cursor;
+    
+    u32 mask = 0;
+    enum { MASK_L = 0x1, MASK_LL = 0x2, MASK_U = 0x4 };
+    if (cursor_parse(&cursor, WRAP_Z("LLU")) || cursor_parse(&cursor, WRAP_Z("LLu")) ||
+        cursor_parse(&cursor, WRAP_Z("llU")) || cursor_parse(&cursor, WRAP_Z("llu")) ||
+        cursor_parse(&cursor, WRAP_Z("ULL")) || cursor_parse(&cursor, WRAP_Z("Ull")) ||
+        cursor_parse(&cursor, WRAP_Z("uLL")) || cursor_parse(&cursor, WRAP_Z("ull"))) {
+        mask = MASK_LL | MASK_U;
+    } else if (cursor_parse(&cursor, WRAP_Z("ll")) || cursor_parse(&cursor, WRAP_Z("LL"))) {
+        mask = MASK_LL;
+    } else if (cursor_parse(&cursor, WRAP_Z("LU")) || cursor_parse(&cursor, WRAP_Z("Lu")) || 
+               cursor_parse(&cursor, WRAP_Z("lU")) || cursor_parse(&cursor, WRAP_Z("lu"))) {
+        mask = MASK_L | MASK_U;
+    } else if (cursor_parse(&cursor, WRAP_Z("L")) || cursor_parse(&cursor, WRAP_Z("l"))) {
+        mask = MASK_L;
+    } else if (cursor_parse(&cursor, WRAP_Z("U")) || cursor_parse(&cursor, WRAP_Z("u"))) {
+        mask = MASK_U;
+    }
+    
+    // Infer type
+    u32 type;
+    if (base == 10) {
+        if (mask == (MASK_LL | MASK_U)) {
+            type = C_TYPE_ULLINT;;
+        } else if (mask == MASK_LL) {
+            type = C_TYPE_SLLINT;
+        } else if (mask == (MASK_L & MASK_U)) {
+            if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask == MASK_L) {
+            if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else {
+                type = C_TYPE_SLLINT;
+            }
+        } else if (mask == MASK_U) {
+            if (value <= UINT_MAX) {
+                type = C_TYPE_UINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else {
+            if (value <= INT_MAX) {
+                type = C_TYPE_SINT;
+            } else if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else {
+                type = C_TYPE_SLLINT;
+            }
+        }
+    } else {
+        if (mask == (MASK_LL | MASK_U)) {
+            type = C_TYPE_ULLINT;;
+        } else if (mask == MASK_LL) {
+            if (value <= LLONG_MAX) {
+                type = C_TYPE_SLLINT;    
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask == (MASK_L & MASK_U)) {
+            if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask == MASK_L) {
+            if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else if (value <= LLONG_MAX) {
+                type = C_TYPE_SLLINT;    
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else if (mask == MASK_U) {
+            if (value <= UINT_MAX) {
+                type = C_TYPE_UINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        } else {
+            if (value <= INT_MAX) {
+                type = C_TYPE_SINT;
+            } else if (value <= UINT_MAX) {
+                type = C_TYPE_UINT;
+            } else if (value <= LONG_MAX) {
+                type = C_TYPE_SLINT;
+            } else if (value <= ULONG_MAX) {
+                type = C_TYPE_ULINT;
+            } else if (value <= LLONG_MAX) {
+                type = C_TYPE_SLLINT;
+            } else {
+                type = C_TYPE_ULLINT;
+            }
+        }
+    }
+    
+    Integer_Literal_Parse_Result result = {0};
+    result.cursor = cursor;
+    result.result = value;
+    result.type = type;
+    return result;
+}
+
+typedef struct {
+    union {
+        f64 f64_value;
+        u8  value_storage[16];  
+    };
+    const char *cursor;
+    u32 type;
+} Float_Literal_Parse_Result;
+
+static Float_Literal_Parse_Result
+parse_float_lit(const char *cursor) {
+    u32 base = 10;
+    if (cursor_parse(&cursor, WRAP_Z("0x")) || cursor_parse(&cursor, WRAP_Z("0X"))) {
+        base = 16;
+    } 
+    
+    Integer_Parse_Result int_parse = parse_int(cursor, base);
+    u64 whole_number = int_parse.result;
+    bool has_whole_number = int_parse.cursor != cursor;
+    cursor = int_parse.cursor;
+    
+    bool has_fraction = false;
+    u64 fraction_num   = 0;
+    u64 fraction_denom = 1;
+    if (cursor_parse(&cursor, WRAP_Z("."))) {
+        has_fraction = true;
+        u64 value = 0;
+        for (;;) {
+            u8 symb = *cursor;
+            if (!is_symb_base(symb, base)) {
+                break;
+            }
+            ++cursor;
+            fraction_num = fraction_num * base + symb_to_base(symb, base);
+            fraction_denom *= base;
+        }
+    }
+    
+    bool has_exponent = false;
+    i64 exponent = 0;
+    u64 exponent_is_neg = 0;
+    if (base == 10) {
+        if (cursor_parse(&cursor, WRAP_Z("e-")) || cursor_parse(&cursor, WRAP_Z("E-"))) {
+            has_exponent = true;
+            exponent_is_neg = 1;
+        } else if (cursor_parse(&cursor, WRAP_Z("e+")) || cursor_parse(&cursor, WRAP_Z("E+")) ||
+                   cursor_parse(&cursor, WRAP_Z("e"))  || cursor_parse(&cursor, WRAP_Z("E"))) {
+            has_exponent = true;
+        }
+        
+        if (has_exponent) {
+            int_parse = parse_int(cursor, 10);
+            if (int_parse.cursor == cursor) {
+                NOT_IMPLEMENTED; // must have exponent value
+            }
+            exponent = int_parse.result;
+        }
+    } else { // 16
+        if (cursor_parse(&cursor, WRAP_Z("p-")) || cursor_parse(&cursor, WRAP_Z("P-"))) {
+            has_exponent = true;
+            exponent_is_neg = 1;
+        } else if (cursor_parse(&cursor, WRAP_Z("p+")) || cursor_parse(&cursor, WRAP_Z("P+")) ||
+                   cursor_parse(&cursor, WRAP_Z("p"))  || cursor_parse(&cursor, WRAP_Z("P"))) {
+            has_exponent = true;
+        }
+        
+        if (has_exponent) {
+            int_parse = parse_int(cursor, 10);
+            if (int_parse.cursor == cursor) {
+                NOT_IMPLEMENTED; // must have exponent value
+            }
+            exponent = int_parse.result;
+        } else {
+            NOT_IMPLEMENTED;
+            // exponent is mandatory
+        }
+    }
+    
+    u32 type = C_TYPE_DOUBLE;
+    if (cursor_parse(&cursor, WRAP_Z("l")) || cursor_parse(&cursor, WRAP_Z("L"))) {
+        type = C_TYPE_LDOUBLE;
+    } else if (cursor_parse(&cursor, WRAP_Z("f")) || cursor_parse(&cursor, WRAP_Z("F"))) {
+        type = C_TYPE_FLOAT;
+    } else if (cursor_parse(&cursor, WRAP_Z("df")) || cursor_parse(&cursor, WRAP_Z("DF"))) {
+        if (base == 10) {
+            type = C_TYPE_DECIMAL32;    
+        } else {
+            NOT_IMPLEMENTED;
+        }
+    } else if (cursor_parse(&cursor, WRAP_Z("dd")) || cursor_parse(&cursor, WRAP_Z("DD"))) {
+        if (base == 10) {
+            type = C_TYPE_DECIMAL64;
+        } else {
+            NOT_IMPLEMENTED;
+        }
+    } else if (cursor_parse(&cursor, WRAP_Z("dl")) || cursor_parse(&cursor, WRAP_Z("DL"))) {
+        if (base == 10) {
+            type = C_TYPE_DECIMAL128;
+        } else {
+            NOT_IMPLEMENTED;
+        }
+    }
+    
+    Float_Literal_Parse_Result result = {0};
+    result.cursor = cursor;
+    result.type = type;
+    
+    struct {
+        u32 sign_bit;
+        u32 exponent_bits;
+        u32 mantissa_bits;
+    } f64_info = {
+        63, 11, 52
+    };
+    
+    // Construct the ieee representation
+    u64 fraction_part = 0;
+    u64 fraction_part_bitlength = 0;
+    while (fraction_part_bitlength < f64_info.mantissa_bits && fraction_num) {
+        ++fraction_part_bitlength;
+        u64 whole_part = fraction_num / fraction_denom;
+        fraction_num = (fraction_num << 1) | whole_part;
+        fraction_part -= whole_part;
+    }
+    
+    u64 combined = (whole_number << fraction_part_bitlength) | fraction_part;
+    u64 combined_point_idx = fraction_part_bitlength;
+    while ((combined >> combined_point_idx) > 1) {
+        ++combined_point_idx;
+        ++exponent;
+    }
+    while ((combined >> combined_point_idx) == 0) {
+        --exponent;
+        --combined_point_idx;
+    }
+    
+    u64 exponent_bias = ( 1 << (f64_info.exponent_bits - 1) ) - 1;
+    u64 biased_exponent = exponent + exponent_bias;
+    u64 mantissa = combined & ((1llu << combined_point_idx) - 1);
+    if (combined_point_idx > f64_info.mantissa_bits) {
+        mantissa <<= combined_point_idx - f64_info.mantissa_bits;
+    } else if (combined_point_idx < f64_info.mantissa_bits) {
+        mantissa >>= f64_info.mantissa_bits - combined_point_idx;
+    }
+    u64 ieee = (biased_exponent << f64_info.mantissa_bits) | mantissa;
+    result.f64_value = *(f64 *)&ieee;
+    return result;
+}
+
 u8 
 lexbuf_peek(Lexer_Buffer *buffer) {
     u8 result = 0;
@@ -418,202 +732,6 @@ lexbuf_parse(Lexer_Buffer *buffer, Str str) {
     }
     return result;
 }
-
-#if 0 
-
-
-static u64 
-str_to_u64_base(Lexer *lexer, u32 base) {
-    u64 value = 0;
-    u8 codepoint = peek_codepoint(lexer);
-    while (codepoint && is_symb_base(codepoint, base)) {
-        value = value * base + symb_to_base(codepoint, base);
-        advance(lexer, 1);
-        codepoint = peek_codepoint(lexer);
-    }
-    return value;
-}
-
-
-static void
-parse_number(Lexer *lexer, Token *token) {
-    // https://en.cppreference.com/w/c/language/integer_constant
-    u32 base = 10;
-    if (parse(lexer, "0x")) {
-        base = 16;
-    } else if (parse(lexer, "0")) {
-        base = 8;
-    } else if (parse(lexer, "0b")) {
-        base = 2;
-    };
-    
-    u64 value = str_to_u64_base(lexer, base);
-    u32 mask = 0;
-    enum { MASK_L = 0x1, MASK_LL = 0x2, MASK_U = 0x4 };
-    if (parse(lexer, "LLU") || parse(lexer, "LLu") ||
-        parse(lexer, "llU") || parse(lexer, "llu") ||
-        parse(lexer, "ULL") || parse(lexer, "Ull") ||
-        parse(lexer, "uLL") || parse(lexer, "ull")) {
-        mask = MASK_LL | MASK_U;
-    } else if (parse(lexer, "ll") || parse(lexer, "LL")) {
-        mask = MASK_LL;
-    } else if (parse(lexer, "LU") || parse(lexer, "Lu") || 
-               parse(lexer, "lU") || parse(lexer, "lu")) {
-        mask = MASK_L | MASK_U;
-    } else if (parse(lexer, "L") || parse(lexer, "l")) {
-        mask = MASK_L;
-    } else if (parse(lexer, "U") || parse(lexer, "u")) {
-        mask = MASK_U;
-    }
-    
-    // Infer type
-    u32 type;
-    if (base == 10) {
-        if (mask & (MASK_LL | MASK_U)) {
-            type = C_TYPE_ULLINT;;
-        } else if (mask & MASK_LL) {
-            type = C_TYPE_SLLINT;
-        } else if (mask & (MASK_L & MASK_U)) {
-            if (value <= ULONG_MAX) {
-                type = C_TYPE_ULINT;
-            } else {
-                type = C_TYPE_ULLINT;
-            }
-        } else if (mask & MASK_L) {
-            if (value <= LONG_MAX) {
-                type = C_TYPE_SLINT;
-            } else {
-                type = C_TYPE_SLLINT;
-            }
-        } else if (mask & MASK_U) {
-            if (value <= UINT_MAX) {
-                type = C_TYPE_UINT;
-            } else if (value <= ULONG_MAX) {
-                type = C_TYPE_ULINT;
-            } else {
-                type = C_TYPE_ULLINT;
-            }
-        } else {
-            if (value <= INT_MAX) {
-                type = C_TYPE_SINT;
-            } else if (value <= LONG_MAX) {
-                type = C_TYPE_SLINT;
-            } else {
-                type = C_TYPE_SLLINT;
-            }
-        }
-    } else {
-        if (mask & (MASK_LL | MASK_U)) {
-            type = C_TYPE_ULLINT;;
-        } else if (mask & MASK_LL) {
-            if (value <= LLONG_MAX) {
-                type = C_TYPE_SLLINT;    
-            } else {
-                type = C_TYPE_ULLINT;
-            }
-        } else if (mask & (MASK_L & MASK_U)) {
-            if (value <= ULONG_MAX) {
-                type = C_TYPE_ULINT;
-            } else {
-                type = C_TYPE_ULLINT;
-            }
-        } else if (mask & MASK_L) {
-            if (value <= LONG_MAX) {
-                type = C_TYPE_SLINT;
-            } else if (value <= ULONG_MAX) {
-                type = C_TYPE_ULINT;
-            } else if (value <= LLONG_MAX) {
-                type = C_TYPE_SLLINT;    
-            } else {
-                type = C_TYPE_ULLINT;
-            }
-        } else if (mask & MASK_U) {
-            if (value <= UINT_MAX) {
-                type = C_TYPE_UINT;
-            } else if (value <= ULONG_MAX) {
-                type = C_TYPE_ULINT;
-            } else {
-                type = C_TYPE_ULLINT;
-            }
-        } else {
-            if (value <= INT_MAX) {
-                type = C_TYPE_SINT;
-            } else if (value <= UINT_MAX) {
-                type = C_TYPE_UINT;
-            } else if (value <= LONG_MAX) {
-                type = C_TYPE_SLINT;
-            } else if (value <= ULONG_MAX) {
-                type = C_TYPE_ULINT;
-            } else if (value <= LLONG_MAX) {
-                type = C_TYPE_SLLINT;
-            } else {
-                type = C_TYPE_ULLINT;
-            }
-        }
-    }
-    
-    token->kind = TOKEN_NUMBER;
-    token->number.type = type;
-    // token->number.uint_value = value;
-}
-
-static void
-parse_character_literal(Lexer *lexer, Token *token) {
-    u8 codepoint = peek_codepoint(lexer);
-    assert(codepoint == '\'');
-    advance(lexer, 1);
-    char char_buf[1024];
-    u32 char_buf_len = 0;
-    codepoint = peek_codepoint(lexer);
-    while (codepoint && codepoint != '\'') {
-        char_buf[char_buf_len++] = codepoint;
-        advance(lexer, 1);
-        codepoint = peek_codepoint(lexer);
-    }
-    codepoint = peek_codepoint(lexer);
-    assert(codepoint == '\'');
-    advance(lexer, 1);
-    char_buf[char_buf_len] = 0;
-    
-    int value = 0;
-    if (zeq(char_buf, "\\\'")) {
-        value = '\'';
-    } else if (zeq(char_buf, "\\\"")) {
-        value = '\"';
-    } else if (zeq(char_buf, "\\\?")) {
-        value = '\?';
-    } else if (zeq(char_buf, "\\\\")) {
-        value = '\\';
-    } else if (zeq(char_buf, "\\\a")) {
-        value = '\a';
-    } else if (zeq(char_buf, "\\\b")) {
-        value = '\b';
-    } else if (zeq(char_buf, "\\\f")) {
-        value = '\f';
-    } else if (zeq(char_buf, "\\\n")) {
-        value = '\n';
-    } else if (zeq(char_buf, "\\\r")) {
-        value = '\r';
-    } else if (zeq(char_buf, "\\\t")) {
-        value = '\t';
-    } else if (zeq(char_buf, "\\\v")) {
-        value = '\v';
-    } else if (char_buf_len == 1) {
-        value = char_buf[0];
-    } else {
-        report_error(lexer->ctx->er, token->src_loc, "Unexpected format in character constant");
-    }
-    
-    token->kind = TOKEN_NUMBER;
-    // token->number.sint_value = value;
-    token->number.type = C_TYPE_SINT;
-    
-    char new_buf[4096];l
-    fmt(new_buf, sizeof(new_buf), "'%s'", char_buf);
-    token->number.string = mem_alloc_str(new_buf);
-}
-
-#endif 
 
 static Lexer_Buffer *
 get_new_buffer_stack_entry(Lexer *lexer) {
@@ -1070,6 +1188,7 @@ start:
                         Str macro_name = str(pp_lexer.string_buf, pp_lexer.string_buf_used);
                         PP_Macro *macro = pp_define(lexer, macro_name);
                         // @TODO(hl): Warn if macro is already defined
+                        const char *definition_start = (const char *)pp_lexer.buf_at;
                         text_lexer_next(&pp_lexer);
                         if (pp_lexer.token_kind == '(') {
                             macro->flags |= PP_MACRO_IS_FUNCTION_LIKE_BIT;
@@ -1108,16 +1227,17 @@ start:
                                 }
                             }
                             
-                            if (pp_lexer.token_kind == ')') {
-                                const char *definition_start = (const char *)pp_lexer.buf_at;
-                                const char *definition_end = (const char *)pp_lexer.buf_eof;
-                                u32 len = fmt(macro->definition, sizeof(macro->definition),
-                                    "%.*s  ", (int)(definition_end - definition_start), definition_start);
-                                macro->definition_len = len;
-                            } else {
+                            if (pp_lexer.token_kind != ')') {
                                 NOT_IMPLEMENTED;
+                            } else {
+                                definition_start = (const char *)pp_lexer.buf_at;
                             }
                         }
+                        
+                        const char *definition_end = (const char *)pp_lexer.buf_eof;
+                        u32 len = fmt(macro->definition, sizeof(macro->definition),
+                            "%.*s  ", (int)(definition_end - definition_start), definition_start);
+                        macro->definition_len = len;
                     } else {
                         NOT_IMPLEMENTED;
                     }
@@ -1300,18 +1420,46 @@ start:
         }
     }
     
-    if (is_digit(peek_codepoint(lexer))) {
-        lexer->expected_token_kind = TOKEN_PP_NUMBER_LIT;
-        for (;;) {
-            u8 codepoint = peek_codepoint(lexer);
-            if (!codepoint || !is_digit(codepoint)) {
-                break;
-            }
-            assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
-            lexer->scratch_buf[lexer->scratch_buf_size++] = codepoint;
-            advance(lexer, 1);
+    {
+        bool is_number = false;
+        // @NOTE(hl): Floating-point literals can start with .
+        //  this can be acvieved with peeking ahead, but 
+        //  since this behaviour is not used anyhwehere else,
+        //  we can hardcode all special cases
+        if (parse(lexer, WRAP_Z(".0")) || 
+            parse(lexer, WRAP_Z(".1")) ||
+            parse(lexer, WRAP_Z(".2")) ||
+            parse(lexer, WRAP_Z(".3")) ||
+            parse(lexer, WRAP_Z(".4")) ||
+            parse(lexer, WRAP_Z(".5")) ||
+            parse(lexer, WRAP_Z(".6")) ||
+            parse(lexer, WRAP_Z(".7")) ||
+            parse(lexer, WRAP_Z(".8")) ||
+            parse(lexer, WRAP_Z(".9")) ) {
+            lexer->expected_token_kind = TOKEN_PP_REAL_LIT;   
+            is_number = true;    
+        } else if (is_digit(peek_codepoint(lexer))) {
+            lexer->expected_token_kind = TOKEN_PP_INT_LIT;
+            is_number = true;
         }
-        goto token_generated;
+        
+        if (is_number) {
+            
+        }
+        if (is_digit(peek_codepoint(lexer))) {
+            lexer->expected_token_kind = TOKEN_PP_INT_LIT;
+            for (;;) {
+                u8 codepoint = peek_codepoint(lexer);
+                if (!codepoint || !is_digit(codepoint)) {
+                    break;
+                }
+                assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
+                lexer->scratch_buf[lexer->scratch_buf_size++] = codepoint;
+                advance(lexer, 1);
+            }
+            goto token_generated;
+        }
+        
     }
     
     if (is_ident_start(peek_codepoint(lexer))) {
@@ -1561,23 +1709,21 @@ generate_token:
         const char *cursor = lexer->scratch_buf;
         
         u32 lit_kind = 0;
-        if (zstartswith(cursor, "'")) {
-            ++cursor;
+        if (cursor_parse(&cursor, WRAP_Z("'"))) {
             lit_kind = CHAR_LIT_REG;
-        } else if (zstartswith(cursor, "u8'")) {
-            cursor += zlen("u8'");
+        } else if (cursor_parse(&cursor, WRAP_Z("u8'"))) {
             lit_kind = CHAR_LIT_UTF8;
-        } else if (zstartswith(cursor, "u'")) {
-            cursor += zlen("u'");
+        } else if (cursor_parse(&cursor, WRAP_Z("u'"))) {
             lit_kind = CHAR_LIT_U16;
-        } else if (zstartswith(cursor, "U'")) {
-            cursor += zlen("U'");
+        } else if (cursor_parse(&cursor, WRAP_Z("U'"))) {
             lit_kind = CHAR_LIT_U32;
-        } else if (zstartswith(cursor, "L'")) {
-            cursor += zlen("L'");
+        } else if (cursor_parse(&cursor, WRAP_Z("L'"))) {
             lit_kind = CHAR_LIT_WIDE;
         }
         
+        // @TODO(hl): Multibyte characters
+        // @TODO(hl): This whole process can be simplified, if we first parse whole character as 
+        //  utf8 sequence, and that map it to th desired type
         i64 value = 0;
         u32 type = 0;
         switch (lit_kind) {
@@ -1587,7 +1733,7 @@ generate_token:
                 Escape_Sequence_Get_Result escape_seq = get_escape_sequency_value(cursor);
                 cursor = escape_seq.cusror;
                 // @NOTE(hl): Truncate all values out of range
-                value = (i32)escape_seq.value;
+                value = (i32)(i8)escape_seq.value;
             } else {
                 value = *cursor++;
             }
@@ -1596,34 +1742,62 @@ generate_token:
             // C specification for utf8 character basiclly limits them to be the ASCII single-byte 
             // subset of the utf8 (without higher bit set)
             type = C_TYPE_UCHAR;
-            u32 symb = *cursor++;
-            if (is_ascii(symb)) {
-                value = symb;
+            if (*cursor == '\\') {
+                Escape_Sequence_Get_Result escape_seq = get_escape_sequency_value(cursor);
+                cursor = escape_seq.cusror;
+                // @NOTE(hl): Truncate all values out of range
+                value = (u8)escape_seq.value;
             } else {
-                NOT_IMPLEMENTED;
+                u32 symb = *cursor++;
+                if (is_ascii(symb)) {
+                    value = symb;
+                } else {
+                    NOT_IMPLEMENTED;
+                }
             }
         } break;
         case CHAR_LIT_U16: {
             type = C_TYPE_CHAR16;
-            u32 decoded = 0;
-            // @NOTE(hl): Source characters are all converted to UTF8, so any multibyte character should be in it.
-            // Difference between the character literals is in the type of their storage
-            cursor = utf8_decode(cursor, &decoded);
-            value = (i16)decoded;
+             if (*cursor == '\\') {
+                Escape_Sequence_Get_Result escape_seq = get_escape_sequency_value(cursor);
+                cursor = escape_seq.cusror;
+                // @NOTE(hl): Truncate all values out of range
+                value = (i16)escape_seq.value;
+            } else {
+                u32 decoded = 0;
+                // @NOTE(hl): Source characters are all converted to UTF8, so any multibyte character should be in it.
+                // Difference between the character literals is in the type of their storage
+                cursor = utf8_decode(cursor, &decoded);
+                value = (i16)decoded;
+            }
         } break;
         case CHAR_LIT_U32: {
             type = C_TYPE_CHAR32;
-            u32 decoded = 0;
-            cursor = utf8_decode(cursor, &decoded);
-            value = (i32)decoded;
+             if (*cursor == '\\') {
+                Escape_Sequence_Get_Result escape_seq = get_escape_sequency_value(cursor);
+                cursor = escape_seq.cusror;
+                // @NOTE(hl): Truncate all values out of range
+                value = (i32)escape_seq.value;
+            } else {
+                u32 decoded = 0;
+                cursor = utf8_decode(cursor, &decoded);
+                value = (i32)decoded;
+            }
         } break;
         case CHAR_LIT_WIDE: {
             type = C_TYPE_WCHAR;
-            u32 decoded = 0;
-            // @NOTE(hl): Source characters are all converted to UTF8, so any multibyte character should be in it.
-            // Difference between the character literals is in the type of their storage
-            cursor = utf8_decode(cursor, &decoded);
-            value = (i16)decoded;
+             if (*cursor == '\\') {
+                Escape_Sequence_Get_Result escape_seq = get_escape_sequency_value(cursor);
+                cursor = escape_seq.cusror;
+                // @NOTE(hl): Truncate all values out of range
+                value = (i16)escape_seq.value;
+            } else {
+                u32 decoded = 0;
+                // @NOTE(hl): Source characters are all converted to UTF8, so any multibyte character should be in it.
+                // Difference between the character literals is in the type of their storage
+                cursor = utf8_decode(cursor, &decoded);
+                value = (i16)decoded;
+            }
         } break;
         }
         
@@ -1633,18 +1807,27 @@ generate_token:
             
             token = get_new_token(lexer);
             token->kind = TOKEN_NUMBER;
-            token->number.type = C_TYPE_SINT;
+            token->number.type = type;
             token->number.sint_value = value;
         } else {
             NOT_IMPLEMENTED;
         }
     } else if (expected == TOKEN_PP_STRING_LIT) {
         NOT_IMPLEMENTED;
-    } else if (expected == TOKEN_PP_NUMBER_LIT) {
+    } else if (expected == TOKEN_PP_INT_LIT) {
+        Integer_Literal_Parse_Result int_parse = parse_int_lit(lexer->scratch_buf);
+        
         token = get_new_token(lexer);
         token->kind = TOKEN_NUMBER;
-        token->number.type = C_TYPE_SLINT;
-        token->number.sint_value = z2i64(lexer->scratch_buf);
+        token->number.type = int_parse.type;
+        token->number.uint_value = int_parse.result;
+    } else if (expected == TOKEN_PP_REAL_LIT) {
+        Float_Literal_Parse_Result float_parse = parse_float_lit(lexer->scratch_buf);
+        
+        token = get_new_token(lexer);
+        token->kind = TOKEN_NUMBER;
+        token->number.type = float_parse.type;
+        token->number.f64_value = float_parse.f64_value;
     } else if (expected == TOKEN_EOS) {
         token = get_new_token(lexer);
         token->kind = TOKEN_EOS;

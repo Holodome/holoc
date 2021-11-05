@@ -67,8 +67,9 @@ enum {
     
     TOKEN_PP_CHAR_LIT   = 0x109,
     TOKEN_PP_STRING_LIT = 0x10A,
-    TOKEN_PP_NUMBER_LIT = 0x10B,
-    TOKE_PP_STATEMENT_END = 0x10C
+    TOKEN_PP_INT_LIT    = 0x10B,
+    TOKEN_PP_REAL_LIT   = 0x10C,
+    TOKE_PP_STATEMENT_END = 0x10D
 };
 
 enum {
@@ -193,7 +194,8 @@ typedef struct Token {
             union {
                 u64 uint_value;
                 i64 sint_value;
-                long double real_value;
+                f32 f32_value;
+                f64 f64_value;
             };
         } number;
     };
