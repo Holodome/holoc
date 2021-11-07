@@ -72,7 +72,7 @@ main(int argc, char **argv) {
     Compiler_Ctx *ctx = create_compiler_ctx();
     ctx->fr->include_seach_paths_count = ARRAY_SIZE(include_paths);
     ctx->fr->include_search_paths = include_paths;
-    Lexer *lexer = create_lexer(ctx, "sample.c");
+    Lexer *lexer = create_lexer(ctx, "stringify.h");
     preprocess(lexer, STDOUT);
     
     UNUSED(argc);

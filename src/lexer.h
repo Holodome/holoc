@@ -193,7 +193,6 @@ typedef struct Token {
             u32 type;
             union {
                 u64 uint_value;
-                i64 sint_value;
                 f32 f32_value;
                 f64 f64_value;
             };

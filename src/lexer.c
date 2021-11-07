@@ -220,8 +220,8 @@ fmt_token(Out_Stream *stream, Token *token) {
         result = out_streamf(stream, "<str>%s", token->str.data);
     } break;
     case TOKEN_NUMBER: {
-        result = out_streamf(stream, "<num>%lld", 
-            token->number.sint_value);
+        result = out_streamf(stream, "<num>%llu", 
+            token->number.uint_value);
     } break;
     case TOKEN_PUNCTUATOR: {
         if (token->punct < 0x100) {
@@ -994,21 +994,6 @@ skip_spaces(Lexer *lexer) {
     return skipped;
 }
 
-bool
-pp_skip_spaces(Lexer *lexer) {
-    bool skipped = false;
-    for (;;) {
-        u8 codepoint = peek_codepoint(lexer);
-        if (is_space(codepoint) && codepoint != '\n') {
-            skipped = true;
-            advance(lexer, 1);
-        } else {
-            break;
-        }
-    }
-    return skipped;
-}
-
 // Precedence:
 // 0: Ident, Literal
 // 1: ! ~ (type) sizeof() _Alignof()
@@ -1055,12 +1040,7 @@ start:
         goto token_generated;
     }
     
-    bool is_space_advanced = false;
-    while (is_space(peek_codepoint(lexer))) {
-        advance(lexer, 1);
-        is_space_advanced = true;
-    }
-    
+    bool is_space_advanced = skip_spaces(lexer);
     if (is_space_advanced) {
         goto start;
     }
@@ -1185,7 +1165,8 @@ start:
                 } break;
                 case PP_KEYWORD_DEFINE: {
                     if (pp_lexer.token_kind == TEXT_LEXER_TOKEN_IDENT) {
-                        Str macro_name = str(pp_lexer.string_buf, pp_lexer.string_buf_used);
+                        Str macro_name = string_storage_add(lexer->ctx->ss, 
+                            pp_lexer.string_buf, pp_lexer.string_buf_used);
                         PP_Macro *macro = pp_define(lexer, macro_name);
                         // @TODO(hl): Warn if macro is already defined
                         const char *definition_start = (const char *)pp_lexer.buf_at;
@@ -1213,7 +1194,13 @@ start:
                                         if (pp_lexer.token_kind == '.') {
                                             text_lexer_next(&pp_lexer);
                                             macro->flags |= PP_MACRO_HAS_VARARGS_BIT;
-                                            macro->varargs_idx = macro->arg_count++;
+                                            macro->varargs_idx = macro->arg_count;
+                                            // @HACK(hl): We define variadic arguments as a single argument
+                                            //  that allows commas it its definition in usage
+                                            //  so we might as well make it be similar to regular arguments
+                                            //  luckily, it can only be accessed with __VA_ARGS__,
+                                            //  so that becomes its name
+                                            macro->arg_names[macro->arg_count++] = WRAP_Z("__VA_ARGS__");
                                             is_correct = true;
                                         }
                                     } 
@@ -1385,15 +1372,15 @@ start:
     // String literal
     {
         u32 string_lit_kind = 0;
-        if (parse(lexer, WRAP_Z("u8'"))) {
+        if (parse(lexer, WRAP_Z("u8\""))) {
             string_lit_kind = STRING_LIT_UTF8;
-        } else if (parse(lexer, WRAP_Z("u'"))) {
+        } else if (parse(lexer, WRAP_Z("u\""))) {
             string_lit_kind = STRING_LIT_U16;
-        } else if (parse(lexer, WRAP_Z("U'"))) {\
+        } else if (parse(lexer, WRAP_Z("U\""))) {\
             string_lit_kind = STRING_LIT_U32;
-        } else if (parse(lexer, WRAP_Z("L'"))) {
+        } else if (parse(lexer, WRAP_Z("L\""))) {
             string_lit_kind = STRING_LIT_WIDE;
-        } else if (parse(lexer, WRAP_Z("'"))) {
+        } else if (parse(lexer, WRAP_Z("\""))) {
             string_lit_kind = STRING_LIT_REG;
         }
         
@@ -1443,23 +1430,34 @@ start:
             is_number = true;
         }
         
+        // Definition of a number at preprocessing stage is much more relaxed than in the language sence
+        // we accept any seqency of symbols that can appear in the literal
         if (is_number) {
-            
-        }
-        if (is_digit(peek_codepoint(lexer))) {
-            lexer->expected_token_kind = TOKEN_PP_INT_LIT;
             for (;;) {
                 u8 codepoint = peek_codepoint(lexer);
-                if (!codepoint || !is_digit(codepoint)) {
+                if (is_real(codepoint)) {
+                    lexer->expected_token_kind = TOKEN_PP_REAL_LIT;
+                } else if (!is_digit(codepoint)) {
                     break;
                 }
                 assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
                 lexer->scratch_buf[lexer->scratch_buf_size++] = codepoint;
                 advance(lexer, 1);
             }
+            // parse the suffix
+            if (is_ident_start(peek_codepoint(lexer))) {
+                for (;;) {
+                    u8 codepoint = peek_codepoint(lexer);
+                    if (!is_ident(codepoint)) {
+                        break;
+                    }
+                    assert(lexer->scratch_buf_size < lexer->scratch_buf_capacity);
+                    lexer->scratch_buf[lexer->scratch_buf_size++] = codepoint;
+                    advance(lexer, 1);
+                }
+            }
             goto token_generated;
         }
-        
     }
     
     if (is_ident_start(peek_codepoint(lexer))) {
@@ -1515,64 +1513,50 @@ get_new_token(Lexer *lexer) {
 Token *
 lexer_peek_token_new(Lexer *lexer) {
     u32 expected = 0;
-    Token *token = 0;
-    bool is_in_preprocessor_ctx = false;
     u32 last_size = 0;
     const char *lexbuf_cursor = lexer->scratch_buf + last_size;
     bool next_is_concat = false;
+    bool stringify = false;
+    Lexer_Buffer *stringify_sentinel = 0;
 start:
     lexer->scratch_buf_size = last_size;
     lexer_gen_pp_token(lexer);
     lexer->scratch_buf[lexer->scratch_buf_size] = 0;
     expected = lexer->expected_token_kind;
-    is_in_preprocessor_ctx = lexer->is_in_preprocessor_ctx;
     lexbuf_cursor = lexer->scratch_buf + last_size;
     Str lexbuf_str = str(lexer->scratch_buf + last_size, lexer->scratch_buf_size - last_size);
     
     if (expected == TOKEN_IDENT) {
         // First, check if we are inside function-like macro expansion
         // If so, check if current identifier is macro argument
-        if (is_in_preprocessor_ctx) {
-            bool is_macro_argument = false;
+        if (lexer->is_in_preprocessor_ctx) {
             for (Lexer_Buffer *lexbuf = get_current_buf(lexer);
-                 lexbuf && !is_macro_argument;
+                 lexbuf;
                  lexbuf = lexbuf->next) {
                 if (lexbuf->kind == LEXER_BUFFER_MACRO) {
                     PP_Macro *macro = lexbuf->macro;
-                    if (str_eq(lexbuf_str, WRAP_Z("__VA_ARGS__"))) {
-                        if (macro->flags & PP_MACRO_HAS_VARARGS_BIT) {
-                            lexer->scratch_buf_size = last_size;
-                            add_arg_expansion_buffer(lexer, lexbuf->macro_args[macro->varargs_idx]);
-                            is_macro_argument = true;
-                            break;
-                        } else {
-                            NOT_IMPLEMENTED;
-                        }
-                    }
-                    
+                    assert(lexbuf->macro_arg_count == macro->arg_count);
                     for (u32 macro_arg_name_idx = 0;
-                        macro_arg_name_idx < macro->arg_count - TO_BOOL(macro->flags & PP_MACRO_HAS_VARARGS_BIT);
+                        macro_arg_name_idx < macro->arg_count;
                         ++macro_arg_name_idx) {
                         Str test = macro->arg_names[macro_arg_name_idx];
                         if (str_eq(lexbuf_str, test)) {
                             Str arg_expansion = lexbuf->macro_args[macro_arg_name_idx];
                             add_arg_expansion_buffer(lexer, arg_expansion);
-                            is_macro_argument = true;
                             lexer->scratch_buf_size = last_size;
-                            break;
+                            
+                            // If we expanded from macor argument, call for token getting again
+                            goto start;
                         }
                     }
                 }
-            }
-            // If we expanded from macor argument, call for token getting again
-            if (is_macro_argument) {
-                goto start;    
             }
         }
         // Try to get macro of same name
         {
             PP_Macro *macro = pp_get(lexer, lexbuf_str);
             if (macro) {
+                // @TODO(hl): Check if parantesses exist on function-like macro
                 // @NOTE(hl): CLEANUP buffer is get here ant initialized inline because 
                 //  we need to write arguments to it. This is better be wrapped in a function to be consistent
                 Lexer_Buffer *buffer = get_new_buffer_stack_entry(lexer);
@@ -1581,7 +1565,7 @@ start:
                 buffer->kind = LEXER_BUFFER_MACRO;
                 buffer->macro = macro;
                 if (macro->flags & PP_MACRO_IS_FUNCTION_LIKE_BIT) {
-                    // @NOTE(hl): Advance actual text cursor to eat arguments of function-like macro 
+                    // @NOTE(hl): Advance actual lexer cursor to eat arguments of function-like macro 
                     u8 codepoint = peek_codepoint(lexer);
                     if (codepoint == '(') {
                         advance(lexer, 1);
@@ -1589,31 +1573,41 @@ start:
                         
                         char temp_buffer[4096];
                         u32  temp_buffer_size = 0;
-                        while (codepoint != ')') {
+#define save_argument() \
+do { \
+temp_buffer[temp_buffer_size++] = ' '; \
+temp_buffer[temp_buffer_size] = 0; \
+Str new_str = string_storage_add(lexer->ctx->ss, temp_buffer, temp_buffer_size); \
+buffer->macro_args[buffer->macro_arg_count++] = new_str; \
+temp_buffer_size = 0; \
+} while (0);
+                        // @NOTE(hl): Commas have special meaning in macro arguments.
+                        //  arguments are considered separated with comma, if it is not inside
+                        //  parantesses. Otherwise it is considered part of argument
+                        u32 parantesses_depth = 0;
+                        while ( codepoint != ')' || parantesses_depth != 0 ) {
                             // If current macro is positional, use , as separator, and if we parse variadic 
                             // arguments, just put this arguments into one
-                            if ( codepoint == ',' && 
-                                (!(macro->flags & PP_MACRO_HAS_VARARGS_BIT) || buffer->macro_arg_count < macro->varargs_idx) ) {
+                            if ( codepoint == ',' && (parantesses_depth == 0) &&
+                                (!(macro->flags & PP_MACRO_HAS_VARARGS_BIT) || buffer->macro_arg_count < macro->varargs_idx ) ) {
                                 // @HACK Currently we insert space so the algorithm can function 
                                 // normally and parse macro properly if it is contained in another macro
                                 // argument
-                                temp_buffer[temp_buffer_size++] = ' ';
-                                temp_buffer[temp_buffer_size] = 0;
-                                Str new_str = string_storage_add(lexer->ctx->ss, temp_buffer, temp_buffer_size);
-                                buffer->macro_args[buffer->macro_arg_count++] = new_str;
-                                temp_buffer_size = 0;
+                                save_argument();
                             } else {
                                 temp_buffer[temp_buffer_size++] = codepoint;
+                                if (codepoint == '(') {
+                                    ++parantesses_depth;
+                                } else if (codepoint == ')') {
+                                    --parantesses_depth;
+                                }
                             }
                             advance(lexer, 1);
                             codepoint = peek_codepoint(lexer);
                         }
                         // @TODO DRY
                         if (temp_buffer_size) {
-                            temp_buffer[temp_buffer_size++] = ' ';
-                            temp_buffer[temp_buffer_size] = 0;
-                            Str new_str = string_storage_add(lexer->ctx->ss, temp_buffer, temp_buffer_size);
-                            buffer->macro_args[buffer->macro_arg_count++] = new_str;
+                            save_argument();
                         }
                         advance(lexer, 1);
                     } else {
@@ -1627,18 +1621,6 @@ start:
         }   
     }
     
-    bool stringify = false;
-    if (is_in_preprocessor_ctx) {
-        if (expected == TOKEN_PUNCTUATOR && lexer->expected_punct == '#') {
-            lexer->scratch_buf_size = 0;
-            lexer_gen_pp_token(lexer);
-            expected = lexer->expected_token_kind;
-            stringify = true;
-
-            goto generate_token;
-        }
-    }
-    
     if (next_is_concat) {
         add_buffer_to_stack_concat(lexer);
         last_size = 0;
@@ -1646,7 +1628,7 @@ start:
         goto start;
     }
     
-    if (is_in_preprocessor_ctx) {
+    if (lexer->is_in_preprocessor_ctx) {
         // @NOTE(hl): Advance while not terminating the buffer
         Lexer_Buffer *buffer = get_current_buf(lexer);
         while (is_space(lexbuf_peek(buffer)) && lexbuf_peek(buffer)) {
@@ -1665,6 +1647,43 @@ start:
         }
     }
     
+    if (lexer->is_in_preprocessor_ctx && expected == TOKEN_PUNCTUATOR && lexer->expected_punct == '#') {
+        if (!stringify) {
+            stringify_sentinel = get_current_buf(lexer);
+            lexer->scratch_buf_size = 0;  // @NOTE(hl): This could as well be set to last_size
+            stringify = true;
+            goto start;
+        } else {
+            // dont update stringify sentinel 
+            lexer->scratch_buf_size = last_size; // remove hash from the buffer
+            goto start;
+        }
+    } else if (stringify) {
+        Lexer_Buffer *buffer = get_current_buf(lexer);
+        while ( buffer ) {
+            if ( buffer == stringify_sentinel ) {
+                break;
+            }
+            
+            u8 codepoint = lexbuf_peek(buffer);
+            if ( !codepoint ) {
+                assert( buffer != buffer->next ); // detect infinite loop
+                pop_buffer_from_stack(lexer);
+                buffer = get_current_buf(lexer);
+            } else if (is_space(codepoint)) {
+                lexbuf_advance(buffer, 1);
+            }
+        }
+        
+        if ( buffer == stringify_sentinel ) {
+            goto generate_token;
+        } else {
+            last_size = lexer->scratch_buf_size;
+        }
+        goto start;
+    }
+    
+    
 check_string:
     if (expected == TOKEN_PP_STRING_LIT) {
         while (is_space(peek_codepoint(lexer))) {
@@ -1678,23 +1697,22 @@ check_string:
         }
     }
     
-generate_token:
+generate_token: (void)0;
+    Token *token = 0;
 
     if (stringify) {
-        NOT_IMPLEMENTED;
+        token = get_new_token(lexer);
+        token->kind = TOKEN_STRING;
+        Str new_str = string_storage_add(lexer->ctx->ss, lexbuf_str.data, lexbuf_str.len);
+        token->str = new_str;
     } else if (expected == TOKEN_IDENT) {
         // Try to find keyword 
-        {
-            u32 found_keyword = get_keyword_from_str(lexbuf_str);
-            if (found_keyword) {
-                token = get_new_token(lexer);
-                token->kind = TOKEN_KEYWORD;
-                token->kw = found_keyword;
-            }
-        }       
-        
-        // Otherwise, this is regular identifier
-        if (!token) {
+        u32 found_keyword = get_keyword_from_str(lexbuf_str);
+        if (found_keyword) {
+            token = get_new_token(lexer);
+            token->kind = TOKEN_KEYWORD;
+            token->kw = found_keyword;
+        } else {
             token = get_new_token(lexer);
             token->kind = TOKEN_IDENT;
             Str new_str = string_storage_add(lexer->ctx->ss, lexbuf_str.data, lexbuf_str.len);
@@ -1723,7 +1741,7 @@ generate_token:
         
         // @TODO(hl): Multibyte characters
         // @TODO(hl): This whole process can be simplified, if we first parse whole character as 
-        //  utf8 sequence, and that map it to th desired type
+        //  utf8 sequence, and that map it to the desired type
         i64 value = 0;
         u32 type = 0;
         switch (lit_kind) {
@@ -1808,7 +1826,8 @@ generate_token:
             token = get_new_token(lexer);
             token->kind = TOKEN_NUMBER;
             token->number.type = type;
-            token->number.sint_value = value;
+            token->number.uint_value = value;
+            assert((i64)token->number.uint_value == value);
         } else {
             NOT_IMPLEMENTED;
         }

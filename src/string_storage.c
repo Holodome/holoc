@@ -34,7 +34,7 @@ string_storage_add(String_Storage *ss, const char *str, u32 len) {
     
     mem_copy(buffer->storage + buffer->used, str, len);
     buffer->storage[buffer->used + len] = 0;
-    buffer->used += len;
+    buffer->used += len + 1;
     
     return result;
 }
