@@ -1,324 +1,320 @@
 /*
 Author: Holodome
-Date: 10.10.2021
+Date: 21.11.2021
 File: src/lexer.h
-Version: 2
-
-This file contains lexer for C. Lexer is a subprogram that accepts text input and returns
-tokenized output, where each symbol is converted into corresponding language literal understood by compiler.
-
-This lexer does preprocessing inline, not as separate stage. So the single lexer object is responsible 
-for all lexing in C language.
-Because of that, in consists of two parts - usual c lexer, that is fairly straightforward and a preprocessor
-lexer, parser and interprenter. 
-
-Because of the nature of the C languge, the preprocessor can be though as a whole different language with its
-specific grammatic rules (for example, its parsing of #if directive expresions is a very simplified version of c
-expressions). Because of that, there is a need for whole different language parser. 
-By first looking at the code complexity of the lexing algorithm can seem big, but it can be easilly broken down
-into several subparts.
-
-First of all, if current lexing context is the regular C text (not a macro exapnsion), we can just parse it as usual 
-into tokens directly. But if compiler does macro expansion of any sort, it splits the generation of tokens into two
-parts. Firstly, they are parsed as text to buffer. This is done in order to make concatenation in stringifying 
-(# and ## in preprocessor) possible.
-After that, it checks if next preprocessor token equals to one of said above ones. Depending on this condition,
-it can parse next token and join them, generate string with token text or generate correct c token.
-
-This complexity was intoduced in order to make the compilation single-passed, without doing actual textual 
-replacements done by preprocessor, by maintaining stack-like structure for buffers that are being parsed.
+Version: 0
 */
 #ifndef LEXER_H
 #define LEXER_H
-#include "lib/general.h"
-#include "lib/strings.h"
 
-#include "file_registry.h"  // File_ID
-#include "string_storage.h" // String_ID
+#include "types.h"
+#include "c_types.h"
 
-struct Out_Stream;
-struct Compiler_Ctx;
-struct Memory_Arena;
-struct Lexer;
-
-#define MAX_PREPROCESSOR_LINE_LENGTH 4096
-#define MAX_PREPROCESSOR_MACROS      4096
-#define MAX_NESTED_IFS               64
-#define MAX_PP_MACRO_ARGS            128
-
-enum {
-    // End of stream. @NOTE(hl): Kinda not satisfied with the name, but the EOF doesn't make me happier either
-    TOKEN_EOS        = 0x101,
-    // Identifier 
-    TOKEN_IDENT      = 0x102,
-    // Special kind of identifiers
-    TOKEN_KEYWORD    = 0x103,
-    // String literal. Includes all type-specific ones
-    TOKEN_STRING     = 0x104,
-    // Number literal. Includes integer literals, floating-point literals and character constants.
-    // Has type attached to it
-    TOKEN_NUMBER     = 0x105,
-    // Punctuator like , . + - += <<= etc.
-    TOKEN_PUNCTUATOR = 0x106,
-    // This could have been part of the string, but decided to stick this here for clarity
-    TOKEN_PP_FILENAME          = 0x107,
-    // Similar to strings, contains all that goes after #define AAA till the end of the string
-    TOKEN_PP_DEFINE_DEFINITION = 0x108,
-    
-    TOKEN_PP_CHAR_LIT   = 0x109,
-    TOKEN_PP_STRING_LIT = 0x10A,
-    TOKEN_PP_INT_LIT    = 0x10B,
-    TOKEN_PP_REAL_LIT   = 0x10C,
-    TOKE_PP_STATEMENT_END = 0x10D
-};
-
-enum {
-    KEYWORD_AUTO          = 0x1, // auto
-    KEYWORD_BREAK         = 0x2, // break
-    KEYWORD_CASE          = 0x3, // case
-    KEYWORD_CHAR          = 0x4, // char
-    KEYWORD_CONST         = 0x5, // const
-    KEYWORD_CONTINUE      = 0x6, // continue
-    KEYWORD_DEFAULT       = 0x7, // default
-    KEYWORD_DO            = 0x8, // do
-    KEYWORD_DOUBLE        = 0x9, // double
-    KEYWORD_ELSE          = 0xA, // else 
-    KEYWORD_ENUM          = 0xB, // enum 
-    KEYWORD_EXTERN        = 0xC, // extern
-    KEYWORD_FLOAT         = 0xD, // float
-    KEYWORD_FOR           = 0xE, // for 
-    KEYWORD_GOTO          = 0xF, // goto
-    KEYWORD_IF            = 0x10, // if
-    KEYWORD_INLINE        = 0x11, // inline
-    KEYWORD_INT           = 0x12, // int
-    KEYWORD_LONG          = 0x13, // long
-    KEYWORD_REGISTER      = 0x14, // register
-    KEYWORD_RESTRICT      = 0x15, // restrict
-    KEYWORD_RETURN        = 0x16, // return
-    KEYWORD_SHORT         = 0x17, // short
-    KEYWORD_SIGNED        = 0x18, // signed
-    KEYWORD_SIZEOF        = 0x19, // unsigned 
-    KEYWORD_STATIC        = 0x1A, // static 
-    KEYWORD_STRUCT        = 0x1B, // struct
-    KEYWORD_SWITCH        = 0x1C, // switch 
-    KEYWORD_TYPEDEF       = 0x1D, // typedef
-    KEYWORD_UNION         = 0x1E, // union 
-    KEYWORD_UNSIGNED      = 0x1F, // unsigned
-    KEYWORD_VOID          = 0x20, // void
-    KEYWORD_VOLATILE      = 0x21, // volatile
-    KEYWORD_WHILE         = 0x22, // while
-    KEYWORD_ALIGNAS       = 0x23, // _Alignas
-    KEYWORD_ALIGNOF       = 0x24, // _Alignof
-    KEYWORD_ATOMIC        = 0x25, // _Atomic
-    KEYWORD_BOOL          = 0x26, // _Bool
-    KEYWORD_COMPLEX       = 0x27, // _Complex
-    KEYWORD_DECIMAL128    = 0x28, // c2x _Decimal128 
-    KEYWORD_DECIMAL32     = 0x29, // c2x _Decimal32
-    KEYWORD_DECIMAL64     = 0x2A, // c2x _Decimal64
-    KEYWORD_GENERIC       = 0x2B, // _Generic
-    KEYWORD_IMAGINARY     = 0x2C, // _Imaginary
-    KEYWORD_NORETURN      = 0x2D, // _Noreturn
-    KEYWORD_STATIC_ASSERT = 0x2E, // _Static_assert
-    KEYWORD_THREAD_LOCAL  = 0x2F, // _Thread_local
-    KEYWORD_PRAGMA        = 0x30, // _Pragma
-    
-    KEYWORD_SENTINEL,
-};
-
-enum {
-    PP_KEYWORD_DEFINE   = 0x1, // define
-    PP_KEYWORD_UNDEF    = 0x2, // undef
-    PP_KEYWORD_INCLUDE  = 0x3, // include
-    PP_KEYWORD_IF       = 0x4, // if
-    PP_KEYWORD_IFDEF    = 0x5, // ifdef
-    PP_KEYWORD_IFNDEF   = 0x6, // ifndef
-    PP_KEYWORD_ELSE     = 0x7, // else 
-    PP_KEYWORD_ELIFDEF  = 0x8, // c2x elifdef
-    PP_KEYWORD_ELIFNDEF = 0x9, // c2x elifndef
-    PP_KEYWORD_PRAGMA   = 0xA, // pragma  
-    PP_KEYWORD_ERROR    = 0xB, // error
-    PP_KEYWORD_DEFINED  = 0xC, // defined
-    PP_KEYWORD_LINE     = 0xD, // line
-    PP_KEYWORD_ELIF     = 0xE, // elif
-    PP_KEYWORD_ENDIF    = 0xF, // endif
-    
-    // PP_KEYWORD_VA_ARGS  = 0x10, // __VA_ARGS__
-    
-    PP_KEYWORD_SENTINEL,
-};
-
-enum {
-    // @NOTE(hl): __func__, __PRETTY_FUNCTION__, __FUNCTION__ are not preprocessor macros
-    PREDEFINED_MACRO_FILE = 0x1, // __FILE__
-    PREDEFINED_MACRO_LINE = 0x2, // __LINE__
-    PREDEFINED_MACRO_TIME = 0x3, // __TIME__
-    PREDEFINED_MACRO_DATE = 0x4, // __DATE__ 
-};
-
-enum {
-    PUNCTUATOR_IRSHIFT = 0x101, // >>=
-    PUNCTUATOR_ILSHIFT = 0x102, // <<= 
-    PUNCTUATOR_VARARGS = 0x103, // ...
-    PUNCTUATOR_IADD    = 0x104, // +=
-    PUNCTUATOR_ISUB    = 0x105, // -=
-    PUNCTUATOR_IMUL    = 0x106, // *=
-    PUNCTUATOR_IDIV    = 0x107, // /=
-    PUNCTUATOR_IMOD    = 0x108, // %= 
-    PUNCTUATOR_IAND    = 0x109, // &=
-    PUNCTUATOR_IOR     = 0x10A, // |=
-    PUNCTUATOR_IXOR    = 0x10B, // ^=
-    PUNCTUATOR_INC     = 0x10C, // ++
-    PUNCTUATOR_DEC     = 0x10D, // --
-    PUNCTUATOR_RSHIFT  = 0x10E, // >>
-    PUNCTUATOR_LSHIFT  = 0x10F, // <<
-    PUNCTUATOR_LAND    = 0x110, // &&
-    PUNCTUATOR_LOR     = 0x111, // ||
-    PUNCTUATOR_EQ      = 0x112, // ==
-    PUNCTUATOR_NEQ     = 0x113, // != 
-    PUNCTUATOR_LEQ     = 0x114, // <= 
-    PUNCTUATOR_GEQ     = 0x115, // >= 
-    PUNCTUATOR_ARROW   = 0x116, // ->
-    
-    PUNCTUATOR_SENTINEL,
-};
-
-typedef struct Token {
-    u32 kind;
-    const Src_Loc *src_loc;
-    union {
-        Str str;
-        u32 kw;
-        u32 punct;
-        struct {
-            u32 type;
-            union {
-                u64 uint_value;
-                f32 f32_value;
-                f64 f64_value;
-            };
-        } number;
-    };
-} Token;
-
-#define IS_KW(_tok, _kw) ((_tok)->kind == TOKEN_KEYWORD && (_tok)->kw == (_kw))
-#define IS_PUNCT(_tok, _punct) ((_tok)->kind == TOKEN_PUNCTUATOR && (_tok)->punct == (_punct))
-
-u32 fmt_token_kind(struct Out_Stream *stream, u32 kind);
-u32 fmt_token(struct Out_Stream *stream, Token *token);
-
-enum {
-    // Reading from file
-    LEXER_BUFFER_FILE      = 0x1,
-    // Macro expansion
-    LEXER_BUFFER_MACRO     = 0x2,
-    // Macro argument expansion
-    LEXER_BUFFER_MACRO_ARG = 0x3,
-    // Concatenated string expansion 
-    LEXER_BUFFER_CONCAT    = 0x4, 
-};
-
-// Represents buffer from which data needs to be parsed as source.
-typedef struct Lexer_Buffer {
-    const char *buf;
-    u32         size;
-    
-    const char *at;
-    
-    u8 kind;
-    u32 line;
-    u32 symb;
-    union {
-        File_ID file_id; 
-        struct {
-            struct PP_Macro *macro;
-            // If resolving macro is function-like, save what strings
-            // its parameters should be substitueted to
-            Str macro_args[MAX_PP_MACRO_ARGS];
-            u32 macro_arg_count;
-        };
-    };
-    struct Lexer_Buffer *next;
-} Lexer_Buffer;
-
-u8   lexbuf_peek(Lexer_Buffer *buffer);
-u32  lexbuf_advance(Lexer_Buffer *buffer, u32 n);
-bool lexbuf_parse(Lexer_Buffer *buffer, Str lit);
-
-enum {
-    PP_MACRO_IS_FUNCTION_LIKE_BIT = 0x1,
-    PP_MACRO_HAS_VARARGS_BIT      = 0x2,
-};
-
-typedef struct PP_Macro {
-    u32      hash; 
-    Src_Loc *loc; // Location where defined
-    
-    Str name;
-    u8  flags;
-    u32  varargs_idx; // Idx where ... appeared
-    Str arg_names[MAX_PP_MACRO_ARGS];
-    u32 arg_count;
-    
-    char definition[MAX_PREPROCESSOR_LINE_LENGTH];
-    u32  definition_len;
-} PP_Macro;
+struct file_registry;
 
 typedef struct {
-    bool is_handled;
-} PP_Nested_If;
+    uint32_t value;
+} c_lexbuf_id;
 
-typedef struct Lexer {
-    struct Memory_Arena *arena;
-    struct Compiler_Ctx *ctx;
-    // Storage of buffers that are used to parse text from
-    // This can include files, macros, macro arguments
-    Lexer_Buffer *buffer_stack;
-    Lexer_Buffer *buffer_freelist;
-    // Current include depth. Need to keep track of it so we don't run into infinite loop
-    u32 buffer_stack_size;
-    // If some of the parent buffers is preprocessor - 
-    // this is needed to make stringifying and joining strings possible
-    // @NOTE(hl): This is number, but in code is used as a boolean,
-    // could make union to make this more clear
-    u32 is_in_preprocessor_ctx;  
+typedef struct {
+    c_lexbuf_id buf;
+    uint32_t line;
+    uint32_t symb;
+} c_lexer_loc;
+
+// Enumeration of possible kinds of [[c_token]]
+typedef enum {
+    // End of file.
+    // Used as sentinel to signal the end of input
+    C_TOKEN_EOF   = 0x0,
+    // String.
+    // Represented as array of certain type
+    C_TOKEN_STR   = 0x1,
+    // Number.
+    // Represented as value of specific c type, with a type marker
+    C_TOKEN_NUM   = 0x2,
+    // Identifier.
+    // Represented as string
+    C_TOKEN_IDENT = 0x3,
+    // Punctuator.
+    // Reprersented as enumeration [[c_punctuator]]
+    C_TOKEN_PUNCT = 0x4,
+    // Keyword
+    // Represented as enumeration [[c_keyword]]
+    C_TOKEN_KW    = 0x5
+} c_token_kind;
+
+// Enumeration of possible kinds of [[c_token_kind.C_TOKEN_KW]]
+typedef enum {
+    C_KEYWORD_AUTO          = 0x1, // auto
+    C_KEYWORD_BREAK         = 0x2, // break
+    C_KEYWORD_CASE          = 0x3, // case
+    C_KEYWORD_CHAR          = 0x4, // char
+    C_KEYWORD_CONST         = 0x5, // const
+    C_KEYWORD_CONTINUE      = 0x6, // continue
+    C_KEYWORD_DEFAULT       = 0x7, // default
+    C_KEYWORD_DO            = 0x8, // do
+    C_KEYWORD_DOUBLE        = 0x9, // double
+    C_KEYWORD_ELSE          = 0xA, // else 
+    C_KEYWORD_ENUM          = 0xB, // enum 
+    C_KEYWORD_EXTERN        = 0xC, // extern
+    C_KEYWORD_FLOAT         = 0xD, // float
+    C_KEYWORD_FOR           = 0xE, // for 
+    C_KEYWORD_GOTO          = 0xF, // goto
+    C_KEYWORD_IF            = 0x10, // if
+    C_KEYWORD_INLINE        = 0x11, // inline
+    C_KEYWORD_INT           = 0x12, // int
+    C_KEYWORD_LONG          = 0x13, // long
+    C_KEYWORD_REGISTER      = 0x14, // register
+    C_KEYWORD_RESTRICT      = 0x15, // restrict
+    C_KEYWORD_RETURN        = 0x16, // return
+    C_KEYWORD_SHORT         = 0x17, // short
+    C_KEYWORD_SIGNED        = 0x18, // signed
+    C_KEYWORD_SIZEOF        = 0x19, // unsigned 
+    C_KEYWORD_STATIC        = 0x1A, // static 
+    C_KEYWORD_STRUCT        = 0x1B, // struct
+    C_KEYWORD_SWITCH        = 0x1C, // switch 
+    C_KEYWORD_TYPEDEF       = 0x1D, // typedef
+    C_KEYWORD_UNION         = 0x1E, // union 
+    C_KEYWORD_UNSIGNED      = 0x1F, // unsigned
+    C_KEYWORD_VOID          = 0x20, // void
+    C_KEYWORD_VOLATILE      = 0x21, // volatile
+    C_KEYWORD_WHILE         = 0x22, // while
+    C_KEYWORD_ALIGNAS       = 0x23, // _Alignas
+    C_KEYWORD_ALIGNOF       = 0x24, // _Alignof
+    C_KEYWORD_ATOMIC        = 0x25, // _Atomic
+    C_KEYWORD_BOOL          = 0x26, // _Bool
+    C_KEYWORD_COMPLEX       = 0x27, // _Complex
+    C_KEYWORD_DECIMAL128    = 0x28, // c2x _Decimal128 
+    C_KEYWORD_DECIMAL32     = 0x29, // c2x _Decimal32
+    C_KEYWORD_DECIMAL64     = 0x2A, // c2x _Decimal64
+    C_KEYWORD_GENERIC       = 0x2B, // _Generic
+    C_KEYWORD_IMAGINARY     = 0x2C, // _Imaginary
+    C_KEYWORD_NORETURN      = 0x2D, // _Noreturn
+    C_KEYWORD_STATIC_ASSERT = 0x2E, // _Static_assert
+    C_KEYWORD_THREAD_LOCAL  = 0x2F, // _Thread_local
+    C_KEYWORD_PRAGMA        = 0x30, // _Pragma
     
-    PP_Macro     macro_hash[MAX_PREPROCESSOR_MACROS];
-    // Needs to be stored so we know whether next #if should be checked or skipped 
-    PP_Nested_If nested_ifs[MAX_NESTED_IFS];
-    u32          nested_if_cursor;
-    // Buffer in which tokens are written to before being generated
-    char *scratch_buf;
-    u32   scratch_buf_size;
-    u32   scratch_buf_capacity;
-    // Result of writing token text to scratch buf 
-    u32 expected_token_kind;
-    u32 expected_punct;
-    u32 expected_keyword;
-} Lexer;
+    C_KEYWORD_SENTINEL,
+} c_keyword;
 
-Lexer *create_lexer(struct Compiler_Ctx *ctx, const char *filename);
-Token *peek_tok(Lexer *lexer);
-void eat_tok(Lexer *lexer);
+// Enumeration of possible kinds of [[c_token.C_TOKEN_PUNCT]]
+typedef enum {
+    C_PUNCT_IRSHIFT = 0x101, // >>=
+    C_PUNCT_ILSHIFT = 0x102, // <<= 
+    C_PUNCT_VARARGS = 0x103, // ...
+    C_PUNCT_IADD    = 0x104, // +=
+    C_PUNCT_ISUB    = 0x105, // -=
+    C_PUNCT_IMUL    = 0x106, // *=
+    C_PUNCT_IDIV    = 0x107, // /=
+    C_PUNCT_IMOD    = 0x108, // %= 
+    C_PUNCT_IAND    = 0x109, // &=
+    C_PUNCT_IOR     = 0x10A, // |=
+    C_PUNCT_IXOR    = 0x10B, // ^=
+    C_PUNCT_INC     = 0x10C, // ++
+    C_PUNCT_DEC     = 0x10D, // --
+    C_PUNCT_RSHIFT  = 0x10E, // >>
+    C_PUNCT_LSHIFT  = 0x10F, // <<
+    C_PUNCT_LAND    = 0x110, // &&
+    C_PUNCT_LOR     = 0x111, // ||
+    C_PUNCT_EQ      = 0x112, // ==
+    C_PUNCT_NEQ     = 0x113, // != 
+    C_PUNCT_LEQ     = 0x114, // <= 
+    C_PUNCT_GEQ     = 0x115, // >= 
+    C_PUNCT_ARROW   = 0x116, // ->
+    
+    C_PUNCT_SENTINEL,
+} c_punct;
 
-void pp_push_nested_if(Lexer *lexer, bool is_handled);
-bool pp_get_nested_if_handled(Lexer *lexer);
-void pp_set_nested_if_handled(Lexer *lexer);
-void pp_pop_nested_if(Lexer *lexer);
+// Enumeration of possible kinds of [[c_token.C_TOKEN_KW]]
+typedef enum {
+    C_PP_KEYWORD_DEFINE   = 0x1, // define
+    C_PP_KEYWORD_UNDEF    = 0x2, // undef
+    C_PP_KEYWORD_INCLUDE  = 0x3, // include
+    C_PP_KEYWORD_IF       = 0x4, // if
+    C_PP_KEYWORD_IFDEF    = 0x5, // ifdef
+    C_PP_KEYWORD_IFNDEF   = 0x6, // ifndef
+    C_PP_KEYWORD_ELSE     = 0x7, // else 
+    C_PP_KEYWORD_ELIFDEF  = 0x8, // c2x elifdef
+    C_PP_KEYWORD_ELIFNDEF = 0x9, // c2x elifndef
+    C_PP_KEYWORD_PRAGMA   = 0xA, // pragma  
+    C_PP_KEYWORD_ERROR    = 0xB, // error
+    C_PP_KEYWORD_DEFINED  = 0xC, // defined
+    C_PP_KEYWORD_LINE     = 0xD, // line
+    C_PP_KEYWORD_ELIF     = 0xE, // elif
+    C_PP_KEYWORD_ENDIF    = 0xF, // endif
+    
+    C_PP_KEYWORD_SENTINEL,
+} c_pp_keyword;
 
-PP_Macro *pp_get(Lexer *lexer, Str name);
-PP_Macro *pp_define(Lexer *lexer, Str name);
-void      pp_undef(Lexer *lexer, Str name);
+// Token - atom in lexer
+typedef struct c_token {
+    // Kind of token
+    c_token_kind kind;
+    // Location
+    c_lexer_loc loc;
+    // Type paramters
+    union {
+        c_type    type;
+        c_keyword kw;
+        c_punct   punct;
+    };
+    // Type storage
+    union {
+        string   str;
+        uint64_t u64;
+        int64_t  i64;
+        float    f32;
+        double   f64;
+    };
+} c_token;
 
-void add_buffer_to_stack(Lexer *lexer, Lexer_Buffer *entry);
-void add_buffer_to_stack_file(Lexer *lexer, const char *filename);
-void pop_buffer_from_stack(Lexer *lexer);
-Lexer_Buffer *get_current_buf(Lexer *lexer);
+// Flags of [[c_pp_macro]]
+enum {
+    C_PP_MACRO_VARARGS_BIT       = 0x1,
+    C_PP_MACRO_FUNCTION_LIKE_BIT = 0x2  
+};
 
-u8   peek_codepoint(Lexer *lexer);
-void advance(Lexer *lexer, u32 n);
-bool parse(Lexer *lexer, Str lit);
-bool skip_spaces(Lexer *lexer);
+// Storage of individual preprocessor macro
+typedef struct {
+    // Hash of name
+    str_hash hash;
+    // Name of the macro
+    string   name;
+    // Flags
+    uint8_t  flags;
+    // Array of argument names.
+    string  *arg_names;
+    // Number of arguments
+    uint32_t arg_count;
+    // String containing definition
+    string   definition;
+    // Location of definition
+    c_lexer_loc defined_at;
+} c_pp_macro;
 
-void preprocess(Lexer *lexer, struct Out_Stream *stream);
+// Preprocessor is data structure storing data connected with preprocessor and managing it
+typedef struct {
+    // Where all strings from preprocessor are allocated
+    // @NOTE: Because #undefs are a rare thing, we don't do any memory freeing of undef'ed argument names and definition
+    // let's see if this becomes a problem 
+    struct string_storage *ss;
+    // Number of buckets in hash table
+    // C standard defines strict number of maximum macros, so we can use inexpandable hash table with open adressing
+    uint32_t     hash_size;
+    // Hash table
+    c_pp_macro *macro_hash;    
+    // Stack of nested #ifs size
+    uint32_t if_depth;
+    // Marker whether current #if had true case and we should skip all further #elif's and #else's
+    bool     is_current_if_handled;
+} c_preprocessor;
+
+// Initializes preprocessor 
+void c_pp_init(c_preprocessor *pp, uint32_t hash_size);
+// Push nested if
+void c_pp_push_if(c_preprocessor *pp, bool is_handled);
+// Pop nested if 
+void c_pp_pop_if(c_preprocessor *pp);
+
+// Basically add entry to macro hash table and return pointer to it. 
+// NOTE: If macro of same name is already defined, do not warn about it
+c_pp_macro *c_pp_define(c_preprocessor *pp, string name);
+// Removes macro from hash table
+// NOTE: Macro memory is not freed
+void c_pp_undef(c_preprocessor *pp, string name);
+// Returns macro from hash table if it exists, 0 otherwise
+c_pp_macro *c_pp_get(c_preprocessor *pp, string name);
+
+enum {
+    c_lexbuf_FILE      = 0x1,  
+    c_lexbuf_MACRO     = 0x2,  
+    c_lexbuf_MACRO_ARG = 0x3,  
+    c_lexbuf_CONCAT    = 0x4
+};
+
+// Structure describing tree of parsing c files
+// Buffer is a text source of parsing, its main purpose is to maintain stack structure 
+// of c file (like #include's or macro expansions)
+// Each buffer is a separate source, that has (unique) text and some other properties
+// After parsing, buffer is not used in lexing, but it can be used for error reporting
+// This is why we save information about buffer to [[lexer_buffer_info]], that can be looked up
+// in a hash table
+typedef struct c_lexbuf {
+    // Individual id of buffer
+    c_lexbuf_id id;
+    // Buffer, must be null-terminated
+    // Must be correct UTF8 sequence
+    uint8_t *buf;
+    // Pointer where we are currently parsing
+    uint8_t *at;
+    // End pointer of [[buf]]
+    // NOTE: Can be used to get size of buffer
+    uint8_t *eof;
+    // Kind of buffer
+    uint8_t  kind;
+    // Source location line, from 0
+    uint32_t line;
+    // Source location symbol, from 0
+    uint32_t symb;
+    // If file, id of file
+    file_id file_id;
+    // If macro expansion, macro which is being expanded
+    c_pp_macro *macro;
+    // If function-like macro expansion, strings of arguments passed to macro invocation 
+    string *macro_args;
+    // Linked list pointer
+    struct lexer_buffer *next;
+} c_lexbuf;
+
+// Initialises base for lexbuf
+void init_c_lexbuf(c_lexbuf *buf, void *buffer, uintptr_t buffer_size, uint8_t kind);
+// Returns next byte of buffer, or 0 if end is reached
+uint8_t c_lexbuf_peek(c_lexbuf *buffer);
+// Try to advance cursor for n characters. Return number of characters advanced by
+uint32_t c_lexbuf_advance(c_lexbuf *buffer, uint32_t n);
+// Check if buffer contains lit at cursor
+bool c_lexbuf_next_eq(c_lexbuf *buffer, string lit);
+// If buffer contains lit at cursor, advance the cursor by length of lit
+// Otherwise, do nothing
+// Return result of c_lexbuf_next_eq
+bool c_lexbuf_parse(c_lexbuf *buffer, string lit);
+
+typedef struct lexer_buffer_info {
+    c_lexbuf_id id;
+    lexer_buffer_info *next;
+} lexer_buffer_info;
+
+// Wrapper for functionality and data connected with buffers
+typedef struct {
+    // Buffer stack
+    c_lexbuf *current_buffer;
+    // Number of elements in stack
+    uint32_t  buffer_stack_size;
+    // Value of next id - 1 (e.g. 0 means next id is 1)
+    uint32_t id_cursor;
+    // Freelist of buffers
+    c_lexbuf *buffer_freelist;
+} c_lexbuf_storage;
+
+void init_c_lexbuf_storage(c_lexbuf_storage *bs);
+
+#define C_LEXER_MAX_TOKEN_PEEK_DEPTH 16
+ 
+typedef struct c_lexer {
+    c_preprocessor pp;
+    c_lexbuf_storage buffers;
+    
+    c_token  token_stack[C_LEXER_MAX_TOKEN_PEEK_DEPTH];
+    uint32_t token_stack_at;
+    
+    struct file_registry *fr;
+} c_lexer;
+
+c_lexer *init_c_lexer(struct file_registry *fr, string filename);
+
+c_token *c_lexer_peek_forward(c_lexer *lex, uint32_t forward);
+c_token *c_lexer_peek(c_lexer *lex);
+void c_lexer_eat(c_lexer *lex);
 
 #endif
