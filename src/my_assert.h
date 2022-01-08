@@ -32,7 +32,7 @@ Version: 0
 #endif
 
 #if INTERNAL_BUILD
-#define assert(_expr) do { if (!(_expr)) { assert_msg(#_expr, __FILE__, __LINE__, FUNCTION_NAME); DBG_BREAKPOINT; } } while (0); (void)0
+#define assert(_expr) do { if (!(_expr)) { assert_msg(#_expr, __FILE__, __LINE__, (char *)FUNCTION_NAME); DBG_BREAKPOINT; } } while (0); (void)0
 #else
 #define assert(_expr) ASSUME(_expr)
 #endif

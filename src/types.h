@@ -11,16 +11,9 @@ Version: 0
 #include <stdarg.h>
 #include <stdbool.h>
 
-#ifdef INTERNAL_BUILD
-#define STR_CREATED_AT_INFO
-#endif
-
 typedef struct string {
-    char *data;
-    uint32_t    len;
-#ifdef STR_CREATED_AT_INFO
-    char *created_at;
-#endif 
+    char    *data;
+    uint32_t len;
 } string;
 
 // Structure used for type-safe storing of hashes

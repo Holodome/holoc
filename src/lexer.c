@@ -3,43 +3,12 @@
 #include "hashing.h"
 #include "my_assert.h"
 #include "string_storage.h"
+#include "hashing.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
-
-typedef enum { 
-    CHAR_LIT_REG  = 0x1, // '
-    CHAR_LIT_UTF8 = 0x2, // u8'
-    CHAR_LIT_U16  = 0x3, // u'
-    CHAR_LIT_U32  = 0x4, // U'
-    CHAR_LIT_WIDE = 0x5  // L'
-} char_lit_kind;
-
-typedef enum {
-    STRING_LIT_REG  = 0x1, // "
-    STRING_LIT_UTF8 = 0x2, // u8"
-    STRING_LIT_U16  = 0x3, // u"
-    STRING_LIT_U32  = 0x4, // U"
-    STRING_LIT_WIDE = 0x5, // L"
-} string_lit_kind;
-
-typedef enum {
-    PP_TOKEN_EOF  = 0x1,
-    PP_TOKEN_INT  = 0x2,
-    PP_TOKEN_REAL = 0x3,
-    PP_TOKEN_CHAR = 0x4,
-    PP_TOKEN_STR  = 0x5
-} pp_token_kind;
-
-typedef struct {
-    pp_token_kind kind;
-    union {
-        char_lit_kind   char_kind;
-        string_lit_kind string_kind;
-    };
-} pp_token;
 
 static c_pp_macro *
 get_macro_internal(c_preprocessor *pp, str_hash name_hash, bool or_zero) {
@@ -49,10 +18,48 @@ get_macro_internal(c_preprocessor *pp, str_hash name_hash, bool or_zero) {
     return macro;
 }
 
+static bool 
+generate_character_literal(c_lexer *lexer, c_lexbuf *buffer, c_pp_token *token) {
+    
+}
+
+static bool 
+generate_string_literal(c_lexer *lexer, c_lexbuf *buffer, c_pp_token *token) {
+    
+}
+
+static bool 
+generate_number_literal(c_lexer *lexer, c_lexbuf *buffer, c_pp_token *token) {
+    
+}
+
+static bool 
+generate_identifier_literal(c_lexer *lexer, c_lexbuf *buffer, pp_token *token) {
+    
+}
+
+static bool 
+generate_punctuator_literal(c_lexer *lexer, c_lexbuf *buffer, pp_token *token) {
+    
+}
+
 static pp_token
 generate_pp_token(c_lexer *lex) {
     pp_token token = {0};
-    
+   
+    for (;;) {
+        uint8_t symb = peek_next_symb(lex);
+        if (!symb) {
+            token.kind = PP_TOKEN_EOF;
+            break;
+        }
+
+        while (isspace(symb)) {
+        
+        }
+        c_lexbuf *buffer = lex->buffer->current_buffer;
+    }
+
     return token;
 }
 
@@ -75,42 +82,9 @@ c_pp_pop_if(c_preprocessor *pp) {
     assert(pp->if_depth);
     pp->is_current_if_handled = false;
 }
-
-c_pp_macro *
-c_pp_define(c_preprocessor *pp, string name) {
-    str_hash name_hash = hash_string(name);
-    c_pp_macro *macro = get_macro_internal(pp, name_hash, true);
-    if (macro) {
-        memset(macro, 0, sizeof(*macro));
-        macro->name = name;
-        macro->hash = name_hash;
-    } else {
-        NOT_IMPLEMENTED;
-    }
-    return macro;
-}
-
-void        
-c_pp_undef(c_preprocessor *pp, string name) {
-    str_hash name_hash = hash_string(name);
-    c_pp_macro *macro = get_macro_internal(pp, name_hash, false);
-    if (macro) {
-        memset(&macro->hash, 0, sizeof(macro->hash));
-    } else {
-        NOT_IMPLEMENTED;
-    }
-}
-
-c_pp_macro *
-c_pp_get(c_preprocessor *pp, string name) {
-    str_hash name_hash = hash_string(name);
-    c_pp_macro *macro = get_macro_internal(pp, name_hash, false);
-    return macro;
-}
-
 void 
 init_c_lexbuf(c_lexbuf *buf, void *buffer_init, uintptr_t buffer_size, uint8_t kind) {
-    char *buffer = (uint8_t *)buffer_init;
+    uint8_t *buffer = (uint8_t *)buffer_init;
     buf->buf = buffer;
     buf->at = buf->buf;
     buf->eof = buf->at + buffer_size;
@@ -128,6 +102,7 @@ c_lexbuf_peek(c_lexbuf *buffer) {
 #else 
     assert(buffer->at <= buffer->eof);
     uint8_t result = *buffer->at;
+    return result;
 #endif 
 }
 
@@ -174,7 +149,7 @@ init_c_lexbuf_storage(c_lexbuf_storage *bs) {
 }
 
 c_lexer *
-init_c_lexer(struct file_registry *fr, string filename) {
+c_lexer_init(struct file_registry *fr, string_storage *ss, string filename) {
     c_lexer *lex = calloc(1, sizeof(c_lexer));
     init_c_lexbuf_storage(&lex->buffers);
     c_pp_init(&lex->pp, 8192);
@@ -184,12 +159,12 @@ init_c_lexer(struct file_registry *fr, string filename) {
 
 c_token *
 c_lexer_peek_forward(c_lexer *lex, uint32_t forward) {
-    
+    return 0;
 }
 
 c_token *
 c_lexer_peek(c_lexer *lex) {
-    
+    return 0;
 }
 
 void 

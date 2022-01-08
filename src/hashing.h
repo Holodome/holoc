@@ -9,8 +9,6 @@ Version: 0
 
 #include "types.h"
 
-str_hash hash_string(string str);
-
 // Returns element of internal chaining hash table, given list of entries and hash value
 // @NOTE(hl): This is actually the only low-level method function call needed to implement hash table
 //  insertion to hash table can be done by writing hash value in resulting pointer,
@@ -41,5 +39,11 @@ STRUCT_OFFSET(_struct, _hash_name), _hash)
 void **hash_table_sc_get_u32_(
     void **entries, uint32_t entry_count,
     uintptr_t chain_offset, uintptr_t hash_offset, uint32_t hash);
-    
+
+#define hash_string__(_key, _len, _seed) (str_hash){ murmur3_32(_key, _len, _seed) }
+#define hash_string_(_string, _seed) hash_string__((_string).data, (_string).len, _seed)
+#define hash_string(_string, ...) hash_string_((_string), (0, ##__VA_ARGS__))
+uint32_t murmur3_32(void *keyv, uint32_t len, uint32_t seed);
+
+
 #endif

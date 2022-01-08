@@ -30,8 +30,8 @@ is_ident(uint32_t symb) {
 }
 
 string 
-string_(char *data, uint32_t len STR_CREATED_AT_PARAM) {
-    return (string) { data, len STR_CREATED_AT_PASS };    
+string_(char *data, uint32_t len) {
+    return (string) { data, len };    
 }
 
 bool 
@@ -50,13 +50,13 @@ string_endswith(string a, string b) {
 }
 
 string 
-string_substr_(string a, uint32_t start, uint32_t end STR_CREATED_AT_PARAM) {
+string_substr_(string a, uint32_t start, uint32_t end) {
     assert(a.len >= end && a.len >= start && end >= start);
-    return string_(a.data + start, end - start STR_CREATED_AT_PASS);
+    return string_(a.data + start, end - start );
 }
 
 string 
-string_lstrip_(string a, string symbs STR_CREATED_AT_PARAM) {
+string_lstrip_(string a, string symbs) {
     for (;;) {
         if (!a.len) {
             break;
@@ -71,7 +71,7 @@ string_lstrip_(string a, string symbs STR_CREATED_AT_PARAM) {
         }
         
         if (is_found) {
-            a = string_substr_(a, 1, a.len STR_CREATED_AT_PASS);
+            a = string_substr_(a, 1, a.len );
         } else {
             break;
         }
@@ -80,7 +80,7 @@ string_lstrip_(string a, string symbs STR_CREATED_AT_PARAM) {
 }
 
 string 
-string_rstrip_(string a, string symbs STR_CREATED_AT_PARAM) {
+string_rstrip_(string a, string symbs) {
     for (;;) {
         if (!a.len) {
             break;
@@ -95,7 +95,7 @@ string_rstrip_(string a, string symbs STR_CREATED_AT_PARAM) {
         }
         
         if (is_found) {
-            a = string_substr_(a, 0, a.len - 1 STR_CREATED_AT_PASS);
+            a = string_substr_(a, 0, a.len - 1 );
         } else {
             break;
         }
@@ -104,6 +104,17 @@ string_rstrip_(string a, string symbs STR_CREATED_AT_PARAM) {
 }
 
 string 
-string_strip_(string str, string symbs STR_CREATED_AT_PARAM) {
-    return string_lstrip_(string_rstrip_(str, symbs STR_CREATED_AT_PASS), symbs STR_CREATED_AT_PASS);   
+string_strip_(string str, string symbs) {
+    return string_lstrip_(string_rstrip_(str, symbs ), symbs);   
+}
+
+string_find_result
+string_find(string str, char symb) {
+    string_find_result result = {0};
+    char *memchr_ptr = memchr(str.data, symb, str.len);
+    if (memchr_ptr) {
+        result.idx = memchr_ptr - str.data;
+        result.is_found = true;
+    }
+    return result;
 }

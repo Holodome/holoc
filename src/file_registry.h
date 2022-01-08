@@ -9,6 +9,14 @@ Version: 0
 
 #include "types.h"
 
+struct bump_allocator;
+
+// Lists all encoding aviable to file registry
+typedef enum {
+    FR_ENCODING_ASCII = 0x0,
+    FR_ENCODING_UTF8  = 0x1,
+} file_registry_encoding;
+
 // Information about single file in file regsitry
 typedef struct file_registry_entry {
     // Hash value, specifically this is hash of the 'path' 
@@ -18,7 +26,8 @@ typedef struct file_registry_entry {
     // Path supplied during creation
     string path_init;
     // Data, it is read during initialization 
-    void      *data;
+    // Data is correctly encoded utf8 sequency of bytes
+    void     *data;
     uintptr_t data_size;
     // Linked list pointer
     struct file_registry_entry *next;
@@ -26,6 +35,8 @@ typedef struct file_registry_entry {
 
 // Encapsulates all data and behavoiur related to accessing files in compiler via #include statements
 typedef struct {
+    struct bump_allocator *allocator;
+
     uint32_t include_paths_count;
     string  *include_paths;
     
@@ -34,12 +45,8 @@ typedef struct {
 } file_registry;
 
 // Initializes file registry. 
-file_registry *init_file_registry(uint32_t include_paths_count, string *include_paths,
-                                  uint32_t file_hash_size);
-                                
-// Frees the file registry
-void destroy_file_registry(file_registry *fr);
-
+file_registry *file_registry_init(uint32_t include_paths_count, string *include_paths,
+                                  uint32_t file_hash_size, struct bump_allocator *allocator);
 // Registers file in file registry, as specified in #include call
 // C language has special rules of include search order. First, if file is searched in same folder
 // as current file, from which it is being included - this is specified using current_id.

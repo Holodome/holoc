@@ -11,23 +11,11 @@ Version: 0
 
 #define STRING_STORAGE_BUFFER_SIZE (1llu << 14)
 
-/**
- * @brief Tags used in the string_storage_string
- * 
- */
-typedef enum {
-    STRING_STORAGE_IDENTIFIER = 0x1,
-    STRING_STORAGE_STRING     = 0x2,
-    STRING_STORAGE_TAG_MAX
-} string_storage_tag;
-
-
+struct bump_allocator;
 // Structure describing how strings are stored in the string storage
 typedef struct {
     // Length of the string not including zero-terminator
     uint32_t size;
-    // User-defined tag
-    uint8_t  tag;
     // String storage
     char     data[];
 } string_storage_string;
@@ -36,7 +24,7 @@ typedef struct {
 // Uses constant size storage, which is being populated until it is filled up,
 // then new buffer is used;
 typedef struct string_storage_buffer {
-    uint8_t  storage[STRING_STORAGE_BUFFER_SIZE];
+    uint8_t  data[STRING_STORAGE_BUFFER_SIZE];
     uint32_t used;
     // Linked list pointer
     struct string_storage_buffer *next;
@@ -62,8 +50,8 @@ typedef struct string_storage {
     string_storage_buffer *first_buffer;
     // Size of hash table
     uint32_t hash_size;
-    // Hash table
-    string_storage_hash_entry *hash;
+
+    struct bump_allocator *allocator;
 #if INTERNAL_BUILD
     // Total number of bytes used
     uint64_t total_strings_size;
@@ -72,10 +60,9 @@ typedef struct string_storage {
 #endif
 } string_storage;
 
-string_storage *init_string_storage(uint32_t hash_size);
-void destroy_string_storage(string_storage *ss);
+string_storage *string_storage_init(struct bump_allocator *allocator);
 
-string string_storage_add(string_storage *ss, char *str, uint32_t length, uint8_t tag);
-string string_storage_add_str(string_storage *ss, string str, uint8_t tag);
+string string_storage_add(string_storage *ss, char *str, uint32_t length);
+#define string_storage_add_str(_ss, _str) string_storage_add(_ss, (_str).data, (_str).len)
 
 #endif 

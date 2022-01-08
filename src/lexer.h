@@ -11,6 +11,8 @@ Version: 0
 #include "c_types.h"
 
 struct file_registry;
+struct bump_allocator;
+struct string_storage;
 
 typedef struct {
     uint32_t value;
@@ -227,10 +229,10 @@ void c_pp_undef(c_preprocessor *pp, string name);
 c_pp_macro *c_pp_get(c_preprocessor *pp, string name);
 
 enum {
-    c_lexbuf_FILE      = 0x1,  
-    c_lexbuf_MACRO     = 0x2,  
-    c_lexbuf_MACRO_ARG = 0x3,  
-    c_lexbuf_CONCAT    = 0x4
+    C_LEXBUF_FILE      = 0x1,  
+    C_LEXBUF_MACRO     = 0x2,  
+    C_LEXBUF_MACRO_ARG = 0x3,  
+    C_LEXBUF_CONCAT    = 0x4
 };
 
 // Structure describing tree of parsing c files
@@ -282,7 +284,7 @@ bool c_lexbuf_parse(c_lexbuf *buffer, string lit);
 
 typedef struct lexer_buffer_info {
     c_lexbuf_id id;
-    lexer_buffer_info *next;
+    struct lexer_buffer_info *next;
 } lexer_buffer_info;
 
 // Wrapper for functionality and data connected with buffers
@@ -297,11 +299,19 @@ typedef struct {
     c_lexbuf *buffer_freelist;
 } c_lexbuf_storage;
 
+// Initializes [[c_lexbuf_storage]]
 void init_c_lexbuf_storage(c_lexbuf_storage *bs);
+// Returns new c_lexbuf and pushes it in stack
+c_lexbuf *c_lexbuf_storage_add(c_lexbuf_storage *bs);
+// Removes top of the stack buffer
+void c_lexbuf_storage_remove(c_lexbuf_storage *bs);
 
 #define C_LEXER_MAX_TOKEN_PEEK_DEPTH 16
  
 typedef struct c_lexer {
+    struct bump_allocator *allocator;
+    struct string_storage *ss;
+
     c_preprocessor pp;
     c_lexbuf_storage buffers;
     
@@ -311,7 +321,7 @@ typedef struct c_lexer {
     struct file_registry *fr;
 } c_lexer;
 
-c_lexer *init_c_lexer(struct file_registry *fr, string filename);
+c_lexer *c_lexer_init(struct file_registry *fr, struct string_storage *ss, string filename);
 
 c_token *c_lexer_peek_forward(c_lexer *lex, uint32_t forward);
 c_token *c_lexer_peek(c_lexer *lex);
