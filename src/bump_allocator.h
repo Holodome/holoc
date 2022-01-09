@@ -9,7 +9,9 @@ Version: 0
 
 #include "types.h"
 
-#define BUMP_DEFAULT_MINIMAL_BLOCK_SIZE (1 << 12 - sizeof(bump_allocator_block))
+struct allocator;
+
+#define BUMP_DEFAULT_MINIMAL_BLOCK_SIZE ((1 << 12) - sizeof(bump_allocator_block))
 #define BUMP_DEFAULT_ALIGN 16
 // Structure holding data about single memory block
 typedef struct bump_allocator_block {
@@ -50,12 +52,6 @@ typedef struct {
 // Initializes bump allocator with given settings
 // NOTE: This function may be omitted, then default settings are used
 void bump_init(bump_allocator *allocator, uint64_t align, uint64_t minimal_block_size);
-// Hacky macro to make allocating structures and storing the allocator inside the structure easier
-// _field must be bump_allocator * (pointer made to make passing it around easier)
-// Resuling structure will have the allocator which the structure itself is allocated onto
-#define bump_bootstrap_(_offset, _size) bump_bootstrap__(_offset, _size)
-#define bump_bootstrap(_struct, _field) bump_bootstrap_(offsetof(_struct, _field), sizeof(_struct))
-void *bump_bootstrap__(uintptr_t offset, uint64_t size);
 // Allocate size bytes on allocator
 void *bump_alloc(bump_allocator *allocator, uint64_t size);
 // Clears the allocator - frees all memory
@@ -64,5 +60,7 @@ void bump_clear(bump_allocator *allocator);
 temp_memory bump_temp(bump_allocator *allocator);
 // End temporary memory
 void bump_temp_end(temp_memory temp);
+// Returns allocator object suitable for allocating using given allocator
+struct allocator *bump_get_allocator(bump_allocator *a);
 
 #endif 

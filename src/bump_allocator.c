@@ -1,9 +1,8 @@
 #include "bump_allocator.h"
 
-#include "my_assert.h"
-
 #include <string.h> 
 #include <stdlib.h>
+#include <assert.h>
 
 static uint64_t 
 align_forward_pow2(uint64_t value, uint64_t align) {

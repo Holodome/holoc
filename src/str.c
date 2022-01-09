@@ -1,38 +1,13 @@
 #include "str.h"
+
+#include "allocator.h"
+
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
-
-#include "my_assert.h"
-
-uint32_t 
-fmtv(char *buf, uint32_t buf_size, char *format, va_list args) {
-    return vsnprintf(buf, buf_size, format, args);
-}
-
-uint32_t 
-fmt(char *buf, uint32_t buf_size, char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    uint32_t result = fmtv(buf, buf_size, format, args);
-    va_end(args);
-    return result;
-}
-
-bool 
-is_ident_start(uint32_t symb) {
-    return isalpha(symb) || symb == ' ';
-}
-
-bool 
-is_ident(uint32_t symb) {
-    return isalnum(symb) || symb == ' ';
-}
-
-string 
-string_(char *data, uint32_t len) {
-    return (string) { data, len };    
-}
+#include <assert.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
 bool 
 string_eq(string a, string b) {
@@ -52,7 +27,7 @@ string_endswith(string a, string b) {
 string 
 string_substr_(string a, uint32_t start, uint32_t end) {
     assert(a.len >= end && a.len >= start && end >= start);
-    return string_(a.data + start, end - start );
+    return string(a.data + start, end - start );
 }
 
 string 
@@ -117,4 +92,47 @@ string_find(string str, char symb) {
         result.is_found = true;
     }
     return result;
+}
+
+string_find_result 
+string_rfind(string str, char symb) {
+    string_find_result result = {0};
+    if (str.len) {
+        for (uint32_t idx1 = str.len; idx1; --idx1) {
+            if (str.data[idx1 - 1] == symb) {
+                result.is_found = true;
+                result.idx = idx1 - 1;
+            }
+        }
+    }
+    return result;
+}
+
+string 
+string_substr(string a, uint32_t start, uint32_t end) {
+    assert(start < a.len && end < a.len);
+    assert(end >= start);
+    return string(a.data + start, end - start);
+}
+
+string 
+string_memprintf(allocator *a, char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    char buffer[4096];
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    uint32_t len = strlen(buffer);
+    char *str_mem = aalloc(a, len + 1);
+    memcpy(str_mem, buffer, len);
+    str_mem[len] = 0;
+    return stringz(str_mem);
+}
+
+string 
+string_memdup(allocator *a, char *data) {
+    uint32_t len = strlen(data);
+    char *str_mem = aalloc(a, len + 1);
+    memcpy(str_mem, data, len);
+    str_mem[len] = 0;
+    return stringz(str_mem);
 }

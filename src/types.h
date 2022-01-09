@@ -16,14 +16,4 @@ typedef struct string {
     uint32_t len;
 } string;
 
-// Structure used for type-safe storing of hashes
-typedef struct {
-    uint32_t value;
-} str_hash;
-
-// Id of file in file registry.
-typedef struct {
-    uint32_t value;
-} file_id;
-
 #endif 

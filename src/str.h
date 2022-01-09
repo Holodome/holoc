@@ -9,14 +9,15 @@ Version: 0
 
 #include "types.h"
 
+struct allocator;
+
 typedef struct {
     bool is_found;
     uint32_t idx;
 } string_find_result;
 
 // Wrapper for string creation call
-#define string(_data, _len) string_(_data, _len)
-string string_(char *_data, uint32_t len);
+#define string(_data, _len) ((string) { .data = _data, .len = _len })
 // Construct string from string literal
 #define WRAP_Z(_z)       string(_z, sizeof(_z) - 1)
 // Construct string from null-terminated string
@@ -41,7 +42,7 @@ string string_rstrip(string str, string symbs);
 // python-like strip for string
 string string_strip(string str, string symbs);
 
-bool is_ident_start(uint32_t symb);
-bool is_ident(uint32_t symb);
+string string_memprintf(struct allocator *a, char *format, ...);
+string string_memdup(struct allocator *a, char *data);
 
 #endif

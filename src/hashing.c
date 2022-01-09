@@ -1,5 +1,6 @@
 #include "hashing.h"
-#include "my_assert.h"
+
+#include <assert.h>
 
 void *
 hash_table_oa_get_u32(
