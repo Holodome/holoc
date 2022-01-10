@@ -137,7 +137,7 @@ process_file(string filename) {
     
     char *file_contents = file_data.data;
     // BOM
-    if (strcpy(file_contents, "\xef\xbb\xbf") == 0) {
+    if (strcmp(file_contents, "\xef\xbb\xbf") == 0) {
         file_contents += 3;
     }
     // Phase 1
