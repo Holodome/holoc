@@ -90,3 +90,15 @@ utf8_encode(void *dst, uint32_t codepoint) {
     return (void *)d;
 }
 
+void *
+utf16_encode(void *dst, uint32_t codepoint) {
+    uint16_t *d = (uint16_t *)dst;
+    if (codepoint < 0x10000) {
+        *d++ = (uint16_t)codepoint;
+    } else {
+        codepoint -= 0x10000;
+        *d++ = 0xD800 + ((codepoint >> 10) & 0x3FF);
+        *d++ = 0xDC00 + (codepoint & 0x3FF);
+    }
+    return d;
+}

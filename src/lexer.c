@@ -65,6 +65,27 @@ from_hex(char cp) {
     return result;
 }
 
+static bool
+read_unicode_value(pp_lexer *lexer, uint32_t len, uint32_t *valuep) {
+    bool result = true;
+    char *test_cursor = lexer->cursor;
+    uint32_t value = 0;
+    for (uint32_t idx = 0; 
+         idx < len;
+         ++idx) {
+        if (!isxdigit(*test_cursor)) {
+            result = false;
+            break;
+        }
+        value = (value << 4) | from_hex(*test_cursor++);
+    }
+
+    if (result) {
+        *valuep = value;
+    }
+    return result;
+}
+
 static uint32_t
 read_escaped_char(pp_lexer *lexer) {
     uint32_t result = 0;
@@ -90,7 +111,63 @@ read_escaped_char(pp_lexer *lexer) {
         }
         result = hex_value;
     } else if (*lexer->cursor == 'u') {
-        
+        ++lexer->cursor;
+        uint32_t unicode_value;
+        if (read_unicode_value(lexer, 4, &unicode_value)) {
+            result = unicode_value;
+        } else {
+            --lexer->cursor;
+            result = '\\';
+        }
+    } else if (*lexer->cursor == 'U') {
+        ++lexer->cursor;
+        uint32_t unicode_value;
+        if (read_unicode_value(lexer, 4, &unicode_value)) {
+            result = unicode_value;
+        } else {
+            --lexer->cursor;
+            result = '\\';
+        }
+    } else {
+        uint32_t cp = *lexer->cursor++;
+        switch (cp) {
+        default: 
+            result = cp;
+            break;
+        case '\'':
+            result = '\'';
+            break;
+        case '\"':
+            result = '\"';
+            break;
+        case '?':
+            result = '?';
+            break;
+        case '\\':
+            result = '\\';
+            break;
+        case 'a':
+            result = '\a';
+            break;
+        case 'b':
+            result = '\b';
+            break;
+        case 'f':
+            result = '\f';
+            break;
+        case 'n':
+            result = '\n';
+            break;
+        case 'r':
+            result = '\r';
+            break;
+        case 't':
+            result = '\t';
+            break;
+        case 'v':
+            result = '\v';
+            break;
+        }
     }
 
     return result;
@@ -114,22 +191,56 @@ read_utf8_string_literal(pp_lexer *lexer, char terminator) {
 
         write_cursor = utf8_encode(write_cursor, cp);
     }
+    *write_cursor = 0;
 }
 
 static void 
 read_utf16_string_literal(pp_lexer *lexer, char terminator) { 
+    uint16_t *write_cursor = (uint16_t *)lexer->tok_buf;
+    for (;;) {
+        uint32_t cp = *lexer->cursor++;
+        if (cp == '\n') {
+            printf("Unterminated string constant\n");
+            break;
+        } else if (cp == (uint32_t)terminator) {
+            break;
+        }
+
+        if (cp == '\\') {
+            cp = read_escaped_char(lexer);
+        } 
+
+        write_cursor = utf16_encode(write_cursor, cp);
+    } 
+    *write_cursor = 0;
 }
 
 static void 
-read_utf32_string_literal(pp_lexer *lexer, char terminator) {
+read_utf32_string_literal(pp_lexer *lexer, char terminator) { 
+    uint32_t *write_cursor = (uint32_t *)lexer->tok_buf;
+    for (;;) {
+        uint32_t cp = *lexer->cursor++;
+        if (cp == '\n') {
+            printf("Unterminated string constant\n");
+            break;
+        } else if (cp == (uint32_t)terminator) {
+            break;
+        }
 
+        if (cp == '\\') {
+            cp = read_escaped_char(lexer);
+        } 
+
+        *write_cursor++ = cp;
+    } 
+    *write_cursor = 0;
 }
 
 static bool
 parse_string_literal(pp_lexer *lexer) {
     bool result = false;
     char *test_cursor = lexer->cursor;
-    preprocessor_string_kind str_kind = 0;
+    preprocessor_string_kind str_kind = PP_TOK_STR_SCHAR;
 
     if (*test_cursor == 'u' && test_cursor[1] == '8') {
         test_cursor += 2;
@@ -146,10 +257,6 @@ parse_string_literal(pp_lexer *lexer) {
     }
 
     if (*test_cursor == '\'' || *test_cursor == '\"') {
-        if (!str_kind) {
-            str_kind = PP_TOK_STR_SCHAR;
-        }
-        
         char terminator = *test_cursor++;
         lexer->cursor = test_cursor;
         result = true;
