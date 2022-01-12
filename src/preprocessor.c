@@ -10,6 +10,8 @@
 #include <stddef.h>
 #include <string.h>
 
+// FIXME: All copies from lexer->string_buf act as if it always was an 1-byte aligned array, which in reality it may be not
+
 static preprocessor_macro **
 get_macro(preprocessor *pp, uint32_t hash) {
     preprocessor_macro **macrop = hash_table_sc_get_u32(
@@ -60,7 +62,7 @@ get_new_token(preprocessor *pp) {
 }
 
 static void 
-read_macro_definition(preprocessor *pp) {
+define_macro(preprocessor *pp) {
     pp_lexer *lexer = pp->lexer;
     if (lexer->tok_kind != PP_TOK_ID) {
         // TODO: Diagnostic
@@ -82,8 +84,8 @@ read_macro_definition(preprocessor *pp) {
         memset(*macrop, 0, sizeof(**macrop));
         (*macrop)->next = next;
     } else {
-        allocator *a = bump_get_allocator(pp->a);
-        ident_name = string_dup(a, ident_name);
+        allocator a = bump_get_allocator(pp->a);
+        ident_name = string_dup(&a, ident_name);
 
         preprocessor_macro *new_macro = get_new_macro(pp);
         new_macro->next = *macrop;
@@ -120,8 +122,8 @@ read_macro_definition(preprocessor *pp) {
                     break;
                 }
             } else if (lexer->tok_kind == PP_TOK_ID) {
-                allocator *a = bump_get_allocator(pp->a);
-                string arg_name = string_memdup(a, lexer->tok_buf);
+                allocator a = bump_get_allocator(pp->a);
+                string arg_name = string_memdup(&a, lexer->tok_buf);
                 preprocessor_macro_arg *arg = get_new_macro_arg(pp);
                 arg->name = arg_name;
                 arg->next = args;
@@ -155,11 +157,34 @@ read_macro_definition(preprocessor *pp) {
         tok->str_kind = lexer->tok_str_kind;
         tok->punct_kind = lexer->tok_punct_kind;
         string data = string(lexer->tok_buf, lexer->tok_buf_len);
-        allocator *a = bump_get_allocator(pp->a);
-        tok->str = string_dup(a, data);
+        allocator a = bump_get_allocator(pp->a);
+        tok->str = string_dup(&a, data);
         
         tok->next = macro->definition;
         macro->definition = tok;
+    }
+}
+
+static void 
+undef_macro(preprocessor *pp) {
+    pp_lexer *lexer = pp->lexer;
+    if (lexer->tok_kind != PP_TOK_ID) {
+        // TODO: Diagnostic
+        assert(false);
+    }
+
+    string ident_name = string(lexer->tok_buf, lexer->tok_buf_len);
+    uint32_t hash = hash_string(ident_name);
+    preprocessor_macro **macrop = get_macro(pp, hash);
+    if (*macrop) {
+        preprocessor_macro *macro = *macrop;
+        free_macro_data(pp, macro);
+        *macrop = macro->next;
+        macro->next = pp->macro_freelist;
+        pp->macro_freelist = macro;
+    } else {
+        // TODO: Diagnostic
+        assert(false);
     }
 }
 
@@ -175,8 +200,10 @@ process_pp_directive(preprocessor *pp) {
     if (string_eq(directive, WRAP_Z("include"))) {
     } else if (string_eq(directive, WRAP_Z("define"))) {
         pp_lexer_parse(lexer);
-        read_macro_definition(pp);
+        define_macro(pp);
     } else if (string_eq(directive, WRAP_Z("undef"))) {
+        pp_lexer_parse(lexer);
+        undef_macro(pp);
     } else if (string_eq(directive, WRAP_Z("if"))) {
     } else if (string_eq(directive, WRAP_Z("elif"))) {
     } else if (string_eq(directive, WRAP_Z("else"))) {
