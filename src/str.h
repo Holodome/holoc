@@ -44,5 +44,6 @@ string string_strip(string str, string symbs);
 
 string string_memprintf(struct allocator *a, char *format, ...);
 string string_memdup(struct allocator *a, char *data);
+string string_dup(struct allocator *a, string str);
 
 #endif

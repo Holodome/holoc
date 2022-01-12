@@ -1,7 +1,7 @@
 #include "str.h"
 #include "darray.h"
 #include "allocator.h"
-#include "lexer.h"
+#include "pp_lexer.h"
 
 #include <stdbool.h>
 #include <stdio.h>
