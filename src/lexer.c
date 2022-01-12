@@ -368,6 +368,23 @@ parse_punctuator(pp_lexer *lexer) {
     return result;
 }
 
+static bool
+parse_ident(pp_lexer *lexer) {
+    bool result = false;
+    if (isalpha(*lexer->cursor) || *lexer->cursor == '_') {
+        char *write_cursor = lexer->tok_buf;
+        *write_cursor++ = *lexer->cursor++;
+        while (isalnum(*lexer->cursor) || *lexer->cursor == '_') {
+            *write_cursor++ = *lexer->cursor++;
+        }
+        *write_cursor = 0;
+        lexer->tok_buf_len = write_cursor - lexer->tok_buf;
+        lexer->tok_kind = PP_TOK_ID;
+        result = true;
+    }
+    return result;
+}
+
 bool 
 pp_lexer_parse(pp_lexer *lexer) {
     lexer->tok_at_line_start = false;
@@ -400,6 +417,10 @@ pp_lexer_parse(pp_lexer *lexer) {
         }
 
         if (parse_punctuator(lexer)) {
+            break;
+        }
+
+        if (parse_ident(lexer)) {
             break;
         }
 

@@ -1,6 +1,7 @@
 #include "str.h"
 #include "darray.h"
 #include "allocator.h"
+#include "lexer.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -146,7 +147,16 @@ process_file(string filename) {
     // Phase 2
     remove_backslash_newline(file_contents);
     // Now we are ready for phase 3
-    printf("%s", file_contents);
+    /* printf("%s", file_contents); */
+    pp_lexer lexer = {0};
+    lexer.data = file_contents;
+    lexer.eof = file_contents + strlen(file_contents);
+    lexer.cursor = lexer.data;
+
+    while (pp_lexer_parse(&lexer)) {
+        printf("%u\n", lexer.tok_kind);
+    }
+
 }
 
 int 
