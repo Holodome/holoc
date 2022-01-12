@@ -11,6 +11,9 @@ Defines functions used when working with unicode
 
 #include <stdint.h>
 
+// TODO: Current version of fast utf8 decoding does require 4 bytes to be read at all times
+// which we don't acciunt for in usage. Either switch to slow decoding or pad buffers with additional bytes
+
 // Decodes from utf8 unicode codepoint
 // Retuns pointer to byte past decoded codepoint
 void *utf8_decode(void *src, uint32_t *codepoint_p);

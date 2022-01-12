@@ -192,6 +192,7 @@ read_utf8_string_literal(pp_lexer *lexer, char terminator) {
         write_cursor = utf8_encode(write_cursor, cp);
     }
     *write_cursor = 0;
+    lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
 
 static void 
@@ -213,6 +214,7 @@ read_utf16_string_literal(pp_lexer *lexer, char terminator) {
         write_cursor = utf16_encode(write_cursor, cp);
     } 
     *write_cursor = 0;
+    lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
 
 static void 
@@ -234,6 +236,7 @@ read_utf32_string_literal(pp_lexer *lexer, char terminator) {
         *write_cursor++ = cp;
     } 
     *write_cursor = 0;
+    lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
 
 static bool
@@ -288,6 +291,23 @@ parse_string_literal(pp_lexer *lexer) {
 static bool
 parse_number(pp_lexer *lexer) {
     bool result = false;
+    char *write_cursor = lexer->tok_buf;
+    if (isdigit(*lexer->cursor) || (*lexer->cursor == '.' && isdigit(lexer->cursor[1]))) {
+        result = true;
+        *write_cursor++ = *lexer->cursor++;
+        for (;;) {
+            if (isalnum(*lexer->cursor) || *lexer->cursor == '_' || *lexer->cursor == '\'') {
+                *write_cursor++ = *lexer->cursor++;
+            } else if (*lexer->cursor && strchr("eEpP", *lexer->cursor) && strchr("+-", lexer->cursor[1])) {
+                *write_cursor++ = *lexer->cursor++;
+                *write_cursor++ = *lexer->cursor++;
+            } else {
+                break;
+            }
+        }
+        *write_cursor = 0;
+        lexer->tok_buf_len = write_cursor - lexer->tok_buf;
+    }
 
     return result;
 }
@@ -301,6 +321,8 @@ parse_punctuator(pp_lexer *lexer) {
 
 bool 
 pp_lexer_parse(pp_lexer *lexer) {
+    lexer->tok_at_line_start = false;
+
     for (;;) {
         {
             char cp = *lexer->cursor;

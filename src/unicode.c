@@ -58,47 +58,47 @@ __utf8_decode(void *buf, uint32_t *c, int *e)
     return next;
 }
 
-void *
-utf8_decode_verbose(void *src, uint32_t *codepoint_p, uint32_t *errors) {
-    return __utf8_decode(src, codepoint_p, (int *)errors);   
+static void *
+utf8_decode_verbose(void *src, uint32_t *cp_p, uint32_t *errors) {
+    return __utf8_decode(src, cp_p, (int *)errors);   
 }
 
 void *
-utf8_decode(void *src, uint32_t *codepoint_p) {
+utf8_decode(void *src, uint32_t *cp_p) {
     uint32_t error;
-    return utf8_decode_verbose(src, codepoint_p, &error);    
+    return utf8_decode_verbose(src, cp_p, &error);    
 }
 
 void *
-utf8_encode(void *dst, uint32_t codepoint) {
+utf8_encode(void *dst, uint32_t cp) {
     uint8_t *d = (uint8_t *)dst; 
-    if (codepoint <= 0x0000007F) {
-        *d++ = codepoint;   
-    } else if (codepoint <= 0x000007FF) {
-        *d++ = 0xC0 | (codepoint >> 6);
-        *d++ = 0x80 | (codepoint & 0x3F);
-    } else if (codepoint <= 0x0000FFFF) {
-        *d++ = 0xE0 | (codepoint >> 12);
-        *d++ = 0x80 | ((codepoint >> 6) & 0x3F);
-        *d++ = 0x80 | (codepoint & 0x3F);
-    } else if (codepoint <= 0x0010FFFF) {
-        *d++ = 0xF0 | (codepoint >> 18);
-        *d++ = 0x80 | ((codepoint >> 12) & 0x3F);
-        *d++ = 0x80 | ((codepoint >> 6) & 0x3F);
-        *d++ = 0x80 | (codepoint & 0x3F);
+    if (cp <= 0x0000007F) {
+        *d++ = cp;   
+    } else if (cp <= 0x000007FF) {
+        *d++ = 0xC0 | (cp >> 6);
+        *d++ = 0x80 | (cp & 0x3F);
+    } else if (cp <= 0x0000FFFF) {
+        *d++ = 0xE0 | (cp >> 12);
+        *d++ = 0x80 | ((cp >> 6) & 0x3F);
+        *d++ = 0x80 | (cp & 0x3F);
+    } else if (cp <= 0x0010FFFF) {
+        *d++ = 0xF0 | (cp >> 18);
+        *d++ = 0x80 | ((cp >> 12) & 0x3F);
+        *d++ = 0x80 | ((cp >> 6) & 0x3F);
+        *d++ = 0x80 | (cp & 0x3F);
     } 
     return (void *)d;
 }
 
 void *
-utf16_encode(void *dst, uint32_t codepoint) {
+utf16_encode(void *dst, uint32_t cp) {
     uint16_t *d = (uint16_t *)dst;
-    if (codepoint < 0x10000) {
-        *d++ = (uint16_t)codepoint;
+    if (cp < 0x10000) {
+        *d++ = (uint16_t)cp;
     } else {
-        codepoint -= 0x10000;
-        *d++ = 0xD800 + ((codepoint >> 10) & 0x3FF);
-        *d++ = 0xDC00 + (codepoint & 0x3FF);
+        cp -= 0x10000;
+        *d++ = 0xD800 + ((cp >> 10) & 0x3FF);
+        *d++ = 0xDC00 + (cp & 0x3FF);
     }
     return d;
 }
