@@ -7,6 +7,7 @@
 
 #if 0
 !@!#
+привет мир
 #endif 
 
 int main()

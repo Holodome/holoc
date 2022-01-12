@@ -36,6 +36,46 @@ static string PUNCT_STRS[] = {
     WRAP_Z("##"),
 };
 
+static string
+get_str_opener(preprocessor_string_kind kind) {
+    string result = {0};
+    switch (kind) {
+        default: break;
+        case PP_TOK_STR_SCHAR: 
+            result = WRAP_Z("\"");
+            break;
+        case PP_TOK_STR_SUTF8: 
+            result = WRAP_Z("u8\"");
+            break;
+        case PP_TOK_STR_SUTF16:
+            result = WRAP_Z("u\"");
+            break;
+        case PP_TOK_STR_SUTF32:
+            result = WRAP_Z("U\"");
+            break;
+        case PP_TOK_STR_SWIDE: 
+            result = WRAP_Z("L\"");
+            break;
+        case PP_TOK_STR_CCHAR: 
+            result = WRAP_Z("\'");
+            break;
+        case PP_TOK_STR_CUTF8: 
+            result = WRAP_Z("u8\'");
+            break;
+        case PP_TOK_STR_CUTF16:
+            result = WRAP_Z("u\'");
+            break;
+        case PP_TOK_STR_CUTF32:
+            result = WRAP_Z("U\'");
+            break;
+        case PP_TOK_STR_CWIDE:
+            result = WRAP_Z("L\'");
+            break;
+    }
+
+    return result;
+}
+
 static bool
 next_eq(pp_lexer *lexer, string lit) {
     return (lexer->cursor + lit.len < lexer->eof) &&
@@ -76,7 +116,7 @@ parse_whitespaces(pp_lexer *lexer) {
         }
     }
 
-    lexer->tok_has_whitespace = result;
+    lexer->tok_has_whitespace = lexer->tok_has_whitespace || result;
     return result;
 }
 
@@ -310,6 +350,8 @@ parse_string_literal(pp_lexer *lexer) {
         if (*test_cursor == '\'') {
             str_kind += PP_TOK_STR_ADVANCE;
         } 
+        lexer->tok_kind = PP_TOK_STR;
+        lexer->tok_str_kind = str_kind;
     }
 
     return result;
@@ -388,6 +430,7 @@ parse_ident(pp_lexer *lexer) {
 bool 
 pp_lexer_parse(pp_lexer *lexer) {
     lexer->tok_at_line_start = false;
+    lexer->tok_has_whitespace = false;
 
     for (;;) {
         {
@@ -396,6 +439,7 @@ pp_lexer_parse(pp_lexer *lexer) {
                 lexer->tok_kind = PP_TOK_EOF;
                 break;
             } else if (cp & 0x80) {
+                ++lexer->cursor;
                 lexer->tok_kind = PP_TOK_OTHER;
                 lexer->tok_buf[0] = cp;
                 lexer->tok_buf[1] = 0;
@@ -428,4 +472,69 @@ pp_lexer_parse(pp_lexer *lexer) {
     }
 
     return lexer->tok_kind != PP_TOK_EOF;
+}
+
+uint32_t 
+fmt_pp_tok(pp_lexer *lexer, char *buf, uint32_t buf_len) {
+    uint32_t result = 0;
+    switch (lexer->tok_kind) {
+        string str_opener; // string start in PP_TOK_STR
+        case PP_TOK_EOF:
+            break;
+        case PP_TOK_ID:
+            result = snprintf(buf, buf_len, "%s", lexer->tok_buf);
+            break;
+        case PP_TOK_NUM:
+            result = snprintf(buf, buf_len, "%s", lexer->tok_buf);
+            break;
+        case PP_TOK_STR:
+            str_opener = get_str_opener(lexer->tok_str_kind);
+            if (str_opener.data) {
+                char str_closer = str_opener.data[str_opener.len - 1];
+                result = snprintf(buf, buf_len, "%s%s%c", 
+                                  str_opener.data, lexer->tok_buf, str_closer);
+            }
+            break;
+        case PP_TOK_PUNCT:
+            if (lexer->tok_punct_kind < 0x100) {
+                result = snprintf(buf, buf_len, "%c", lexer->tok_punct_kind);
+            } else {
+                string punct = PUNCT_STRS[lexer->tok_punct_kind - PP_TOK_PUNCT_ADVANCE];
+                result = snprintf(buf, buf_len, "%s", punct.data);
+            }
+            break;
+        case PP_TOK_OTHER:
+            result = snprintf(buf, buf_len, "%s", lexer->tok_buf);
+            break;
+    }
+    return result;
+}
+
+uint32_t 
+fmt_pp_tok_verbose(pp_lexer *lexer, char *buf, uint32_t buf_len) {
+    uint32_t result = 0;
+    switch (lexer->tok_kind) {
+        case PP_TOK_EOF:
+            result = snprintf(buf, buf_len, "<EOF>");
+            break;
+        case PP_TOK_ID:
+            result = snprintf(buf, buf_len, "<ID>");
+            break;
+        case PP_TOK_NUM:
+            result = snprintf(buf, buf_len, "<Num>");
+            break;
+        case PP_TOK_STR:
+            result = snprintf(buf, buf_len, "<Str>");
+            break;
+        case PP_TOK_PUNCT:
+            result = snprintf(buf, buf_len, "<Punct>");
+            break;
+        case PP_TOK_OTHER:
+            result = snprintf(buf, buf_len, "<Other>");
+            break;
+    }
+    buf += result;
+    buf_len -= result;
+    result += fmt_pp_tok(lexer, buf, buf_len);
+    return result;
 }

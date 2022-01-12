@@ -9,6 +9,15 @@
 #include <string.h>
 #include <assert.h>
 
+typedef struct {
+    bool ptv;  // print preprocessing tokens verbose, its on its own line
+    bool ptvf; // print preprocessing tokens verbose, as if they were on logical source lines
+    bool ptf;  // print preprocessing tokens, as if they were on logical source lines
+    bool pt;   // print preprocessing tokens, each on its own line
+} program_settings;
+
+static program_settings settings;
+
 static void 
 erroutf(char *format, ...) {
     va_list args;
@@ -153,10 +162,47 @@ process_file(string filename) {
     lexer.eof = file_contents + strlen(file_contents);
     lexer.cursor = lexer.data;
 
-    while (pp_lexer_parse(&lexer)) {
-        printf("%u\n", lexer.tok_kind);
+    if (settings.ptv) {
+        while (pp_lexer_parse(&lexer)) {
+            char token_buf[4096];
+            fmt_pp_tok_verbose(&lexer, token_buf, sizeof(token_buf));
+            printf("%s\n", token_buf);
+        }
     }
 
+    if (settings.ptvf) {
+        while (pp_lexer_parse(&lexer)) {
+            char token_buf[4096];
+            fmt_pp_tok_verbose(&lexer, token_buf, sizeof(token_buf));
+            if (lexer.tok_at_line_start) {
+                printf("\n");
+            } else if (lexer.tok_has_whitespace) {
+                printf(" ");
+            }
+            printf("%s", token_buf);
+        }
+    }
+
+    if (settings.ptf) {
+        while (pp_lexer_parse(&lexer)) {
+            char token_buf[4096];
+            fmt_pp_tok(&lexer, token_buf, sizeof(token_buf));
+            if (lexer.tok_at_line_start) {
+                printf("\n");
+            } else if (lexer.tok_has_whitespace) {
+                printf(" ");
+            }
+            printf("%s", token_buf);
+        }
+    }
+
+    if (settings.pt) {
+        while (pp_lexer_parse(&lexer)) {
+            char token_buf[4096];
+            fmt_pp_tok(&lexer, token_buf, sizeof(token_buf));
+            printf("%s\n", token_buf);
+        }
+    }
 }
 
 int 
@@ -165,7 +211,17 @@ main(int argc, char **argv) {
 
     string *filenames = 0;
     for (int arg_idx = 1; arg_idx < argc; arg_idx++) {
-        da_push(filenames, WRAP_Z(argv[arg_idx]), a);
+        if (strcmp(argv[arg_idx], "--ptv") == 0) {
+            settings.ptv = true;
+        } else if (strcmp(argv[arg_idx], "--ptvf") == 0) {
+            settings.ptvf = true;
+        } else if (strcmp(argv[arg_idx], "--ptf") == 0) {
+            settings.ptf = true;
+        } else if (strcmp(argv[arg_idx], "--pt") == 0) {
+            settings.pt = true;
+        } else {
+            da_push(filenames, WRAP_Z(argv[arg_idx]), a);
+        }
     }
 
     da_push(filenames, WRAP_Z("examples/example.c"), a);

@@ -66,5 +66,7 @@ typedef struct pp_lexer {
 } pp_lexer;
 
 bool pp_lexer_parse(pp_lexer *lexer);
+uint32_t fmt_pp_tok(pp_lexer *lexer, char *buf, uint32_t buf_len);
+uint32_t fmt_pp_tok_verbose(pp_lexer *lexer, char *buf, uint32_t buf_len);
 
 #endif 
