@@ -1,5 +1,7 @@
 #include "bump_allocator.h"
 
+#include "allocator.h"
+
 #include <string.h> 
 #include <stdlib.h>
 #include <assert.h>
@@ -129,4 +131,18 @@ bump_temp_end(temp_memory temp) {
     }
 }
 
+static ALLOCATOR_REALLOC(bump_realloc) {
+    bump_allocator *a = internal;
 
+    void *new_ptr = 0;
+    if (new_size) {
+        new_ptr = bump_alloc(a, new_size);
+    }
+    return new_ptr;
+}
+
+struct allocator
+bump_get_allocator(bump_allocator *a) {
+    allocator allocator = { a, bump_realloc };
+    return allocator;
+}
