@@ -33,14 +33,14 @@ void *hash_table_oa_get_u32(
 // Entry count should be power of two
 #define hash_table_sc_get_u32(_entries, _entry_count, _struct, _chain_name, _hash_name, _hash) \
 (_struct **)hash_table_sc_get_u32_( \
-(void **)(_entries), _entry_count, STRUCT_OFFSET(_struct, _chain_name), \
-STRUCT_OFFSET(_struct, _hash_name), _hash)
+(void **)(_entries), _entry_count, offsetof(_struct, _chain_name), \
+offsetof(_struct, _hash_name), _hash)
          
 void **hash_table_sc_get_u32_(
     void **entries, uint32_t entry_count,
     uintptr_t chain_offset, uintptr_t hash_offset, uint32_t hash);
 
-#define hash_string__(_key, _len, _seed) (str_hash){ murmur3_32(_key, _len, _seed) }
+#define hash_string__(_key, _len, _seed) murmur3_32(_key, _len, _seed)
 #define hash_string_(_string, _seed) hash_string__((_string).data, (_string).len, _seed)
 #define hash_string(_string, ...) hash_string_((_string), (0, ##__VA_ARGS__))
 uint32_t murmur3_32(void *keyv, uint32_t len, uint32_t seed);
