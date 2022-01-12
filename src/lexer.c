@@ -8,6 +8,34 @@
 #include <ctype.h>
 #include <string.h>
 
+#define PP_TOK_STR_ADVANCE   0x10
+#define PP_TOK_PUNCT_ADVANCE 0x100
+
+static string PUNCT_STRS[] = {
+    WRAP_Z(">>="),
+    WRAP_Z("<<="), 
+    WRAP_Z("..."),
+    WRAP_Z("+="),
+    WRAP_Z("-="),
+    WRAP_Z("*="),
+    WRAP_Z("/="),
+    WRAP_Z("%="), 
+    WRAP_Z("&="),
+    WRAP_Z("|="),
+    WRAP_Z("^="),
+    WRAP_Z("++"),
+    WRAP_Z("--"),
+    WRAP_Z(">>"),
+    WRAP_Z("<<"),
+    WRAP_Z("&&"),
+    WRAP_Z("||"),
+    WRAP_Z("=="),
+    WRAP_Z("!="),
+    WRAP_Z("<="),
+    WRAP_Z(">="), 
+    WRAP_Z("##"),
+};
+
 static bool
 next_eq(pp_lexer *lexer, string lit) {
     return (lexer->cursor + lit.len < lexer->eof) &&
@@ -280,7 +308,7 @@ parse_string_literal(pp_lexer *lexer) {
         }
 
         if (*test_cursor == '\'') {
-            str_kind += 0x10;
+            str_kind += PP_TOK_STR_ADVANCE;
         } 
     }
 
@@ -307,6 +335,7 @@ parse_number(pp_lexer *lexer) {
         }
         *write_cursor = 0;
         lexer->tok_buf_len = write_cursor - lexer->tok_buf;
+        lexer->tok_kind = PP_TOK_NUM;
     }
 
     return result;
@@ -315,6 +344,26 @@ parse_number(pp_lexer *lexer) {
 static bool 
 parse_punctuator(pp_lexer *lexer) {
     bool result = false;
+    for (uint32_t idx = 0;
+         idx < sizeof(PUNCT_STRS) / sizeof(*PUNCT_STRS);
+         ++idx) {
+        string punct = PUNCT_STRS[idx];
+        if (next_eq(lexer, punct)) {
+            lexer->cursor += punct.len;
+            lexer->tok_kind = PP_TOK_PUNCT;
+            lexer->tok_punct_kind = PP_TOK_PUNCT_ADVANCE + idx;
+            result = true;
+            break;
+        }
+    }
+
+    if (!result) {
+        if (ispunct(*lexer->cursor)) {
+            lexer->tok_kind = PP_TOK_PUNCT;
+            lexer->tok_punct_kind = *lexer->cursor++;
+            result = true;
+        }
+    }
 
     return result;
 }
