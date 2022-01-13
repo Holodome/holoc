@@ -266,11 +266,29 @@ eval_if_expr(preprocessor *pp) {
     return result;
 }
 
+static void
+process_pragma(preprocessor *pp) {
+    pp_lexer *lexer = pp->lexer;
+    while (!lexer->tok_at_line_start) {
+        if (lexer->tok_kind == TOK_ID &&
+            strcmp(lexer->tok_buf, "once")) {
+            preprocessor_guarded_file *guarded = bump_alloc(pp->a, sizeof(preprocessor_guarded_file));
+            // TODO:
+            (void)guarded;
+        }
+    }
+}
+
 static void 
 process_pp_directive(preprocessor *pp) {
     pp_lexer *lexer = pp->lexer;
     // Looping is for conditional includes
     for (;;) {
+        // Null directive is a single hash symbol followed by line break
+        if (lexer->tok_at_line_start) {
+            break;
+        }
+
         if (lexer->tok_kind != PP_TOK_ID) {
             // TODO: Diagnostic
             assert(false);
@@ -365,6 +383,8 @@ process_pp_directive(preprocessor *pp) {
         } else if (string_eq(directive, WRAP_Z("line"))) {
             // Ignored
         } else if (string_eq(directive, WRAP_Z("pragma"))) {
+            pp_lexer_parse(lexer);
+            process_pragma(pp);
         } else if (string_eq(directive, WRAP_Z("error"))) {
         } else {
             // TODO: Diagnostic
@@ -372,16 +392,95 @@ process_pp_directive(preprocessor *pp) {
     }
 }
 
+static token
+convert_pp_token(preprocessor *pp, preprocessor_token *pp_tok) {
+    return (token) { 0 };
+}
+
+static void 
+push_token_to_stack(preprocessor *pp, token tok) {
+}
+
+static void 
+expand_macro_internal(preprocessor *pp, preprocessor_macro *macro) {
+    if (macro->is_function_like) {
+    } else {
+        for (preprocessor_token *tok = macro->definition;
+             tok;
+             tok = tok->next) {
+            if (tok->kind == PP_TOK_ID) {
+            } else {
+                push_token_to_stack(pp, convert_pp_token(pp, tok));
+            }
+        }
+    }
+}
+
+static bool 
+expand_macro(preprocessor *pp) {
+    bool result = false;
+
+    pp_lexer *lexer = pp->lexer;
+    if (lexer->tok_kind == PP_TOK_ID) {
+        string name = string(lexer->tok_buf, lexer->tok_buf_len);
+        uint32_t name_hash = hash_string(name);
+        preprocessor_macro **macrop = get_macro(pp, name_hash);
+        if (*macrop) {
+            result = true;
+            preprocessor_macro *macro = *macrop;
+            if (macro->is_function_like) {
+                pp_lexer_parse(lexer);
+                if (lexer->tok_kind == PP_TOK_PUNCT &&
+                    lexer->tok_punct_kind == '(' &&
+                    !lexer->tok_has_whitespace) {
+                    expand_macro_internal(pp, macro);
+                } else {
+                    push_token_to_stack(pp, (token) { 
+                        .kind = TOK_ID,
+                        .str = string_dup(pp->ea, name)
+                    });
+                }
+            } else {
+                expand_macro_internal(pp, macro);
+            }
+        }
+    }
+
+    return result;
+}
+
 token 
 preprocessor_get_token(preprocessor *pp) {
-   pp_lexer_parse(pp->lexer); 
-   for (;;) {
-       if (pp->lexer->tok_kind == PP_TOK_PUNCT && 
-           pp->lexer->tok_punct_kind == '#' &&
-           pp->lexer->tok_at_line_start) {
-           pp_lexer_parse(pp->lexer);
-           process_pp_directive(pp);
-           continue;
-       }
-   }
+    token tok = {0};
+    pp_lexer *lexer = pp->lexer;
+
+    for (;;) {
+        if (pp->token_list) {
+            // TODO:
+            /* token_list_entry *entry = pp->token_stack; */
+            /* pp->token_stack = entry->next; */
+            /* tok = entry->tok; */
+            /* entry->next = pp->token_stack_freelist; */
+            /* pp->token_stack_freelist = entry; */
+            break;
+        }
+
+        pp_lexer_parse(lexer); 
+        if (lexer->tok_kind == PP_TOK_PUNCT && 
+            lexer->tok_punct_kind == '#' &&
+            lexer->tok_at_line_start) {
+            pp_lexer_parse(lexer);
+            process_pp_directive(pp);
+            continue;
+        }
+
+        if (expand_macro(pp)) {
+            continue;
+        }
+
+        tok = convert_pp_token(pp);
+        break;
+    }
+
+    return tok;
 }

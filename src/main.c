@@ -2,6 +2,8 @@
 #include "darray.h"
 #include "allocator.h"
 #include "pp_lexer.h"
+#include "preprocessor.h"
+#include "bump_allocator.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -168,6 +170,7 @@ process_file(string filename) {
             fmt_pp_tok_verbose(&lexer, token_buf, sizeof(token_buf));
             printf("%s\n", token_buf);
         }
+        return;
     }
 
     if (settings.ptvf) {
@@ -181,6 +184,7 @@ process_file(string filename) {
             }
             printf("%s", token_buf);
         }
+        return;
     }
 
     if (settings.ptf) {
@@ -194,6 +198,7 @@ process_file(string filename) {
             }
             printf("%s", token_buf);
         }
+        return;
     }
 
     if (settings.pt) {
@@ -202,6 +207,19 @@ process_file(string filename) {
             fmt_pp_tok(&lexer, token_buf, sizeof(token_buf));
             printf("%s\n", token_buf);
         }
+        return;
+    }
+    
+    bump_allocator pp_bump = {0};
+    preprocessor pp = {0};
+    pp.lexer = &lexer;
+    pp.a = &pp_bump;
+    for (;;) {
+        token tok = preprocessor_get_token(&pp);
+        if (tok.kind == TOK_EOF) {
+            break;
+        }
+        printf("%u\n", tok.kind);
     }
 }
 

@@ -37,20 +37,6 @@ typedef struct preprocessor_conditional_include {
     struct preprocessor_conditional_include *next;
 } preprocessor_conditional_include;
 
-typedef struct preprocessor {
-    struct pp_lexer *lexer;
-    struct bump_allocator *a;
-    struct bump_allocator *extern_allocator;
-
-    preprocessor_conditional_include *cond_incl_stack;
-    preprocessor_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
-
-    preprocessor_macro *macro_freelist;
-    preprocessor_macro_arg *macro_arg_freelist;
-    preprocessor_token *tok_freelist;
-    preprocessor_conditional_include *incl_freelist;
-} preprocessor;
-
 typedef enum token_kind {
     TOK_EOF = 0x0,
     TOK_ID  = 0x1,
@@ -64,6 +50,39 @@ typedef struct token {
     string str;
 } token;
 
+typedef struct token_list_entry {
+    token tok;
+    struct token_list_entry *next;
+    struct token_list_entry *prev;
+} token_list_entry;
+
+// #pragma once files
+// @NOTE: Number of files is generally small, so we are okay with having linked list 
+// instead of hash map
+typedef struct preprocessor_guarded_file {
+    string name;
+    struct preprocessor_guarded_file *next;
+} preprocessor_guarded_file;
+
+typedef struct preprocessor {
+    struct pp_lexer *lexer;
+    struct bump_allocator *a;
+    struct allocator *ea;
+
+    token_list_entry *token_list;
+
+    // Value for __COUNTER__
+    uint32_t counter_value; 
+    preprocessor_conditional_include *cond_incl_stack;
+    preprocessor_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
+    preprocessor_guarded_file *included_files;
+
+    preprocessor_macro *macro_freelist;
+    preprocessor_macro_arg *macro_arg_freelist;
+    preprocessor_token *tok_freelist;
+    preprocessor_conditional_include *incl_freelist;
+    token_list_entry *token_stack_freelist;
+} preprocessor;
 token preprocessor_get_token(preprocessor *pp);
 
 #endif 
