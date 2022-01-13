@@ -86,6 +86,18 @@ get_new_cond_incl(preprocessor *pp) {
     return incl;
 }
 
+static preprocessor_macro_expansion_arg *
+get_new_expansion_arg(preprocessor *pp) {
+    preprocessor_macro_expansion_arg *arg = pp->macro_expansion_arg_freelist;
+    if (arg) {
+        pp->macro_expansion_arg_freelist = arg->next;
+        memset(arg, 0, sizeof(*arg));
+    } else {
+        arg = bump_alloc(pp->a, sizeof(*arg));
+    }
+    return arg;
+}
+
 static void
 init_pp_token_from_lexer(preprocessor *pp, preprocessor_token *tok) {
     tok->kind = pp->lexer->tok_kind;
@@ -405,76 +417,147 @@ push_token_to_stack(preprocessor *pp, token tok) {
 }
 
 static void 
-expand_macro_internal(preprocessor *pp, preprocessor_macro *macro,
-                      preprocessor_macro_arg *arg_values) {
-    if (macro->is_function_like) {
-    } else {
-        for (preprocessor_token *tok = macro->definition;
-             tok;
-             tok = tok->next) {
-            if (tok->kind == PP_TOK_ID) {
-                string name = tok->str;
-                uint32_t name_hash = hash_string(name);
-                preprocessor_macro **new_macrop = get_macro(pp, name_hash);
-                if (*new_macrop) {
-                    preprocessor_macro *new_macro = *new_macrop;
-                    if (new_macro->is_function_like &&
-                        tok->next &&
-                        tok->next->kind == TOK_PUNCT &&
-                        tok->next->punct_kind == '(' &&
-                        !tok->next->has_spaces) {
-                        preprocessor_macro_arg *new_args = 0;
-                        for (tok = tok->next;
-                             tok && (tok->kind != TOK_PUNCT || tok->punct_kind != ')');
-                             tok = tok->next) {
-                            if (tok->kind != PP_TOK_ID) {
-                                // TODO: Diagnostic
-                                break;
-                            }
-                            preprocessor_macro_arg *arg = get_new_macro_arg(pp);
-                            arg->name = tok->str;
-                            arg->next = new_args;
-                            new_args = arg;
-                            if (!tok->next) {
-                                // TODO: Diagnostic
-                                break;
-                            }
-
-                            if (tok->next->kind == PP_TOK_PUNCT && 
-                                tok->punct_kind == ',') {
-                                tok = tok->next->next;
-                                if (!tok) {
-                                    // TODO: Diagnostic
-                                    break;
-                                }
-                                continue;
-                            }
-
-                            if (tok->kind != PP_TOK_ID && 
-                                (tok->kind != PP_TOK_PUNCT ||
-                                 tok->punct_kind != ')')) {
-                                // TODO: Diagnostic
-                                break;
-                            }
-                        }
-
-                        expand_macro_internal(pp, new_macro, new_args);
-                        for (preprocessor_macro_arg *arg = new_args;
-                             arg;
-                             arg = arg->next) {
-                            if (!arg->next) {
-                                arg->next = pp->macro_arg_freelist;
-                                pp->macro_arg_freelist = new_args;
-                            }
-                        }
-                    } else if (!new_macro->is_function_like) {
-
-                    }
-                }
-            } else {
-                push_token_to_stack(pp, convert_pp_token(pp, tok));
+free_expansion_args(preprocessor *pp, preprocessor_macro_expansion_arg *args) {
+    for (preprocessor_macro_expansion_arg *arg = args;
+         arg;
+         arg = arg->next) {
+        for (preprocessor_token *token = arg->tokens;
+             token;
+             token = token->next) {
+            if (!token->next) {
+                token->next = pp->tok_freelist;
+                pp->tok_freelist = arg->tokens;
             }
         }
+
+        if (!arg->next) {
+            arg->next = pp->macro_expansion_arg_freelist;
+            pp->macro_expansion_arg_freelist = args;
+        }
+    }
+}
+
+static preprocessor_macro_expansion_arg *
+collect_macro_call_arguments(preprocessor *pp, preprocessor_token **tokp) {
+    preprocessor_macro_expansion_arg *new_args = 0;
+    preprocessor_token *tok = *tokp;
+
+    uint32_t parens_depth = 0;
+    preprocessor_macro_expansion_arg *current_arg = 0;
+    for (;;) {
+        if (tok->kind == PP_TOK_PUNCT &&
+            tok->punct_kind == ')' &&
+            parens_depth == 0) {
+            current_arg->next = new_args;
+            new_args = current_arg;
+            break;
+        }
+
+        if (!current_arg) {
+            current_arg = get_new_expansion_arg(pp);
+        }
+
+        if (tok->kind == PP_TOK_PUNCT &&
+            tok->punct_kind == ',') {
+            current_arg->next = new_args;
+            new_args = current_arg;
+            parens_depth = 0;
+            tok = tok->next;
+            continue;
+        }
+
+        if (tok->kind == PP_TOK_PUNCT) {
+            if (tok->punct_kind == '(') {
+                ++parens_depth;
+            } else if (tok->punct_kind == ')') {
+                if (parens_depth) {
+                    --parens_depth;
+                } else {
+                    // TODO: Diagnostic
+                }
+            }
+        }
+
+        preprocessor_token *token = get_new_token(pp);
+        init_pp_token_from_lexer(pp, token);
+        token->next = current_arg->tokens;
+        current_arg->tokens = token;
+
+        tok = tok->next;
+    }
+
+    *tokp = tok;
+    return new_args;
+}
+
+static void 
+expand_macro_internal(preprocessor *pp, preprocessor_macro *macro,
+                      preprocessor_macro_expansion_arg *arg_values) {
+    for (preprocessor_token *tok = macro->definition;
+         tok;
+         tok = tok->next) {
+        // If token is not potential macro, treat it as usual
+        if (tok->kind != PP_TOK_ID) {
+            push_token_to_stack(pp, convert_pp_token(pp, tok));
+        }
+        
+        string name = tok->str;
+        // First, check if identifier corresponds to some argument
+        bool is_arg = false;
+        uint32_t arg_idx = 0;
+        for (preprocessor_macro_arg *arg = macro->args;
+             arg;
+             arg = arg->next, ++arg_idx) {
+            if (string_eq(arg->name, name)) {
+                is_arg = true;
+                break;
+            }
+        }
+
+        if (is_arg) {
+            uint32_t idx = 0;
+            for (preprocessor_macro_expansion_arg *arg = arg_values;
+                 arg;
+                 arg = arg->next, ++idx) {
+               if (idx == arg_idx) {
+                   // Join the tokens expanded from argument into list of currently 
+                   // parsed tokens without modifying the initial token list
+                   for (preprocessor_token *token = arg->tokens;
+                        token;
+                        token = token->next) {
+                       if (!token->next) {
+                           token->next = tok;
+                           tok = token;
+                       }
+                   }
+               } 
+            }
+            continue;
+        }
+
+        uint32_t name_hash = hash_string(name);
+        preprocessor_macro **new_macrop = get_macro(pp, name_hash);
+        if (*new_macrop) {
+            preprocessor_macro *new_macro = *new_macrop;
+            if (new_macro->is_function_like &&
+                tok->next &&
+                tok->next->kind == TOK_PUNCT &&
+                tok->next->punct_kind == '(' &&
+                !tok->next->has_spaces) {
+
+                preprocessor_macro_expansion_arg *new_args = 
+                    collect_macro_call_arguments(pp, &tok);
+                expand_macro_internal(pp, new_macro, new_args);
+                free_expansion_args(pp, new_args);
+
+                continue;
+            } else if (!new_macro->is_function_like) {
+                expand_macro_internal(pp, new_macro, 0);
+                continue;
+            }
+        }
+
+        push_token_to_stack(pp, convert_pp_token(pp, tok));
     }
 }
 
@@ -488,14 +571,62 @@ expand_macro(preprocessor *pp) {
         uint32_t name_hash = hash_string(name);
         preprocessor_macro **macrop = get_macro(pp, name_hash);
         if (*macrop) {
-            result = true;
             preprocessor_macro *macro = *macrop;
             if (macro->is_function_like) {
                 pp_lexer_parse(lexer);
                 if (lexer->tok_kind == PP_TOK_PUNCT &&
                     lexer->tok_punct_kind == '(' &&
                     !lexer->tok_has_whitespace) {
-                    expand_macro_internal(pp, macro);
+                    pp_lexer_parse(lexer);
+                    preprocessor_macro_expansion_arg *args = 0;
+
+                    uint32_t parens_depth = 0;
+                    preprocessor_macro_expansion_arg *current_arg = 0;
+                    for (;;) {
+                        if (lexer->tok_kind == PP_TOK_PUNCT &&
+                            lexer->tok_punct_kind == ')' &&
+                            parens_depth == 0) {
+                            current_arg->next = args;
+                            args = current_arg;
+                            break;
+                        }
+
+                        if (!current_arg) {
+                            current_arg = get_new_expansion_arg(pp);
+                        }
+
+                        if (lexer->tok_kind == PP_TOK_PUNCT &&
+                            lexer->tok_punct_kind == ',') {
+                            current_arg->next = args;
+                            args = current_arg;
+                            pp_lexer_parse(lexer);
+                            parens_depth = 0;
+                            continue;
+                        }
+
+                        if (lexer->tok_kind == PP_TOK_PUNCT) {
+                            if (lexer->tok_punct_kind == '(') {
+                                ++parens_depth;
+                            } else if (lexer->tok_punct_kind == ')') {
+                                if (parens_depth) {
+                                    --parens_depth;
+                                } else {
+                                    // TODO: Diagnostic
+                                }
+                            }
+                        }
+
+                        preprocessor_token *token = get_new_token(pp);
+                        init_pp_token_from_lexer(pp, token);
+                        token->next = current_arg->tokens;
+                        current_arg->tokens = token;
+
+                        pp_lexer_parse(lexer);
+                    }
+
+                    expand_macro_internal(pp, macro, args);
+                    free_expansion_args(pp, args);
+                    result = true;
                 } else {
                     push_token_to_stack(pp, (token) { 
                         .kind = TOK_ID,
@@ -503,7 +634,8 @@ expand_macro(preprocessor *pp) {
                     });
                 }
             } else {
-                expand_macro_internal(pp, macro);
+                expand_macro_internal(pp, macro, 0);
+                result = true;
             }
         }
     }

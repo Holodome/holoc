@@ -22,7 +22,19 @@ typedef struct preprocessor_macro_arg {
     struct preprocessor_macro_arg *next;
 } preprocessor_macro_arg;
 
+typedef enum {
+    PP_MACRO_REG       = 0x0,
+    PP_MACRO_FILE      = 0x1, // __FILE__
+    PP_MACRO_LINE      = 0x2, // __LINE__
+    PP_MACRO_COUNTER   = 0x3, // __COUNTER__
+    PP_MACRO_TIMESTAMP = 0x4, // __TIMESTAMP__
+    PP_MACRO_BASE_FILE = 0x5, // __BASE_FILE__
+    PP_MACRO_DATE      = 0x6, // __DATE__
+    PP_MACRO_TIME      = 0x7, // __TIME__
+} preprocessor_macro_kind;
+
 typedef struct preprocessor_macro {
+    preprocessor_macro_kind kind;
     string name;
     uint32_t name_hash;
     bool is_function_like;
@@ -65,6 +77,11 @@ typedef struct preprocessor_guarded_file {
     struct preprocessor_guarded_file *next;
 } preprocessor_guarded_file;
 
+typedef struct preprocessor_macro_expansion_arg {
+    preprocessor_token *tokens;
+    struct preprocessor_macro_expansion_arg *next;
+} preprocessor_macro_expansion_arg;
+
 typedef struct preprocessor {
     struct pp_lexer *lexer;
     struct bump_allocator *a;
@@ -82,6 +99,7 @@ typedef struct preprocessor {
     preprocessor_macro_arg *macro_arg_freelist;
     preprocessor_token *tok_freelist;
     preprocessor_conditional_include *incl_freelist;
+    preprocessor_macro_expansion_arg *macro_expansion_arg_freelist;
     token_list_entry *token_stack_freelist;
 } preprocessor;
 token preprocessor_get_token(preprocessor *pp);
