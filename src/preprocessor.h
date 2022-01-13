@@ -13,6 +13,7 @@ typedef struct preprocessor_token {
     uint32_t str_kind;
     uint32_t punct_kind;
     string str;
+    bool has_spaces;
     struct preprocessor_token *next;
 } preprocessor_token;
 

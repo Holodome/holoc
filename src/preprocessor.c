@@ -86,6 +86,16 @@ get_new_cond_incl(preprocessor *pp) {
     return incl;
 }
 
+static void
+init_pp_token_from_lexer(preprocessor *pp, preprocessor_token *tok) {
+    tok->kind = pp->lexer->tok_kind;
+    tok->str_kind = pp->lexer->tok_str_kind;
+    tok->punct_kind = pp->lexer->tok_punct_kind;
+    string data = string(pp->lexer->tok_buf, pp->lexer->tok_buf_len);
+    allocator a = bump_get_allocator(pp->a);
+    tok->str = string_dup(&a, data);
+}
+
 static void 
 define_macro(preprocessor *pp) {
     pp_lexer *lexer = pp->lexer;
@@ -177,14 +187,7 @@ define_macro(preprocessor *pp) {
 
     while (!lexer->tok_at_line_start && lexer->tok_kind != PP_TOK_EOF) {
         preprocessor_token *tok = get_new_token(pp);
-
-        tok->kind = lexer->tok_kind;
-        tok->str_kind = lexer->tok_str_kind;
-        tok->punct_kind = lexer->tok_punct_kind;
-        string data = string(lexer->tok_buf, lexer->tok_buf_len);
-        allocator a = bump_get_allocator(pp->a);
-        tok->str = string_dup(&a, data);
-        
+        init_pp_token_from_lexer(pp, tok);
         tok->next = macro->definition;
         macro->definition = tok;
     }
@@ -402,13 +405,72 @@ push_token_to_stack(preprocessor *pp, token tok) {
 }
 
 static void 
-expand_macro_internal(preprocessor *pp, preprocessor_macro *macro) {
+expand_macro_internal(preprocessor *pp, preprocessor_macro *macro,
+                      preprocessor_macro_arg *arg_values) {
     if (macro->is_function_like) {
     } else {
         for (preprocessor_token *tok = macro->definition;
              tok;
              tok = tok->next) {
             if (tok->kind == PP_TOK_ID) {
+                string name = tok->str;
+                uint32_t name_hash = hash_string(name);
+                preprocessor_macro **new_macrop = get_macro(pp, name_hash);
+                if (*new_macrop) {
+                    preprocessor_macro *new_macro = *new_macrop;
+                    if (new_macro->is_function_like &&
+                        tok->next &&
+                        tok->next->kind == TOK_PUNCT &&
+                        tok->next->punct_kind == '(' &&
+                        !tok->next->has_spaces) {
+                        preprocessor_macro_arg *new_args = 0;
+                        for (tok = tok->next;
+                             tok && (tok->kind != TOK_PUNCT || tok->punct_kind != ')');
+                             tok = tok->next) {
+                            if (tok->kind != PP_TOK_ID) {
+                                // TODO: Diagnostic
+                                break;
+                            }
+                            preprocessor_macro_arg *arg = get_new_macro_arg(pp);
+                            arg->name = tok->str;
+                            arg->next = new_args;
+                            new_args = arg;
+                            if (!tok->next) {
+                                // TODO: Diagnostic
+                                break;
+                            }
+
+                            if (tok->next->kind == PP_TOK_PUNCT && 
+                                tok->punct_kind == ',') {
+                                tok = tok->next->next;
+                                if (!tok) {
+                                    // TODO: Diagnostic
+                                    break;
+                                }
+                                continue;
+                            }
+
+                            if (tok->kind != PP_TOK_ID && 
+                                (tok->kind != PP_TOK_PUNCT ||
+                                 tok->punct_kind != ')')) {
+                                // TODO: Diagnostic
+                                break;
+                            }
+                        }
+
+                        expand_macro_internal(pp, new_macro, new_args);
+                        for (preprocessor_macro_arg *arg = new_args;
+                             arg;
+                             arg = arg->next) {
+                            if (!arg->next) {
+                                arg->next = pp->macro_arg_freelist;
+                                pp->macro_arg_freelist = new_args;
+                            }
+                        }
+                    } else if (!new_macro->is_function_like) {
+
+                    }
+                }
             } else {
                 push_token_to_stack(pp, convert_pp_token(pp, tok));
             }
@@ -478,7 +540,6 @@ preprocessor_get_token(preprocessor *pp) {
             continue;
         }
 
-        tok = convert_pp_token(pp);
         break;
     }
 
