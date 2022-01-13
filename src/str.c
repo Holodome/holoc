@@ -136,3 +136,11 @@ string_memdup(allocator *a, char *data) {
     str_mem[len] = 0;
     return stringz(str_mem);
 }
+
+string 
+string_dup(struct allocator *a, string str) {
+    char *new_mem = aalloc(a, str.len + 1);
+    memcpy(new_mem, str.data, str.len);
+    new_mem[str.len] = 0;
+    return string(new_mem, str.len);
+}

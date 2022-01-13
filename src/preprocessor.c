@@ -35,6 +35,19 @@ get_new_macro(preprocessor *pp) {
 
 static void 
 free_macro_data(preprocessor *pp, preprocessor_macro *macro) {
+    while (macro->args) {
+        preprocessor_macro_arg *arg = macro->args;
+        macro->args = arg->next;
+        arg->next = pp->macro_arg_freelist;
+        pp->macro_arg_freelist = arg;
+    }
+
+    while (macro->definition) {
+        preprocessor_token *tok = macro->definition;
+        macro->definition = tok;
+        tok->next = pp->tok_freelist;
+        pp->tok_freelist = tok;
+    }
 }
 
 static preprocessor_macro_arg *
@@ -59,6 +72,18 @@ get_new_token(preprocessor *pp) {
         tok = bump_alloc(pp->a, sizeof(*tok));
     }
     return tok;
+}
+
+static preprocessor_conditional_include *
+get_new_cond_incl(preprocessor *pp) {
+    preprocessor_conditional_include *incl = pp->incl_freelist;
+    if (incl) {
+        pp->incl_freelist = incl->next;
+        memset(incl, 0, sizeof(*incl));
+    } else {
+        incl = bump_alloc(pp->a, sizeof(*incl));
+    }
+    return incl;
 }
 
 static void 
@@ -189,33 +214,161 @@ undef_macro(preprocessor *pp) {
 }
 
 static void 
-process_pp_directive(preprocessor *pp) {
+push_cond_incl(preprocessor *pp, bool is_included) {
+    preprocessor_conditional_include *incl = get_new_cond_incl(pp);
+    incl->is_included = is_included;
+
+    incl->next = pp->cond_incl_stack;
+    pp->cond_incl_stack = incl;
+}
+
+static void 
+skip_cond_incl(preprocessor *pp) {
+    uint32_t depth = 0;
     pp_lexer *lexer = pp->lexer;
-    if (lexer->tok_kind != PP_TOK_ID) {
-        // TODO: Diagnostic
-        assert(false);
+
+    while (lexer->tok_kind != PP_TOK_EOF) {
+        if (lexer->tok_kind == PP_TOK_PUNCT && 
+            lexer->tok_punct_kind == '#' &&
+            lexer->tok_at_line_start) {
+            pp_lexer_parse(lexer);
+            if (lexer->tok_kind == PP_TOK_ID) {
+                string directive = string(lexer->tok_buf, lexer->tok_buf_len);
+                if (string_eq(directive, WRAP_Z("if")) ||
+                    string_eq(directive, WRAP_Z("ifdef")) ||
+                    string_eq(directive, WRAP_Z("ifndef"))) {
+                    ++depth;
+                } else if (string_eq(directive, WRAP_Z("elif")) ||
+                           string_eq(directive, WRAP_Z("else")) ||
+                           string_eq(directive, WRAP_Z("endif"))) {
+                    if (!depth) {
+                        break;
+                    }
+                    if (string_eq(directive, WRAP_Z("endif"))) {
+                        --depth;
+                    }
+                }
+            }
+        } else {
+            pp_lexer_parse(lexer);
+        }
     }
 
-    string directive = string(lexer->tok_buf, lexer->tok_buf_len);
-    if (string_eq(directive, WRAP_Z("include"))) {
-    } else if (string_eq(directive, WRAP_Z("define"))) {
-        pp_lexer_parse(lexer);
-        define_macro(pp);
-    } else if (string_eq(directive, WRAP_Z("undef"))) {
-        pp_lexer_parse(lexer);
-        undef_macro(pp);
-    } else if (string_eq(directive, WRAP_Z("if"))) {
-    } else if (string_eq(directive, WRAP_Z("elif"))) {
-    } else if (string_eq(directive, WRAP_Z("else"))) {
-    } else if (string_eq(directive, WRAP_Z("endif"))) {
-    } else if (string_eq(directive, WRAP_Z("ifdef"))) {
-    } else if (string_eq(directive, WRAP_Z("ifndef"))) {
-    } else if (string_eq(directive, WRAP_Z("line"))) {
-        // Ignored
-    } else if (string_eq(directive, WRAP_Z("pragma"))) {
-    } else if (string_eq(directive, WRAP_Z("error"))) {
-    } else {
+    if (depth) {
         // TODO: Diagnostic
+    }
+}
+
+static int64_t
+eval_if_expr(preprocessor *pp) {
+    int64_t result = 0;
+
+    return result;
+}
+
+static void 
+process_pp_directive(preprocessor *pp) {
+    pp_lexer *lexer = pp->lexer;
+    // Looping is for conditional includes
+    for (;;) {
+        if (lexer->tok_kind != PP_TOK_ID) {
+            // TODO: Diagnostic
+            assert(false);
+        }
+
+        string directive = string(lexer->tok_buf, lexer->tok_buf_len);
+        if (string_eq(directive, WRAP_Z("include"))) {
+        } else if (string_eq(directive, WRAP_Z("define"))) {
+            pp_lexer_parse(lexer);
+            define_macro(pp);
+            break;
+        } else if (string_eq(directive, WRAP_Z("undef"))) {
+            pp_lexer_parse(lexer);
+            undef_macro(pp);
+            break;
+        } else if (string_eq(directive, WRAP_Z("if"))) {
+            pp_lexer_parse(lexer);
+            int64_t expr = eval_if_expr(pp);
+            push_cond_incl(pp, expr != 0);
+            if (expr) {
+                break;
+            } else {
+                skip_cond_incl(pp);
+            }
+        } else if (string_eq(directive, WRAP_Z("elif"))) {
+            pp_lexer_parse(lexer);
+            int64_t expr = eval_if_expr(pp);
+            preprocessor_conditional_include *incl = pp->cond_incl_stack;
+            if (!incl) {
+                // TODO: Diagnostic
+            } else {
+                if (!incl->is_included && expr) {
+                    incl->is_included = true;
+                } else {
+                    skip_cond_incl(pp);
+                }
+            }
+        } else if (string_eq(directive, WRAP_Z("else"))) {
+            preprocessor_conditional_include *incl = pp->cond_incl_stack;
+            if (!incl) {
+                // TODO: Diagnostic
+            } else {
+                if (incl->is_after_else) {
+                    // TODO: Diagnostic
+                }
+                incl->is_after_else = true;
+                if (incl->is_included) {
+                    skip_cond_incl(pp);
+                    continue;
+                } 
+                break;
+            }
+        } else if (string_eq(directive, WRAP_Z("endif"))) {
+            pp_lexer_parse(lexer);
+            preprocessor_conditional_include *incl = pp->cond_incl_stack;
+            if (!incl) {
+                // TODO: Diagnostic
+            } else {
+                pp->cond_incl_stack = incl->next;
+                incl->next = pp->incl_freelist;
+                pp->incl_freelist = incl;
+            }
+            break;
+        } else if (string_eq(directive, WRAP_Z("ifdef"))) {
+            pp_lexer_parse(lexer);
+            if (lexer->tok_kind != PP_TOK_ID) {
+                // TODO: Diagnostic
+                assert(false);
+            }
+            uint32_t macro_name_hash = hash_string(string(lexer->tok_buf,
+                                                          lexer->tok_buf_len));
+            bool is_defined = (*get_macro(pp, macro_name_hash) != 0);
+            push_cond_incl(pp, is_defined);
+            if (!is_defined) {
+                skip_cond_incl(pp);
+                continue;
+            }
+        } else if (string_eq(directive, WRAP_Z("ifndef"))) {
+            pp_lexer_parse(lexer);
+            if (lexer->tok_kind != PP_TOK_ID) {
+                // TODO: Diagnostic
+                assert(false);
+            }
+            uint32_t macro_name_hash = hash_string(string(lexer->tok_buf,
+                                                          lexer->tok_buf_len));
+            bool is_defined = (*get_macro(pp, macro_name_hash) != 0);
+            push_cond_incl(pp, !is_defined);
+            if (is_defined) {
+                skip_cond_incl(pp);
+                continue;
+            }
+        } else if (string_eq(directive, WRAP_Z("line"))) {
+            // Ignored
+        } else if (string_eq(directive, WRAP_Z("pragma"))) {
+        } else if (string_eq(directive, WRAP_Z("error"))) {
+        } else {
+            // TODO: Diagnostic
+        }
     }
 }
 
@@ -224,14 +377,11 @@ preprocessor_get_token(preprocessor *pp) {
    pp_lexer_parse(pp->lexer); 
    for (;;) {
        if (pp->lexer->tok_kind == PP_TOK_PUNCT && 
-           pp->lexer->tok_punct_kind == '#') {
-           if (pp->lexer->tok_at_line_start) {
-               pp_lexer_parse(pp->lexer);
-               process_pp_directive(pp);
-               continue;
-           } else {
-               assert(false); // TODO: Diagnostic
-           }
+           pp->lexer->tok_punct_kind == '#' &&
+           pp->lexer->tok_at_line_start) {
+           pp_lexer_parse(pp->lexer);
+           process_pp_directive(pp);
+           continue;
        }
    }
 }

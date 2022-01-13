@@ -31,16 +31,24 @@ typedef struct preprocessor_macro {
     struct preprocessor_macro *next;
 } preprocessor_macro;
 
+typedef struct preprocessor_conditional_include {
+    bool is_included;
+    bool is_after_else;
+    struct preprocessor_conditional_include *next;
+} preprocessor_conditional_include;
+
 typedef struct preprocessor {
     struct pp_lexer *lexer;
     struct bump_allocator *a;
-
     struct bump_allocator *extern_allocator;
 
+    preprocessor_conditional_include *cond_incl_stack;
     preprocessor_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
+
     preprocessor_macro *macro_freelist;
     preprocessor_macro_arg *macro_arg_freelist;
     preprocessor_token *tok_freelist;
+    preprocessor_conditional_include *incl_freelist;
 } preprocessor;
 
 typedef enum token_kind {
