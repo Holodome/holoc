@@ -3,18 +3,32 @@
 
 #include "types.h"
 
-#define ALLOCATOR_REALLOC(_name) void *_name(void *internal, void *ptr, uint64_t old_size, uint64_t new_size)
+// Signature of the realloc function used in allocator
+#define ALLOCATOR_REALLOC(_name) \
+    void *_name(void *internal, void *ptr, uint64_t old_size, uint64_t new_size)
 typedef ALLOCATOR_REALLOC(allocator_realloc);
 
+// Allocator is a structure that wraps functionality of allocating memory with different algorithms
+// This is useful in writing memory-allocating algorithms without specifying the memory allocating policy instead
+// allowing to write more generic code.
+// The way individual allocator allocates memory is completely up to implementation, but it 
+// must always return some memory on request with non-null new_size
 typedef struct allocator {
+    // Implementation-defined state data
     void *internal;
-    allocator_realloc *realloc; 
+    // Function used to allocate memory
+    allocator_realloc *realloc;
 } allocator;
 
+// malloc wrapper
 #define aalloc(_a, _size) (_a)->realloc((_a)->internal, 0, 0, (_size))
-#define afree(_a, _data, _size)  (_a)->realloc((_a), (_data), (_size), 0)
-#define arealloc(_a, _data, _old_size, _new_size) (_a)->realloc((_a), (_data), (_old_size), (_new_size))
+// free
+#define afree(_a, _data, _size) (_a)->realloc((_a), (_data), (_size), 0)
+// realloc
+#define arealloc(_a, _data, _old_size, _new_size) \
+    (_a)->realloc((_a), (_data), (_old_size), (_new_size))
 
+// Returns allocator that uses libc functions (malloc, free, realloc)
 allocator *get_system_allocator(void);
 
-#endif 
+#endif
