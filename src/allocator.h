@@ -11,7 +11,7 @@ typedef struct allocator {
     allocator_realloc *realloc; 
 } allocator;
 
-#define aalloc(_a, _size) (_a)->realloc((_a), 0, 0, (_size))
+#define aalloc(_a, _size) (_a)->realloc((_a)->internal, 0, 0, (_size))
 #define afree(_a, _data, _size)  (_a)->realloc((_a), (_data), (_size), 0)
 #define arealloc(_a, _data, _old_size, _new_size) (_a)->realloc((_a), (_data), (_old_size), (_new_size))
 

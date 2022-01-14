@@ -11,7 +11,7 @@ Version: 0
 
 struct allocator;
 
-#define BUMP_DEFAULT_MINIMAL_BLOCK_SIZE ((1 << 12) - sizeof(bump_allocator_block))
+#define BUMP_DEFAULT_MINIMAL_BLOCK_SIZE ((1 << 22) - sizeof(bump_allocator_block))
 #define BUMP_DEFAULT_ALIGN 16
 // Structure holding data about single memory block
 typedef struct bump_allocator_block {
