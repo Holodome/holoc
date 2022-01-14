@@ -51,22 +51,29 @@ typedef enum {
     PP_TOK_PUNCT_DHASH   = 0x116, // ## 
 } preprocessor_punct_kind;
 
+typedef struct pp_token {
+    uint32_t kind;
+    uint32_t str_kind;
+    uint32_t punct_kind;
+    string str;
+    bool has_whitespace;
+    bool at_line_start;
+    struct pp_token *next;
+} pp_token;
+
 typedef struct pp_lexer {
     char *data;
     char *eof;
     char *cursor;
     
-    bool tok_has_whitespace;
-    bool tok_at_line_start;
-    preprocessor_token_kind tok_kind;
-    preprocessor_string_kind tok_str_kind;
-    preprocessor_punct_kind tok_punct_kind;
-    char     tok_buf[4096];
+    pp_token tok;
+    char *tok_buf;
+    uint32_t tok_buf_capacity;
     uint32_t tok_buf_len;
 } pp_lexer;
 
 bool pp_lexer_parse(pp_lexer *lexer);
-uint32_t fmt_pp_tok(pp_lexer *lexer, char *buf, uint32_t buf_len);
-uint32_t fmt_pp_tok_verbose(pp_lexer *lexer, char *buf, uint32_t buf_len);
+uint32_t fmt_pp_tok(pp_token *tok, char *buf, uint32_t buf_len);
+uint32_t fmt_pp_tok_verbose(pp_token *tok, char *buf, uint32_t buf_len);
 
 #endif 

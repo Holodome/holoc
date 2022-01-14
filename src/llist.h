@@ -13,7 +13,7 @@
 #define LLIST_ADD_LAST(_list, _node)                    \
     do {                                                \
         if (!(_list)) {                                 \
-            (_list) = (_node);     \
+            (_list) = (_node);                          \
         }                                               \
         for (void *temp = (_list); temp;                \
              temp = _LLIST_GET_NEXT(temp, _node)) {     \

@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "allocator.h"
 #include "bump_allocator.h"
@@ -111,16 +112,7 @@ get_new_token_stack_entry(preprocessor *pp) {
     return entry;
 }
 
-static void
-init_pp_token_from_lexer(preprocessor *pp, pp_token *tok) {
-    tok->kind = pp->lex->tok_kind;
-    tok->str_kind = pp->lex->tok_str_kind;
-    tok->punct_kind = pp->lex->tok_punct_kind;
-    string data = string(pp->lex->tok_buf, pp->lex->tok_buf_len);
-    allocator a = bump_get_allocator(pp->a);
-    tok->str = string_dup(&a, data);
-}
-
+#if 0
 static void
 define_macro(preprocessor *pp) {
     pp_lexer *lex = pp->lex;
@@ -317,10 +309,13 @@ process_pp_directive(preprocessor *pp) {
         if (lex->tok_kind != PP_TOK_ID) {
             // TODO: Diagnostic
             assert(false);
+            break;
         }
 
         string directive = string(lex->tok_buf, lex->tok_buf_len);
         if (string_eq(directive, WRAP_Z("include"))) {
+            // TODO:
+            break;
         } else if (string_eq(directive, WRAP_Z("define"))) {
             pp_lexer_parse(lex);
             define_macro(pp);
@@ -675,12 +670,14 @@ pp_get_token(preprocessor *pp) {
             break;
         }
 
+        pp_lexer_parse(lex);
         if (lex->tok_kind == PP_TOK_PUNCT && lex->tok_punct_kind == '#' &&
             lex->tok_at_line_start) {
             pp_lexer_parse(lex);
             process_pp_directive(pp);
             continue;
         }
+        printf("here\n");
 
         if (expand_macro(pp)) {
             continue;
@@ -693,4 +690,44 @@ pp_get_token(preprocessor *pp) {
     }
 
     return tok;
+}
+
+#endif
+
+void 
+do_pp(preprocessor *pp) {
+    pp_token *tok_list = 0;
+    pp_token *last_tok = 0;
+    pp_token *tok = 0;
+    char buffer[4096];
+    allocator a = bump_get_allocator(pp->a);
+    for (;;) {
+        pp_lexer_parse(pp->lex);
+        tok = get_new_token(pp);
+        *tok = pp->lex->tok;
+        if (tok->str.data) {
+            tok->str = string_dup(&a, tok->str);
+        }
+
+        if (!tok_list) {
+            tok_list = tok;
+        }
+        if (last_tok) {
+            last_tok->next = tok;
+        }
+        last_tok = tok;
+        if (tok->kind == PP_TOK_EOF) {
+            break;
+        }
+        fmt_pp_tok(tok, buffer, sizeof(buffer));
+        printf("%s\n", buffer);
+    }
+
+    
+    for (tok = tok_list;
+         tok;
+         tok = tok->next) {
+        fmt_pp_tok(tok, buffer, sizeof(buffer));
+        printf("%s\n", buffer);
+    }
 }

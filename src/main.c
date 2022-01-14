@@ -159,7 +159,10 @@ process_file(string filename) {
     remove_backslash_newline(file_contents);
     // Now we are ready for phase 3
     /* printf("%s", file_contents); */
+    char lexer_buffer[4096];
     pp_lexer lexer = {0};
+    lexer.tok_buf = lexer_buffer;
+    lexer.tok_buf_capacity = sizeof(lexer_buffer);
     lexer.data = file_contents;
     lexer.eof = file_contents + strlen(file_contents);
     lexer.cursor = lexer.data;
@@ -167,7 +170,7 @@ process_file(string filename) {
     if (settings.ptv) {
         while (pp_lexer_parse(&lexer)) {
             char token_buf[4096];
-            fmt_pp_tok_verbose(&lexer, token_buf, sizeof(token_buf));
+            fmt_pp_tok_verbose(&lexer.tok, token_buf, sizeof(token_buf));
             printf("%s\n", token_buf);
         }
         return;
@@ -176,10 +179,10 @@ process_file(string filename) {
     if (settings.ptvf) {
         while (pp_lexer_parse(&lexer)) {
             char token_buf[4096];
-            fmt_pp_tok_verbose(&lexer, token_buf, sizeof(token_buf));
-            if (lexer.tok_at_line_start) {
+            fmt_pp_tok_verbose(&lexer.tok, token_buf, sizeof(token_buf));
+            if (lexer.tok.at_line_start) {
                 printf("\n");
-            } else if (lexer.tok_has_whitespace) {
+            } else if (lexer.tok.has_whitespace) {
                 printf(" ");
             }
             printf("%s", token_buf);
@@ -190,10 +193,10 @@ process_file(string filename) {
     if (settings.ptf) {
         while (pp_lexer_parse(&lexer)) {
             char token_buf[4096];
-            fmt_pp_tok(&lexer, token_buf, sizeof(token_buf));
-            if (lexer.tok_at_line_start) {
+            fmt_pp_tok(&lexer.tok, token_buf, sizeof(token_buf));
+            if (lexer.tok.at_line_start) {
                 printf("\n");
-            } else if (lexer.tok_has_whitespace) {
+            } else if (lexer.tok.has_whitespace) {
                 printf(" ");
             }
             printf("%s", token_buf);
@@ -204,7 +207,7 @@ process_file(string filename) {
     if (settings.pt) {
         while (pp_lexer_parse(&lexer)) {
             char token_buf[4096];
-            fmt_pp_tok(&lexer, token_buf, sizeof(token_buf));
+            fmt_pp_tok(&lexer.tok, token_buf, sizeof(token_buf));
             printf("%s\n", token_buf);
         }
         return;
@@ -212,16 +215,10 @@ process_file(string filename) {
     
     printf("Preprocessing:\n");
     bump_allocator pp_bump = {0};
-    preprocessor pp = {0};
-    pp.lex = &lexer;
-    pp.a = &pp_bump;
-    for (;;) {
-        token tok = pp_get_token(&pp);
-        if (tok.kind == TOK_EOF) {
-            break;
-        }
-        printf("%u\n", tok.kind);
-    }
+    preprocessor *pp = bump_alloc(&pp_bump, sizeof(preprocessor));
+    pp->lex = &lexer;
+    pp->a = &pp_bump;
+    do_pp(pp);
 }
 
 int 

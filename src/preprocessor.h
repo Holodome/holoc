@@ -5,17 +5,9 @@
 
 struct pp_lexer;
 struct bump_allocator;
+struct pp_token;
 
 #define PREPROCESSOR_MACRO_HASH_SIZE 8192
-
-typedef struct pp_token {
-    uint32_t kind;
-    uint32_t str_kind;
-    uint32_t punct_kind;
-    string str;
-    bool has_spaces;
-    struct pp_token *next;
-} pp_token;
 
 typedef struct pp_macro_arg {
     string name;
@@ -40,7 +32,7 @@ typedef struct pp_macro {
     bool is_function_like;
 
     pp_macro_arg *args;
-    pp_token *definition;
+    struct pp_token *definition;
     struct pp_macro *next;
 } pp_macro;
 
@@ -78,7 +70,7 @@ typedef struct pp_guarded_file {
 } pp_guarded_file;
 
 typedef struct pp_macro_expansion_arg {
-    pp_token *tokens;
+    struct p_token *tokens;
     struct pp_macro_expansion_arg *next;
 } pp_macro_expansion_arg;
 
@@ -97,12 +89,13 @@ typedef struct preprocessor {
 
     pp_macro *macro_freelist;
     pp_macro_arg *macro_arg_freelist;
-    pp_token *tok_freelist;
+    struct pp_token *tok_freelist;
     pp_conditional_include *incl_freelist;
     pp_macro_expansion_arg *macro_expansion_arg_freelist;
     token_stack_entry *token_stack_freelist;
 } preprocessor;
 
-token pp_get_token(preprocessor *pp);
+void do_pp(preprocessor *pp);
+
 
 #endif 

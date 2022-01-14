@@ -61,7 +61,7 @@ bump_alloc(bump_allocator *allocator, uint64_t size) {
     // However, one could set align but still have no allocations.
     // So block must be additionally checked.
     uint64_t size_aligned = align_forward_pow2(size, ALIGN);
-    if (!size_aligned || !block ||  
+    if (!block ||  
         block->used + size_aligned > block->size) {
         // This is considered a rarely executed case, so this checks don't have big perfomance impact
         if (!allocator->minimal_block_size) {
@@ -141,6 +141,6 @@ static ALLOCATOR_REALLOC(bump_realloc) {
 
 struct allocator
 bump_get_allocator(bump_allocator *a) {
-    allocator allocator = { a, bump_realloc };
-    return allocator;
+    allocator all = { a, bump_realloc };
+    return all;
 }
