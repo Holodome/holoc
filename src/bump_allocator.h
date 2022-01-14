@@ -31,8 +31,6 @@ typedef struct bump_allocator {
     bump_allocator_block *block;
     // Number of temp allocations
     uint32_t temp_memory_count;
-    // align of allocations 
-    uint64_t align;
     // Minimal size of allocated block, to prevent fragmentation of system level
     uint64_t minimal_block_size;
     // Debug info, number of individual allocations

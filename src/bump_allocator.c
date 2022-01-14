@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#define ALIGN 16
+
 static uint64_t 
 align_forward_pow2(uint64_t value, uint64_t align) {
     uint64_t align_mask = align - 1;
@@ -58,27 +60,23 @@ bump_alloc(bump_allocator *allocator, uint64_t size) {
     // implies no block. So check !size_aligned is equal to !block
     // However, one could set align but still have no allocations.
     // So block must be additionally checked.
-    uint64_t size_aligned = align_forward_pow2(size, allocator->align);
+    uint64_t size_aligned = align_forward_pow2(size, ALIGN);
     if (!size_aligned || !block ||  
         block->used + size_aligned > block->size) {
         // This is considered a rarely executed case, so this checks don't have big perfomance impact
         if (!allocator->minimal_block_size) {
             allocator->minimal_block_size = BUMP_DEFAULT_MINIMAL_BLOCK_SIZE;
         }
-        if (!allocator->align) {
-            allocator->align = BUMP_DEFAULT_ALIGN;
-            size_aligned = align_forward_pow2(size, allocator->align);
-        }
         uint64_t block_size = size_aligned;
         if (allocator->minimal_block_size > block_size) {
             block_size = allocator->minimal_block_size;
         }
 
-        block = alloc_block(block_size, allocator->align);
+        block = alloc_block(block_size, ALIGN);
         block->next = allocator->block;
         allocator->block = block;
     }
-    uint64_t align_mask = allocator->align - 1;
+    uint64_t align_mask = ALIGN - 1;
     // Make sure block start is aligned
     assert(!((uint64_t)block->data & align_mask));
     uint64_t start_offset = (uint64_t)block->data + block->used;
