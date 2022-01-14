@@ -119,9 +119,9 @@ from_hex(char cp) {
 
 static bool
 read_unicode_value(pp_lexer *lexer, uint32_t len, uint32_t *valuep) {
-    bool result = true;
+    bool result       = true;
     char *test_cursor = lexer->cursor;
-    uint32_t value = 0;
+    uint32_t value    = 0;
     for (uint32_t idx = 0; idx < len; ++idx) {
         if (!isxdigit(*test_cursor)) {
             result = false;
@@ -241,7 +241,7 @@ read_utf8_string_literal(pp_lexer *lexer, char terminator) {
 
         write_cursor = utf8_encode(write_cursor, cp);
     }
-    *write_cursor = 0;
+    *write_cursor      = 0;
     lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
 
@@ -263,7 +263,7 @@ read_utf16_string_literal(pp_lexer *lexer, char terminator) {
 
         write_cursor = utf16_encode(write_cursor, cp);
     }
-    *write_cursor = 0;
+    *write_cursor      = 0;
     lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
 
@@ -285,14 +285,14 @@ read_utf32_string_literal(pp_lexer *lexer, char terminator) {
 
         *write_cursor++ = cp;
     }
-    *write_cursor = 0;
+    *write_cursor      = 0;
     lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
 
 static bool
 parse_string_literal(pp_lexer *lexer) {
-    bool result = false;
-    char *test_cursor = lexer->cursor;
+    bool result                       = false;
+    char *test_cursor                 = lexer->cursor;
     preprocessor_string_kind str_kind = PP_TOK_STR_SCHAR;
 
     if (*test_cursor == 'u' && test_cursor[1] == '8') {
@@ -311,8 +311,8 @@ parse_string_literal(pp_lexer *lexer) {
 
     if (*test_cursor == '\'' || *test_cursor == '\"') {
         char terminator = *test_cursor++;
-        lexer->cursor = test_cursor;
-        result = true;
+        lexer->cursor   = test_cursor;
+        result          = true;
 
         switch (str_kind) {
         default:
@@ -333,9 +333,9 @@ parse_string_literal(pp_lexer *lexer) {
         if (*test_cursor == '\'') {
             str_kind += PP_TOK_STR_ADVANCE;
         }
-        lexer->tok.kind = PP_TOK_STR;
+        lexer->tok.kind     = PP_TOK_STR;
         lexer->tok.str_kind = str_kind;
-        lexer->tok.str = string(lexer->tok_buf, lexer->tok_buf_len);
+        lexer->tok.str      = string(lexer->tok_buf, lexer->tok_buf_len);
     }
 
     return result;
@@ -343,11 +343,11 @@ parse_string_literal(pp_lexer *lexer) {
 
 static bool
 parse_number(pp_lexer *lexer) {
-    bool result = false;
+    bool result        = false;
     char *write_cursor = lexer->tok_buf;
     if (isdigit(*lexer->cursor) ||
         (*lexer->cursor == '.' && isdigit(lexer->cursor[1]))) {
-        result = true;
+        result          = true;
         *write_cursor++ = *lexer->cursor++;
         for (;;) {
             if (isalnum(*lexer->cursor) || *lexer->cursor == '_' ||
@@ -361,10 +361,10 @@ parse_number(pp_lexer *lexer) {
                 break;
             }
         }
-        *write_cursor = 0;
+        *write_cursor      = 0;
         lexer->tok_buf_len = write_cursor - lexer->tok_buf;
-        lexer->tok.kind = PP_TOK_NUM;
-        lexer->tok.str = string(lexer->tok_buf, lexer->tok_buf_len);
+        lexer->tok.kind    = PP_TOK_NUM;
+        lexer->tok.str     = string(lexer->tok_buf, lexer->tok_buf_len);
     }
 
     return result;
@@ -378,8 +378,10 @@ parse_punctuator(pp_lexer *lexer) {
         string punct = PUNCT_STRS[idx];
         if (next_eq(lexer, punct)) {
             lexer->cursor += punct.len;
-            lexer->tok.kind = PP_TOK_PUNCT;
+
+            lexer->tok.kind       = PP_TOK_PUNCT;
             lexer->tok.punct_kind = PP_TOK_PUNCT_ADVANCE + idx;
+
             result = true;
             break;
         }
@@ -387,8 +389,9 @@ parse_punctuator(pp_lexer *lexer) {
 
     if (!result) {
         if (ispunct(*lexer->cursor)) {
-            lexer->tok.kind = PP_TOK_PUNCT;
+            lexer->tok.kind       = PP_TOK_PUNCT;
             lexer->tok.punct_kind = *lexer->cursor++;
+
             result = true;
         }
     }
@@ -401,14 +404,17 @@ parse_ident(pp_lexer *lexer) {
     bool result = false;
     if (isalpha(*lexer->cursor) || *lexer->cursor == '_') {
         char *write_cursor = lexer->tok_buf;
-        *write_cursor++ = *lexer->cursor++;
+        *write_cursor++    = *lexer->cursor++;
+
         while (isalnum(*lexer->cursor) || *lexer->cursor == '_') {
             *write_cursor++ = *lexer->cursor++;
         }
         *write_cursor = 0;
+
         lexer->tok_buf_len = write_cursor - lexer->tok_buf;
-        lexer->tok.kind = PP_TOK_ID;
-        lexer->tok.str = string(lexer->tok_buf, lexer->tok_buf_len);
+        lexer->tok.kind    = PP_TOK_ID;
+        lexer->tok.str     = string(lexer->tok_buf, lexer->tok_buf_len);
+
         result = true;
     }
     return result;
@@ -416,7 +422,7 @@ parse_ident(pp_lexer *lexer) {
 
 bool
 pp_lexer_parse(pp_lexer *lexer) {
-    lexer->tok = (pp_token){0};
+    lexer->tok         = (pp_token){0};
     lexer->tok_buf_len = 0;
 
     for (;;) {
@@ -427,11 +433,12 @@ pp_lexer_parse(pp_lexer *lexer) {
                 break;
             } else if (cp & 0x80) {
                 ++lexer->cursor;
-                lexer->tok.kind = PP_TOK_OTHER;
-                lexer->tok_buf[0] = cp;
-                lexer->tok_buf[1] = 0;
+
+                lexer->tok.kind    = PP_TOK_OTHER;
+                lexer->tok_buf[0]  = cp;
+                lexer->tok_buf[1]  = 0;
                 lexer->tok_buf_len = 1;
-                lexer->tok.str = string(lexer->tok_buf, lexer->tok_buf_len);
+                lexer->tok.str     = string(lexer->tok_buf, lexer->tok_buf_len);
                 break;
             }
         }
@@ -488,6 +495,7 @@ fmt_pp_tok(pp_token *tok, char *buf, uint32_t buf_len) {
             result = snprintf(buf, buf_len, "%c", tok->punct_kind);
         } else {
             string punct = PUNCT_STRS[tok->punct_kind - PP_TOK_PUNCT_ADVANCE];
+
             result = snprintf(buf, buf_len, "%s", punct.data);
         }
         break;

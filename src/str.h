@@ -17,9 +17,9 @@ typedef struct {
 } string_find_result;
 
 // Wrapper for string creation call
-#define string(_data, _len) ((string) { .data = _data, .len = _len })
+#define string(_data, _len) ((string){.data = _data, .len = _len})
 // Construct string from string literal
-#define WRAP_Z(_z)       string(_z, sizeof(_z) - 1)
+#define WRAP_Z(_z) string(_z, sizeof(_z) - 1)
 // Construct string from null-terminated string
 #define stringz(_string) string(_string, strlen(_string))
 

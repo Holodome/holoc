@@ -16,13 +16,13 @@ typedef struct pp_macro_arg {
 
 typedef enum {
     PP_MACRO_REG       = 0x0,
-    PP_MACRO_FILE      = 0x1, // __FILE__
-    PP_MACRO_LINE      = 0x2, // __LINE__
-    PP_MACRO_COUNTER   = 0x3, // __COUNTER__
-    PP_MACRO_TIMESTAMP = 0x4, // __TIMESTAMP__
-    PP_MACRO_BASE_FILE = 0x5, // __BASE_FILE__
-    PP_MACRO_DATE      = 0x6, // __DATE__
-    PP_MACRO_TIME      = 0x7, // __TIME__
+    PP_MACRO_FILE      = 0x1,  // __FILE__
+    PP_MACRO_LINE      = 0x2,  // __LINE__
+    PP_MACRO_COUNTER   = 0x3,  // __COUNTER__
+    PP_MACRO_TIMESTAMP = 0x4,  // __TIMESTAMP__
+    PP_MACRO_BASE_FILE = 0x5,  // __BASE_FILE__
+    PP_MACRO_DATE      = 0x6,  // __DATE__
+    PP_MACRO_TIME      = 0x7,  // __TIME__
 } pp_macro_kind;
 
 typedef struct pp_macro {
@@ -43,11 +43,11 @@ typedef struct pp_conditional_include {
 } pp_conditional_include;
 
 typedef enum token_kind {
-    TOK_EOF = 0x0,
-    TOK_ID  = 0x1,
+    TOK_EOF   = 0x0,
+    TOK_ID    = 0x1,
     TOK_PUNCT = 0x2,
-    TOK_STR = 0x3,
-    TOK_NUM = 0x4,
+    TOK_STR   = 0x3,
+    TOK_NUM   = 0x4,
 } token_kind;
 
 typedef struct token {
@@ -62,8 +62,8 @@ typedef struct token_stack_entry {
 } token_stack_entry;
 
 // #pragma once files
-// @NOTE: Number of files is generally small, so we are okay with having linked list 
-// instead of hash map
+// @NOTE: Number of files is generally small, so we are okay with having linked
+// list instead of hash map
 typedef struct pp_guarded_file {
     string name;
     struct pp_guarded_file *next;
@@ -82,7 +82,7 @@ typedef struct preprocessor {
     token_stack_entry *token_stack;
 
     // Value for __COUNTER__
-    uint32_t counter_value; 
+    uint32_t counter_value;
     pp_conditional_include *cond_incl_stack;
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
     pp_guarded_file *included_files;
@@ -97,5 +97,4 @@ typedef struct preprocessor {
 
 void do_pp(preprocessor *pp);
 
-
-#endif 
+#endif

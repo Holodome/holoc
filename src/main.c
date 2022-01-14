@@ -1,33 +1,35 @@
-#include "str.h"
-#include "darray.h"
-#include "allocator.h"
-#include "pp_lexer.h"
-#include "preprocessor.h"
-#include "bump_allocator.h"
-
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+
+#include "allocator.h"
+#include "bump_allocator.h"
+#include "darray.h"
+#include "pp_lexer.h"
+#include "preprocessor.h"
+#include "str.h"
 
 typedef struct {
-    bool ptv;  // print preprocessing tokens verbose, its on its own line
-    bool ptvf; // print preprocessing tokens verbose, as if they were on logical source lines
-    bool ptf;  // print preprocessing tokens, as if they were on logical source lines
-    bool pt;   // print preprocessing tokens, each on its own line
+    bool ptv;   // print preprocessing tokens verbose, its on its own line
+    bool ptvf;  // print preprocessing tokens verbose, as if they were on
+                // logical source lines
+    bool ptf;   // print preprocessing tokens, as if they were on logical source
+                // lines
+    bool pt;    // print preprocessing tokens, each on its own line
 } program_settings;
 
 static program_settings settings;
 
-static void 
+static void
 erroutf(char *format, ...) {
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
 }
 
-static string 
+static string
 read_file_data(string filename, allocator *a) {
     FILE *file = fopen(filename.data, "r");
     assert(file);
@@ -38,13 +40,13 @@ read_file_data(string filename, allocator *a) {
     fread(data, 1, size, file);
     data[size] = 0;
     fclose(file);
-    
+
     return string(data, size);
 }
 
-static void 
+static void
 canonicalize_newline(char *p) {
-    char *read = p;
+    char *read  = p;
     char *write = p;
     while (*read) {
         if (read[0] == '\r' && read[1] == '\n') {
@@ -60,9 +62,9 @@ canonicalize_newline(char *p) {
     *write = 0;
 }
 
-static void 
+static void
 replace_trigraphs(char *p) {
-    char *read = p;
+    char *read  = p;
     char *write = p;
     while (*read) {
         if (read[0] == '?' && read[1] == '?') {
@@ -115,19 +117,19 @@ replace_trigraphs(char *p) {
     *write = 0;
 }
 
-static void 
+static void
 remove_backslash_newline(char *p) {
     char *write = p;
-    char *read = p;
-    uint32_t n = 0;
+    char *read  = p;
+    uint32_t n  = 0;
     while (*read) {
         if (read[0] == '\\' && read[1] == '\n') {
             read += 2;
             ++n;
         } else if (*read == '\n') {
             *write++ = *read++;
-            while (n--) { 
-                *write++ = '\n'; 
+            while (n--) {
+                *write++ = '\n';
             }
             n = 0;
         } else {
@@ -135,18 +137,18 @@ remove_backslash_newline(char *p) {
         }
     }
 
-    while (n--) { 
-        *write++ = '\n'; 
+    while (n--) {
+        *write++ = '\n';
     }
 
     *write = 0;
 }
 
-static void 
+static void
 process_file(string filename) {
-    allocator *a = get_system_allocator();
+    allocator *a     = get_system_allocator();
     string file_data = read_file_data(filename, a);
-    
+
     char *file_contents = file_data.data;
     // BOM
     if (strcmp(file_contents, "\xef\xbb\xbf") == 0) {
@@ -160,12 +162,12 @@ process_file(string filename) {
     // Now we are ready for phase 3
     /* printf("%s", file_contents); */
     char lexer_buffer[4096];
-    pp_lexer lexer = {0};
-    lexer.tok_buf = lexer_buffer;
+    pp_lexer lexer         = {0};
+    lexer.tok_buf          = lexer_buffer;
     lexer.tok_buf_capacity = sizeof(lexer_buffer);
-    lexer.data = file_contents;
-    lexer.eof = file_contents + strlen(file_contents);
-    lexer.cursor = lexer.data;
+    lexer.data             = file_contents;
+    lexer.eof              = file_contents + strlen(file_contents);
+    lexer.cursor           = lexer.data;
 
     if (settings.ptv) {
         while (pp_lexer_parse(&lexer)) {
@@ -212,16 +214,16 @@ process_file(string filename) {
         }
         return;
     }
-    
+
     printf("Preprocessing:\n");
     bump_allocator pp_bump = {0};
-    preprocessor *pp = bump_alloc(&pp_bump, sizeof(preprocessor));
-    pp->lex = &lexer;
-    pp->a = &pp_bump;
+    preprocessor *pp       = bump_alloc(&pp_bump, sizeof(preprocessor));
+    pp->lex                = &lexer;
+    pp->a                  = &pp_bump;
     do_pp(pp);
 }
 
-int 
+int
 main(int argc, char **argv) {
     allocator *a = get_system_allocator();
 
@@ -247,13 +249,14 @@ main(int argc, char **argv) {
         return 1;
     }
 
-    for (uint32_t filename_idx = 0; filename_idx < da_size(filenames); filename_idx++) {
+    for (uint32_t filename_idx = 0; filename_idx < da_size(filenames);
+         filename_idx++) {
         string filename = filenames[filename_idx];
-        printf("Filename %u: %.*s\n", filename_idx, filename.len, filename.data);
-        
+        printf("Filename %u: %.*s\n", filename_idx, filename.len,
+               filename.data);
+
         process_file(filename);
     }
-
 
     return 0;
 }

@@ -1,40 +1,38 @@
 #include "filepath.h"
 
-#include "str.h"
-#include "darray.h"
-
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <stdlib.h>
-
-#include <unistd.h>
-#include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-static bool 
+#include "darray.h"
+#include "str.h"
+
+static bool
 fmt_current_dir(char *buf, uint32_t buf_size) {
     char *result = getcwd(buf, buf_size);
     return result != 0;
 }
 
-string 
+string
 get_current_dir(struct allocator *a) {
     char buffer[4096];
     string result = {0};
     if (fmt_current_dir(buffer, sizeof(buffer))) {
         result = string_memdup(a, buffer);
     }
-    return result; 
+    return result;
 }
 
-string 
+string
 get_realpath(string path, struct allocator *a) {
     char buffer[4096];
     char *result = realpath(path.data, buffer);
     return string_memdup(a, result);
 }
 
-bool 
+bool
 path_is_dir(string path) {
     bool result;
     struct stat st;
@@ -42,18 +40,18 @@ path_is_dir(string path) {
     return result || !!(st.st_mode & S_IFDIR);
 }
 
-string 
+string
 path_dirname(string path) {
     string result;
     string_find_result find_result = string_rfind(path, '/');
     if (!find_result.is_found) {
-       result = WRAP_Z(".");
+        result = WRAP_Z(".");
     }
     result = string_substr(path, 0, find_result.idx);
     return result;
 }
 
-string 
+string
 path_filename(string path) {
     string result = WRAP_Z(".");
 
@@ -72,9 +70,9 @@ path_filename(string path) {
     return result;
 }
 
-string 
+string
 path_basename(string path) {
-    string filename = path_filename(path);
+    string filename                = path_filename(path);
     string_find_result find_result = string_rfind(path, '.');
     string result;
     if (!find_result.is_found) {
@@ -85,7 +83,7 @@ path_basename(string path) {
     return result;
 }
 
-string 
+string
 path_to_absolute(string path, struct allocator *a) {
     string result;
     if (string_startswith(path, WRAP_Z("/"))) {
@@ -93,9 +91,7 @@ path_to_absolute(string path, struct allocator *a) {
     } else {
         char dir[4096] = "";
         fmt_current_dir(dir, sizeof(dir));
-        result = string_memprintf(a, "%s/%.*s", 
-                                  dir,
-                                  path.len, path.data);
+        result = string_memprintf(a, "%s/%.*s", dir, path.len, path.data);
     }
     return result;
 }
@@ -105,17 +101,17 @@ typedef struct string_llnode {
     struct string_llnode *next;
 } string_llnode;
 
-string 
+string
 path_clean(string path, struct allocator *a) {
     bool is_rooted = string_startswith(path, WRAP_Z("/"));
-    string *its = 0; // da
+    string *its    = 0;  // da
 
     while (path.len) {
         string_find_result slash = string_find(path, '/');
         string elem;
 
         if (!slash.is_found) {
-            elem = path;
+            elem     = path;
             path.len = 0;
         } else {
             elem = string_substr(path, 0, slash.idx);
@@ -145,21 +141,19 @@ path_clean(string path, struct allocator *a) {
 
     char buffer[4096];
     uint32_t size = 0;
-    
+
     if (is_rooted) {
         size += snprintf(buffer, sizeof(buffer) - size, "/");
     }
 
-    for (uint32_t i = 0; 
-         i < da_size(its);
-         ++i) {
-        size += snprintf(buffer, sizeof(buffer) - size, "%*s", 
-                         its[i].len, its[i].data);
+    for (uint32_t i = 0; i < da_size(its); ++i) {
+        size += snprintf(buffer, sizeof(buffer) - size, "%*s", its[i].len,
+                         its[i].data);
         if (i != da_size(its) - 1) {
             size += snprintf(buffer, sizeof(buffer) - size, "/");
         }
     }
-    
+
     da_free(its, a);
     return string_memdup(a, buffer);
 }

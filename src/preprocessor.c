@@ -2,8 +2,8 @@
 
 #include <assert.h>
 #include <stddef.h>
-#include <string.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "allocator.h"
 #include "bump_allocator.h"
@@ -38,17 +38,17 @@ get_new_macro(preprocessor *pp) {
 static void
 free_macro_data(preprocessor *pp, pp_macro *macro) {
     while (macro->args) {
-        pp_macro_arg *arg = macro->args;
-        macro->args = arg->next;
-        arg->next = pp->macro_arg_freelist;
+        pp_macro_arg *arg      = macro->args;
+        macro->args            = arg->next;
+        arg->next              = pp->macro_arg_freelist;
         pp->macro_arg_freelist = arg;
     }
 
     while (macro->definition) {
-        pp_token *tok = macro->definition;
+        pp_token *tok     = macro->definition;
         macro->definition = tok;
-        tok->next = pp->tok_freelist;
-        pp->tok_freelist = tok;
+        tok->next         = pp->tok_freelist;
+        pp->tok_freelist  = tok;
     }
 }
 
@@ -122,7 +122,7 @@ define_macro(preprocessor *pp) {
     }
 
     string ident_name = string(lex->tok_buf, lex->tok_buf_len);
-    uint32_t hash = hash_string(ident_name);
+    uint32_t hash     = hash_string(ident_name);
     pp_macro **macrop = get_macro(pp, hash);
     if (*macrop) {
         ident_name = (*macrop)->name;
@@ -137,17 +137,17 @@ define_macro(preprocessor *pp) {
         (*macrop)->next = next;
     } else {
         allocator a = bump_get_allocator(pp->a);
-        ident_name = string_dup(&a, ident_name);
+        ident_name  = string_dup(&a, ident_name);
 
         pp_macro *new_macro = get_new_macro(pp);
-        new_macro->next = *macrop;
-        *macrop = new_macro;
+        new_macro->next     = *macrop;
+        *macrop             = new_macro;
     }
 
     pp_macro *macro = *macrop;
     assert(macro);
 
-    macro->name = ident_name;
+    macro->name      = ident_name;
     macro->name_hash = hash;
 
     pp_lexer_parse(lex);
@@ -160,9 +160,9 @@ define_macro(preprocessor *pp) {
         while (lex->tok_kind != PP_TOK_PUNCT || lex->tok_punct_kind != ')') {
             if (lex->tok_kind == PP_TOK_PUNCT &&
                 lex->tok_punct_kind == PP_TOK_PUNCT_VARARGS) {
-                string arg_name = WRAP_Z("__VA_ARGS__");
+                string arg_name   = WRAP_Z("__VA_ARGS__");
                 pp_macro_arg *arg = get_new_macro_arg(pp);
-                arg->name = arg_name;
+                arg->name         = arg_name;
                 LLIST_ADD_LAST(args, arg);
 
                 pp_lexer_parse(lex);
@@ -172,10 +172,10 @@ define_macro(preprocessor *pp) {
                     break;
                 }
             } else if (lex->tok_kind == PP_TOK_ID) {
-                allocator a = bump_get_allocator(pp->a);
-                string arg_name = string_memdup(&a, lex->tok_buf);
+                allocator a       = bump_get_allocator(pp->a);
+                string arg_name   = string_memdup(&a, lex->tok_buf);
                 pp_macro_arg *arg = get_new_macro_arg(pp);
-                arg->name = arg_name;
+                arg->name         = arg_name;
                 LLIST_ADD_LAST(args, arg);
 
                 pp_lexer_parse(lex);
@@ -195,7 +195,7 @@ define_macro(preprocessor *pp) {
             pp_lexer_parse(lex);
         }
 
-        macro->args = args;
+        macro->args             = args;
         macro->is_function_like = true;
     }
 
@@ -203,7 +203,7 @@ define_macro(preprocessor *pp) {
         pp_token *tok = get_new_token(pp);
         init_pp_token_from_lexer(pp, tok);
         LLIST_ADD_LAST(macro->definition, tok);
-        tok->next = macro->definition;
+        tok->next         = macro->definition;
         macro->definition = tok;
     }
 }
@@ -217,13 +217,13 @@ undef_macro(preprocessor *pp) {
     }
 
     string ident_name = string(lex->tok_buf, lex->tok_buf_len);
-    uint32_t hash = hash_string(ident_name);
+    uint32_t hash     = hash_string(ident_name);
     pp_macro **macrop = get_macro(pp, hash);
     if (*macrop) {
         pp_macro *macro = *macrop;
         free_macro_data(pp, macro);
-        *macrop = macro->next;
-        macro->next = pp->macro_freelist;
+        *macrop            = macro->next;
+        macro->next        = pp->macro_freelist;
         pp->macro_freelist = macro;
     } else {
         // TODO: Diagnostic
@@ -234,16 +234,16 @@ undef_macro(preprocessor *pp) {
 static void
 push_cond_incl(preprocessor *pp, bool is_included) {
     pp_conditional_include *incl = get_new_cond_incl(pp);
-    incl->is_included = is_included;
+    incl->is_included            = is_included;
 
-    incl->next = pp->cond_incl_stack;
+    incl->next          = pp->cond_incl_stack;
     pp->cond_incl_stack = incl;
 }
 
 static void
 skip_cond_incl(preprocessor *pp) {
     uint32_t depth = 0;
-    pp_lexer *lex = pp->lex;
+    pp_lexer *lex  = pp->lex;
 
     while (lex->tok_kind != PP_TOK_EOF) {
         if (lex->tok_kind == PP_TOK_PUNCT && lex->tok_punct_kind == '#' &&
@@ -335,7 +335,7 @@ process_pp_directive(preprocessor *pp) {
             }
         } else if (string_eq(directive, WRAP_Z("elif"))) {
             pp_lexer_parse(lex);
-            int64_t expr = eval_if_expr(pp);
+            int64_t expr                 = eval_if_expr(pp);
             pp_conditional_include *incl = pp->cond_incl_stack;
             if (!incl) {
                 // TODO: Diagnostic
@@ -368,8 +368,8 @@ process_pp_directive(preprocessor *pp) {
                 // TODO: Diagnostic
             } else {
                 pp->cond_incl_stack = incl->next;
-                incl->next = pp->incl_freelist;
-                pp->incl_freelist = incl;
+                incl->next          = pp->incl_freelist;
+                pp->incl_freelist   = incl;
             }
             break;
         } else if (string_eq(directive, WRAP_Z("ifdef"))) {
@@ -416,24 +416,24 @@ static token
 convert_pp_token(preprocessor *pp, pp_token *pp_tok) {
     token tok = {0};
     switch (pp_tok->kind) {
-        case PP_TOK_EOF: {
-            tok.kind = TOK_EOF;
-        } break;
-        case PP_TOK_ID: {
-            tok.kind = TOK_ID;
-        } break;
-        case PP_TOK_NUM: {
-            tok.kind = TOK_NUM;
-        } break;
-        case PP_TOK_STR: {
-            tok.kind = TOK_STR;
-        } break;
-        case PP_TOK_PUNCT: {
-            tok.kind = TOK_PUNCT;
-        } break;
-        case PP_TOK_OTHER: {
-            assert(false);
-        } break;
+    case PP_TOK_EOF: {
+        tok.kind = TOK_EOF;
+    } break;
+    case PP_TOK_ID: {
+        tok.kind = TOK_ID;
+    } break;
+    case PP_TOK_NUM: {
+        tok.kind = TOK_NUM;
+    } break;
+    case PP_TOK_STR: {
+        tok.kind = TOK_STR;
+    } break;
+    case PP_TOK_PUNCT: {
+        tok.kind = TOK_PUNCT;
+    } break;
+    case PP_TOK_OTHER: {
+        assert(false);
+    } break;
     }
     return tok;
 }
@@ -441,7 +441,7 @@ convert_pp_token(preprocessor *pp, pp_token *pp_tok) {
 static void
 push_token_to_stack(preprocessor *pp, token tok) {
     token_stack_entry *entry = get_new_token_stack_entry(pp);
-    entry->tok = tok;
+    entry->tok               = tok;
     LLIST_ADD_LAST(pp->token_stack, entry);
 }
 
@@ -450,13 +450,13 @@ free_expansion_args(preprocessor *pp, pp_macro_expansion_arg *args) {
     for (pp_macro_expansion_arg *arg = args; arg; arg = arg->next) {
         for (pp_token *token = arg->tokens; token; token = token->next) {
             if (!token->next) {
-                token->next = pp->tok_freelist;
+                token->next      = pp->tok_freelist;
                 pp->tok_freelist = arg->tokens;
             }
         }
 
         if (!arg->next) {
-            arg->next = pp->macro_expansion_arg_freelist;
+            arg->next                        = pp->macro_expansion_arg_freelist;
             pp->macro_expansion_arg_freelist = args;
         }
     }
@@ -465,9 +465,9 @@ free_expansion_args(preprocessor *pp, pp_macro_expansion_arg *args) {
 static pp_macro_expansion_arg *
 collect_macro_call_arguments(preprocessor *pp, pp_token **tokp) {
     pp_macro_expansion_arg *new_args = 0;
-    pp_token *tok = *tokp;
+    pp_token *tok                    = *tokp;
 
-    uint32_t parens_depth = 0;
+    uint32_t parens_depth               = 0;
     pp_macro_expansion_arg *current_arg = 0;
     for (;;) {
         if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')' &&
@@ -483,7 +483,7 @@ collect_macro_call_arguments(preprocessor *pp, pp_token **tokp) {
         if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ',') {
             LLIST_ADD_LAST(new_args, current_arg);
             parens_depth = 0;
-            tok = tok->next;
+            tok          = tok->next;
             continue;
         }
 
@@ -518,8 +518,8 @@ process_pp_token(preprocessor *pp, pp_token **tokp) {
     pp_token *tok = *tokp;
 
     if (tok->kind == PP_TOK_ID) {
-        string name = tok->str;
-        uint32_t name_hash = hash_string(name);
+        string name           = tok->str;
+        uint32_t name_hash    = hash_string(name);
         pp_macro **new_macrop = get_macro(pp, name_hash);
         if (*new_macrop) {
             pp_macro *new_macro = *new_macrop;
@@ -550,7 +550,7 @@ expand_macro_internal(preprocessor *pp, pp_macro *macro,
     for (pp_token *tok = macro->definition; tok; tok = tok->next) {
         string name = tok->str;
         // First, check if identifier corresponds to some argument
-        bool is_arg = false;
+        bool is_arg      = false;
         uint32_t arg_idx = 0;
         for (pp_macro_arg *arg = macro->args; arg; arg = arg->next, ++arg_idx) {
             if (string_eq(arg->name, name)) {
@@ -562,7 +562,7 @@ expand_macro_internal(preprocessor *pp, pp_macro *macro,
         if (is_arg) {
             uint32_t idx = 0;
             for (pp_macro_expansion_arg *arg = arg_values; arg;
-                 arg = arg->next, ++idx) {
+                 arg                         = arg->next, ++idx) {
                 if (idx == arg_idx) {
                     pp_token *temp_tok = arg->tokens;
                     while (temp_tok) {
@@ -583,9 +583,9 @@ expand_macro(preprocessor *pp) {
 
     pp_lexer *lex = pp->lex;
     if (lex->tok_kind == PP_TOK_ID) {
-        string name = string(lex->tok_buf, lex->tok_buf_len);
+        string name        = string(lex->tok_buf, lex->tok_buf_len);
         uint32_t name_hash = hash_string(name);
-        pp_macro **macrop = get_macro(pp, name_hash);
+        pp_macro **macrop  = get_macro(pp, name_hash);
         if (*macrop) {
             pp_macro *macro = *macrop;
             if (macro->is_function_like) {
@@ -595,13 +595,13 @@ expand_macro(preprocessor *pp) {
                     pp_lexer_parse(lex);
                     pp_macro_expansion_arg *args = 0;
 
-                    uint32_t parens_depth = 0;
+                    uint32_t parens_depth               = 0;
                     pp_macro_expansion_arg *current_arg = 0;
                     for (;;) {
                         if (lex->tok_kind == PP_TOK_PUNCT &&
                             lex->tok_punct_kind == ')' && parens_depth == 0) {
                             current_arg->next = args;
-                            args = current_arg;
+                            args              = current_arg;
                             break;
                         }
 
@@ -612,7 +612,7 @@ expand_macro(preprocessor *pp) {
                         if (lex->tok_kind == PP_TOK_PUNCT &&
                             lex->tok_punct_kind == ',') {
                             current_arg->next = args;
-                            args = current_arg;
+                            args              = current_arg;
                             pp_lexer_parse(lex);
                             parens_depth = 0;
                             continue;
@@ -632,7 +632,7 @@ expand_macro(preprocessor *pp) {
 
                         pp_token *token = get_new_token(pp);
                         init_pp_token_from_lexer(pp, token);
-                        token->next = current_arg->tokens;
+                        token->next         = current_arg->tokens;
                         current_arg->tokens = token;
 
                         pp_lexer_parse(lex);
@@ -644,7 +644,7 @@ expand_macro(preprocessor *pp) {
                 } else {
                     push_token_to_stack(
                         pp, (token){.kind = TOK_ID,
-                                    .str = string_dup(pp->ea, name)});
+                                    .str  = string_dup(pp->ea, name)});
                 }
             } else {
                 expand_macro_internal(pp, macro, 0);
@@ -658,13 +658,13 @@ expand_macro(preprocessor *pp) {
 
 token
 pp_get_token(preprocessor *pp) {
-    token tok = {0};
+    token tok     = {0};
     pp_lexer *lex = pp->lex;
 
     for (;;) {
         if (pp->token_stack) {
             token_stack_entry *entry = pp->token_stack;
-            tok = entry->tok;
+            tok                      = entry->tok;
             LLIST_POP(pp->token_stack);
             LLIST_ADD(pp->token_stack_freelist, entry);
             break;
@@ -694,39 +694,32 @@ pp_get_token(preprocessor *pp) {
 
 #endif
 
-void 
+void
 do_pp(preprocessor *pp) {
-    pp_token *tok_list = 0;
-    pp_token *last_tok = 0;
-    pp_token *tok = 0;
-    char buffer[4096];
-    allocator a = bump_get_allocator(pp->a);
+    linked_list_constructor tokens = {0};
+    pp_token *tok                  = 0;
     for (;;) {
         pp_lexer_parse(pp->lex);
-        tok = get_new_token(pp);
+        tok  = get_new_token(pp);
         *tok = pp->lex->tok;
         if (tok->str.data) {
-            tok->str = string_dup(&a, tok->str);
+            allocator a = bump_get_allocator(pp->a);
+            tok->str    = string_dup(&a, tok->str);
         }
 
-        if (!tok_list) {
-            tok_list = tok;
-        }
-        if (last_tok) {
-            last_tok->next = tok;
-        }
-        last_tok = tok;
+        LLISTC_ADD_LAST(&tokens, tok);
         if (tok->kind == PP_TOK_EOF) {
             break;
         }
+        char buffer[4096];
+
         fmt_pp_tok(tok, buffer, sizeof(buffer));
         printf("%s\n", buffer);
     }
 
-    
-    for (tok = tok_list;
-         tok;
-         tok = tok->next) {
+    pp_token *tok_list = tokens.first;
+    for (tok = tok_list; tok; tok = tok->next) {
+        char buffer[4096];
         fmt_pp_tok(tok, buffer, sizeof(buffer));
         printf("%s\n", buffer);
     }

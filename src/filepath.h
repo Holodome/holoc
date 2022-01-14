@@ -14,4 +14,4 @@ string path_basename(string path);
 string path_to_absolute(string path, struct allocator *a);
 string path_clean(string path, struct allocator *a);
 
-#endif 
+#endif

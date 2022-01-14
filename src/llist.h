@@ -5,7 +5,7 @@
 #define LLIST_ADD(_list, _node)  \
     do {                         \
         (_node)->next = (_list); \
-        (_list) = (_node);       \
+        (_list)       = (_node); \
     } while (0)
 
 // Helper macro used to get the 'next' field of the _node value
@@ -24,7 +24,7 @@
             (_list) = (_node);                          \
         }                                               \
         for (void *temp = (_list); temp;                \
-             temp = _LLIST_GET_NEXT(temp, _node)) {     \
+             temp       = _LLIST_GET_NEXT(temp, _node)) {     \
             if (!_LLIST_GET_NEXT(temp, _node)) {        \
                 _LLIST_GET_NEXT(temp, _node) = (_node); \
                 break;                                  \

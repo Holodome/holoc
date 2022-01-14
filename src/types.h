@@ -7,13 +7,13 @@ Version: 0
 #ifndef TYPES_H
 #define TYPES_H
 
-#include <stdint.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct string {
-    char    *data;
+    char *data;
     uint32_t len;
 } string;
 
-#endif 
+#endif

@@ -485,3 +485,4 @@ build/
 .DS_Store
 
 *.pkex
+*.xcodeproj/*

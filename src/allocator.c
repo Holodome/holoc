@@ -16,9 +16,7 @@ static ALLOCATOR_REALLOC(system_realloc) {
     return new_ptr;
 }
 
-static allocator system_allocator = {
-    0, system_realloc
-};
+static allocator system_allocator = {0, system_realloc};
 
 allocator *
 get_system_allocator(void) {

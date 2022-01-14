@@ -16,19 +16,17 @@
  * error, but it will always advance at least one byte.
  */
 static void *
-__utf8_decode(void *buf, uint32_t *c, int *e)
-{
-    static const char lengths[] = {
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 4, 0
-    };
-    static const int masks[]  = {0x00, 0x7f, 0x1f, 0x0f, 0x07};
+__utf8_decode(void *buf, uint32_t *c, int *e) {
+    static const char lengths[]  = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                   1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+                                   0, 0, 2, 2, 2, 2, 3, 3, 4, 0};
+    static const int masks[]     = {0x00, 0x7f, 0x1f, 0x0f, 0x07};
     static const uint32_t mins[] = {4194304, 0, 128, 2048, 65536};
-    static const int shiftc[] = {0, 18, 12, 6, 0};
-    static const int shifte[] = {0, 6, 4, 2, 0};
+    static const int shiftc[]    = {0, 18, 12, 6, 0};
+    static const int shifte[]    = {0, 6, 4, 2, 0};
 
     unsigned char *s = buf;
-    int len = lengths[s[0] >> 3];
+    int len          = lengths[s[0] >> 3];
 
     /* Compute the pointer to the next character early so that the next
      * iteration can start working on the next character. Neither Clang
@@ -39,20 +37,20 @@ __utf8_decode(void *buf, uint32_t *c, int *e)
     /* Assume a four-byte character and load four bytes. Unused bits are
      * shifted out.
      */
-    *c  = (uint32_t)(s[0] & masks[len]) << 18;
+    *c = (uint32_t)(s[0] & masks[len]) << 18;
     *c |= (uint32_t)(s[1] & 0x3f) << 12;
-    *c |= (uint32_t)(s[2] & 0x3f) <<  6;
-    *c |= (uint32_t)(s[3] & 0x3f) <<  0;
+    *c |= (uint32_t)(s[2] & 0x3f) << 6;
+    *c |= (uint32_t)(s[3] & 0x3f) << 0;
     *c >>= shiftc[len];
 
     /* Accumulate the various error conditions. */
-    *e  = (*c < mins[len]) << 6; // non-canonical encoding
+    *e = (*c < mins[len]) << 6;       // non-canonical encoding
     *e |= ((*c >> 11) == 0x1b) << 7;  // surrogate half?
-    *e |= (*c > 0x10FFFF) << 8;  // out of range?
+    *e |= (*c > 0x10FFFF) << 8;       // out of range?
     *e |= (s[1] & 0xc0) >> 2;
     *e |= (s[2] & 0xc0) >> 4;
-    *e |= (s[3]       ) >> 6;
-    *e ^= 0x2a; // top two bits of each tail byte correct?
+    *e |= (s[3]) >> 6;
+    *e ^= 0x2a;  // top two bits of each tail byte correct?
     *e >>= shifte[len];
 
     return next;
@@ -60,20 +58,20 @@ __utf8_decode(void *buf, uint32_t *c, int *e)
 
 static void *
 utf8_decode_verbose(void *src, uint32_t *cp_p, uint32_t *errors) {
-    return __utf8_decode(src, cp_p, (int *)errors);   
+    return __utf8_decode(src, cp_p, (int *)errors);
 }
 
 void *
 utf8_decode(void *src, uint32_t *cp_p) {
     uint32_t error;
-    return utf8_decode_verbose(src, cp_p, &error);    
+    return utf8_decode_verbose(src, cp_p, &error);
 }
 
 void *
 utf8_encode(void *dst, uint32_t cp) {
-    uint8_t *d = (uint8_t *)dst; 
+    uint8_t *d = (uint8_t *)dst;
     if (cp <= 0x0000007F) {
-        *d++ = cp;   
+        *d++ = cp;
     } else if (cp <= 0x000007FF) {
         *d++ = 0xC0 | (cp >> 6);
         *d++ = 0x80 | (cp & 0x3F);
@@ -86,7 +84,7 @@ utf8_encode(void *dst, uint32_t cp) {
         *d++ = 0x80 | ((cp >> 12) & 0x3F);
         *d++ = 0x80 | ((cp >> 6) & 0x3F);
         *d++ = 0x80 | (cp & 0x3F);
-    } 
+    }
     return (void *)d;
 }
 
