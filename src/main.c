@@ -210,12 +210,13 @@ process_file(string filename) {
         return;
     }
     
+    printf("Preprocessing:\n");
     bump_allocator pp_bump = {0};
     preprocessor pp = {0};
-    pp.lexer = &lexer;
+    pp.lex = &lexer;
     pp.a = &pp_bump;
     for (;;) {
-        token tok = preprocessor_get_token(&pp);
+        token tok = pp_get_token(&pp);
         if (tok.kind == TOK_EOF) {
             break;
         }
