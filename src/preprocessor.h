@@ -6,6 +6,7 @@
 struct pp_lexer;
 struct bump_allocator;
 struct pp_token;
+struct c_type;
 
 #define PREPROCESSOR_MACRO_HASH_SIZE 8192
 
@@ -43,23 +44,21 @@ typedef struct pp_conditional_include {
 } pp_conditional_include;
 
 typedef enum token_kind {
-    TOK_EOF   = 0x0,
-    TOK_ID    = 0x1,
-    TOK_PUNCT = 0x2,
-    TOK_STR   = 0x3,
-    TOK_NUM   = 0x4,
+    TOK_EOF   = 0x0,  // End of file
+    TOK_ID    = 0x1,  // Identfier
+    TOK_PUNCT = 0x2,  // Punctuator
+    TOK_STR   = 0x3,  // String or arbitrary type
+    TOK_NUM   = 0x4,  // Number (can be numeric literal or char literal)
+    TOK_KW    = 0x5,  // Keyword
 } token_kind;
 
 typedef struct token {
     token_kind kind;
     string str;
+    int64_t int_value;
+    long double float_value;
+    struct c_type *type;
 } token;
-
-typedef struct token_stack_entry {
-    token tok;
-    struct token_stack_entry *next;
-    struct token_stack_entry *prev;
-} token_stack_entry;
 
 // #pragma once files
 // @NOTE: Number of files is generally small, so we are okay with having linked
@@ -79,8 +78,6 @@ typedef struct preprocessor {
     struct bump_allocator *a;
     struct allocator *ea;
 
-    token_stack_entry *token_stack;
-
     // Value for __COUNTER__
     uint32_t counter_value;
     pp_conditional_include *cond_incl_stack;
@@ -92,9 +89,11 @@ typedef struct preprocessor {
     struct pp_token *tok_freelist;
     pp_conditional_include *incl_freelist;
     pp_macro_expansion_arg *macro_expansion_arg_freelist;
-    token_stack_entry *token_stack_freelist;
 } preprocessor;
 
 void do_pp(preprocessor *pp);
+
+uint32_t fmt_token(token *tok, char *buf, uint32_t buf_size);
+uint32_t fmt_token_verbose(token *tok, char *buf, uint32_t buf_size);
 
 #endif
