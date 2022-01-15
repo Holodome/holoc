@@ -23,5 +23,9 @@ $(DIR):
 
 clean:
 	rm -rf $(DIR)
+
+format:
+	find src -iname *.h -o -iname *.c | xargs clang-format -i --style=file --verbose
+
 	
-.PHONY: clean
+.PHONY: clean format

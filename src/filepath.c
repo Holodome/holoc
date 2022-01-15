@@ -157,4 +157,3 @@ path_clean(string path, struct allocator *a) {
     da_free(its, a);
     return string_memdup(a, buffer);
 }
-

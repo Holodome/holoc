@@ -44,4 +44,3 @@ da_free_(void *da, uintptr_t stride, allocator *a) {
     darray_header *header = da_header(da);
     afree(a, header, header->capacity * stride);
 }
-
