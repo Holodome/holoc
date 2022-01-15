@@ -13,23 +13,24 @@
 // _node can be void *
 // _sample must be type that has 'next' field
 #define _LLIST_GET_NEXT(_node, _sample) \
-    *(void **)((char *)(_node) + ((_sample)->next - (_sample)))
+    *(void **)( (char *)(_node) + ((char *)&(_sample)->next - (char *)(_sample)))
 
 // Quick and dirty way to append to the end of the linked list
 // doing this in loop is not advised, use linked_list_constructor
 // instead
-#define LLIST_ADD_LAST(_list, _node)                    \
-    do {                                                \
-        if (!(_list)) {                                 \
-            (_list) = (_node);                          \
-        }                                               \
-        for (void *temp = (_list); temp;                \
-             temp       = _LLIST_GET_NEXT(temp, _node)) {     \
-            if (!_LLIST_GET_NEXT(temp, _node)) {        \
-                _LLIST_GET_NEXT(temp, _node) = (_node); \
-                break;                                  \
-            }                                           \
-        }                                               \
+#define LLIST_ADD_LAST(_list, _node)                        \
+    do {                                                    \
+        if (!(_list)) {                                     \
+            (_list) = (_node);                              \
+        } else {                                            \
+            for (void *temp = (_list); temp;                \
+                 temp       = _LLIST_GET_NEXT(temp, _node)) {     \
+                if (!_LLIST_GET_NEXT(temp, _node)) {        \
+                    _LLIST_GET_NEXT(temp, _node) = (_node); \
+                    break;                                  \
+                }                                           \
+            }                                               \
+        }                                                   \
     } while (0)
 
 // Pops first element from the linked list

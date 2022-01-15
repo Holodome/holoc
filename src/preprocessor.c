@@ -697,7 +697,8 @@ pp_get_token(preprocessor *pp) {
 void
 do_pp(preprocessor *pp) {
     linked_list_constructor tokens = {0};
-    pp_token *tok                  = 0;
+
+    pp_token *tok = 0;
     for (;;) {
         pp_lexer_parse(pp->lex);
         tok  = get_new_token(pp);
@@ -711,10 +712,6 @@ do_pp(preprocessor *pp) {
         if (tok->kind == PP_TOK_EOF) {
             break;
         }
-        char buffer[4096];
-
-        fmt_pp_tok(tok, buffer, sizeof(buffer));
-        printf("%s\n", buffer);
     }
 
     pp_token *tok_list = tokens.first;
