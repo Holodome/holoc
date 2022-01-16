@@ -305,4 +305,3 @@ convert_c_number(char *number) {
     }
     return result;
 }
-

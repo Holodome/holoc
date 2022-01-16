@@ -58,9 +58,11 @@ typedef struct pp_token {
     preprocessor_punct_kind punct_kind;
     string str;
     // TODO: Replace this with flags
-    // TODO: Replace this wiht number of whitespaces, so we can fully reconstruct source tree
+    // TODO: Replace this wiht number of whitespaces, so we can fully
+    // reconstruct source tree
     bool has_whitespace;
-    // TODO: Replace this with skipped line number, so we can fully reconstruct source tree
+    // TODO: Replace this with skipped line number, so we can fully reconstruct
+    // source tree
     bool at_line_start;
     // Not used in pp_lexer directly, but in preprocessor
     struct pp_token *next;
@@ -72,10 +74,11 @@ typedef struct pp_token {
 // solution for generating tokens, not doing any memory allocations and thus
 // being flexible to use in further file processing stage - preprocessing
 //
-// Due to the nature of the c language, strings of all tokens produced at preprocessing stage 
-// may or may not correspond to actual tokens. This is actual for numbers.
-// However, all tokens that are not produced from preprocessing context in source (not part of 
-// macro invocation) _shold_ be correct c tokens.
+// Due to the nature of the c language, strings of all tokens produced at
+// preprocessing stage may or may not correspond to actual tokens. This is
+// actual for numbers. However, all tokens that are not produced from
+// preprocessing context in source (not part of macro invocation) _shold_ be
+// correct c tokens.
 typedef struct pp_lexer {
     char *data;
     char *eof;

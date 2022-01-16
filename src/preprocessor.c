@@ -719,12 +719,12 @@ do_pp(preprocessor *pp) {
 
 static string
 get_kw_str(c_keyword_kind kind) {
-    return (string) {0};
+    return (string){0};
 }
 
 static string
 get_punct_str(c_punct_kind kind) {
-    return (string) {0};
+    return (string){0};
 }
 
 uint32_t

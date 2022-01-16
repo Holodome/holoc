@@ -13,7 +13,7 @@
 // _node can be void *
 // _sample must be type that has 'next' field
 #define _LLIST_GET_NEXT(_node, _sample) \
-    *(void **)( (char *)(_node) + ((char *)&(_sample)->next - (char *)(_sample)))
+    *(void **)((char *)(_node) + ((char *)&(_sample)->next - (char *)(_sample)))
 
 // Quick and dirty way to append to the end of the linked list
 // doing this in loop is not advised, use linked_list_constructor
