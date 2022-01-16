@@ -142,16 +142,18 @@ get_standard_type(c_type_kind kind) {
 c_type *
 make_ptr_type(c_type *base, struct allocator *a) {
     c_type *type = aalloc(a, sizeof(c_type));
+    type->size = sizeof(void *);
     type->ptr_to = base;
     type->kind = C_TYPE_PTR;
     return type;
 }
 
 c_type *
-make_array_type(c_type *base, uint32_t size, struct allocator *a) {
+make_array_type(c_type *base, uint32_t len, struct allocator *a) {
     c_type *type = aalloc(a, sizeof(c_type));
+    type->size = len * base->size;
     type->ptr_to = base;
-    type->arr_len = size;
+    type->arr_len = len;
     type->kind = C_TYPE_ARRAY;
     return type;
 }
