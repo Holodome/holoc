@@ -250,7 +250,7 @@ fmt_c_type_bw(c_type *type, buffer_writer *w) {
     } break;
     case C_TYPE_ARRAY: {
         fmt_c_type_bw(type->ptr_to, w);
-        buf_write(w, "[%u]", type->array_len);
+        buf_write(w, "[%u]", type->arr_len);
     } break;
     case C_TYPE_UNION: {
         buf_write(w, "union");
