@@ -17,6 +17,8 @@ Defines functions used when working with unicode
 
 // Decodes from utf8 unicode codepoint
 // Retuns pointer to byte past decoded codepoint
+void *utf8_decode_fast(void *src, uint32_t *codepoint_p);
+
 void *utf8_decode(void *src, uint32_t *codepoint_p);
 
 // Encodes unciode codepoint as utf8.

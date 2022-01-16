@@ -62,9 +62,39 @@ utf8_decode_verbose(void *src, uint32_t *cp_p, uint32_t *errors) {
 }
 
 void *
-utf8_decode(void *src, uint32_t *cp_p) {
+utf8_decode_fast(void *src, uint32_t *cp_p) {
     uint32_t error;
     return utf8_decode_verbose(src, cp_p, &error);
+}
+
+void *
+utf8_decode(void *srcv, uint32_t *codepoint_p) {
+    // TODO: Handling of incorrect encoding is totally broken right now. 
+    uint8_t *src = srcv;
+    uint32_t utf32 = 0;
+    if ((src[0] & 0x80) == 0x00) {
+        utf32 = src[0];
+        ++src;
+    } else if ((src[0] & 0xE0) == 0xC0) {
+        if ((src[1] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x1F) << 6) | (src[1] & 0x3F);     
+            src += 2;
+        }
+    } else if ((src[0] & 0xF0) == 0xE0) {
+        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x0F) << 12) | ((src[1] & 0x3F) << 6) | (src[2] & 0x3F);     
+            src += 3;
+        }
+    } else if ((src[0] & 0xF8) == 0xF0) {
+        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80 && (src[3] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) | ((src[2] & 0x3F) << 6) 
+                | (src[3] & 0x3F);     
+            src += 4;
+        }
+    }
+
+    *codepoint_p = utf32;
+    return src;
 }
 
 void *
