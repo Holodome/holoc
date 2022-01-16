@@ -6,7 +6,9 @@
 #include <string.h>
 
 #include "allocator.h"
+#include "buffer_writer.h"
 #include "bump_allocator.h"
+#include "c_types.h"
 #include "hashing.h"
 #include "llist.h"
 #include "pp_lexer.h"
@@ -121,7 +123,7 @@ define_macro(preprocessor *pp) {
         assert(false);
     }
 
-    string ident_name = string(lex->tok_buf, lex->tok_buf_len);
+    string ident_name = string(lex->tok_buf, lex->tok_buf_size);
     uint32_t hash     = hash_string(ident_name);
     pp_macro **macrop = get_macro(pp, hash);
     if (*macrop) {
@@ -216,7 +218,7 @@ undef_macro(preprocessor *pp) {
         assert(false);
     }
 
-    string ident_name = string(lex->tok_buf, lex->tok_buf_len);
+    string ident_name = string(lex->tok_buf, lex->tok_buf_size);
     uint32_t hash     = hash_string(ident_name);
     pp_macro **macrop = get_macro(pp, hash);
     if (*macrop) {
@@ -250,7 +252,7 @@ skip_cond_incl(preprocessor *pp) {
             lex->tok_at_line_start) {
             pp_lexer_parse(lex);
             if (lex->tok_kind == PP_TOK_ID) {
-                string directive = string(lex->tok_buf, lex->tok_buf_len);
+                string directive = string(lex->tok_buf, lex->tok_buf_size);
                 if (string_eq(directive, WRAP_Z("if")) ||
                     string_eq(directive, WRAP_Z("ifdef")) ||
                     string_eq(directive, WRAP_Z("ifndef"))) {
@@ -312,7 +314,7 @@ process_pp_directive(preprocessor *pp) {
             break;
         }
 
-        string directive = string(lex->tok_buf, lex->tok_buf_len);
+        string directive = string(lex->tok_buf, lex->tok_buf_size);
         if (string_eq(directive, WRAP_Z("include"))) {
             // TODO:
             break;
@@ -379,7 +381,7 @@ process_pp_directive(preprocessor *pp) {
                 assert(false);
             }
             uint32_t macro_name_hash =
-                hash_string(string(lex->tok_buf, lex->tok_buf_len));
+                hash_string(string(lex->tok_buf, lex->tok_buf_size));
             bool is_defined = (*get_macro(pp, macro_name_hash) != 0);
             push_cond_incl(pp, is_defined);
             if (!is_defined) {
@@ -393,7 +395,7 @@ process_pp_directive(preprocessor *pp) {
                 assert(false);
             }
             uint32_t macro_name_hash =
-                hash_string(string(lex->tok_buf, lex->tok_buf_len));
+                hash_string(string(lex->tok_buf, lex->tok_buf_size));
             bool is_defined = (*get_macro(pp, macro_name_hash) != 0);
             push_cond_incl(pp, !is_defined);
             if (is_defined) {
@@ -411,33 +413,6 @@ process_pp_directive(preprocessor *pp) {
         }
     }
 }
-
-static token
-convert_pp_token(preprocessor *pp, pp_token *pp_tok) {
-    token tok = {0};
-    switch (pp_tok->kind) {
-    case PP_TOK_EOF: {
-        tok.kind = TOK_EOF;
-    } break;
-    case PP_TOK_ID: {
-        tok.kind = TOK_ID;
-    } break;
-    case PP_TOK_NUM: {
-        tok.kind = TOK_NUM;
-    } break;
-    case PP_TOK_STR: {
-        tok.kind = TOK_STR;
-    } break;
-    case PP_TOK_PUNCT: {
-        tok.kind = TOK_PUNCT;
-    } break;
-    case PP_TOK_OTHER: {
-        assert(false);
-    } break;
-    }
-    return tok;
-}
-
 static void
 push_token_to_stack(preprocessor *pp, token tok) {
     token_stack_entry *entry = get_new_token_stack_entry(pp);
@@ -583,7 +558,7 @@ expand_macro(preprocessor *pp) {
 
     pp_lexer *lex = pp->lex;
     if (lex->tok_kind == PP_TOK_ID) {
-        string name        = string(lex->tok_buf, lex->tok_buf_len);
+        string name        = string(lex->tok_buf, lex->tok_buf_size);
         uint32_t name_hash = hash_string(name);
         pp_macro **macrop  = get_macro(pp, name_hash);
         if (*macrop) {
@@ -694,6 +669,33 @@ pp_get_token(preprocessor *pp) {
 
 #endif
 
+static token
+convert_pp_token(preprocessor *pp, pp_token *pp_tok) {
+    token tok = {0};
+    switch (pp_tok->kind) {
+    case PP_TOK_EOF: {
+        tok.kind = TOK_EOF;
+    } break;
+    case PP_TOK_ID: {
+        tok.kind = TOK_ID;
+        tok.str  = string_dup(pp->ea, pp_tok->str);
+    } break;
+    case PP_TOK_NUM: {
+        tok.kind = TOK_NUM;
+    } break;
+    case PP_TOK_STR: {
+        tok.kind = TOK_STR;
+    } break;
+    case PP_TOK_PUNCT: {
+        tok.kind = TOK_PUNCT;
+    } break;
+    case PP_TOK_OTHER: {
+        assert(false);
+    } break;
+    }
+    return tok;
+}
+
 void
 do_pp(preprocessor *pp) {
     linked_list_constructor tokens = {0};
@@ -713,11 +715,122 @@ do_pp(preprocessor *pp) {
             break;
         }
     }
+}
 
-    pp_token *tok_list = tokens.first;
-    for (tok = tok_list; tok; tok = tok->next) {
-        char buffer[4096];
-        fmt_pp_tok(tok, buffer, sizeof(buffer));
-        printf("%s\n", buffer);
+static string
+get_kw_str(c_keyword_kind kind) {
+    return (string) {0};
+}
+
+static string
+get_punct_str(c_punct_kind kind) {
+    return (string) {0};
+}
+
+uint32_t
+fmt_token(token *tok, char *buf, uint32_t buf_size) {
+    buffer_writer w = {buf, buf + buf_size};
+    switch (tok->kind) {
+    case TOK_EOF:
+        break;
+    case TOK_ID:
+        buf_write(&w, "%.*s", tok->str.len, tok->str.data);
+        break;
+    case TOK_NUM:
+        if (c_type_is_int(tok->type->kind)) {
+            buf_write(&w, "%llu", tok->uint_value);
+            switch (tok->type->kind) {
+            default:
+                break;
+            case C_TYPE_ULLINT:
+            case C_TYPE_SLLINT:
+                buf_write(&w, "ll");
+                break;
+            case C_TYPE_ULINT:
+            case C_TYPE_SLINT:
+                buf_write(&w, "l");
+                break;
+            }
+            if (c_type_is_int_unsigned(tok->type->kind)) {
+                buf_write(&w, "u");
+            }
+        } else {
+            buf_write(&w, "%Lg", tok->float_value);
+            switch (tok->type->kind) {
+            default:
+                break;
+            case C_TYPE_FLOAT:
+                buf_write(&w, "f");
+                break;
+            case C_TYPE_LDOUBLE:
+                buf_write(&w, "l");
+                break;
+            }
+        }
+        break;
+    case TOK_STR:
+        assert(tok->type->kind == C_TYPE_ARRAY);
+        switch (tok->type->ptr_to->kind) {
+        default:
+            buf_write(&w, "\"");
+            break;
+        case C_TYPE_WCHAR:
+            buf_write(&w, "L\"");
+            break;
+        case C_TYPE_UCHAR:
+            buf_write(&w, "u8\"");
+            break;
+        case C_TYPE_CHAR16:
+            buf_write(&w, "u\"");
+            break;
+        case C_TYPE_CHAR32:
+            buf_write(&w, "U\"");
+            break;
+        }
+        buf_write(&w, "%.*s", tok->str.len, tok->str.data);
+        buf_write(&w, "\"");
+        break;
+    case TOK_PUNCT:
+        if (tok->punct < 0x100) {
+            buf_write(&w, "%c", tok->punct);
+        } else {
+            string punct_str = get_punct_str(tok->punct);
+            buf_write(&w, "%.*s", punct_str.len, punct_str.data);
+        }
+        break;
+    case TOK_KW: {
+        string kw_str = get_kw_str(tok->kw);
+        buf_write(&w, "%.*s", kw_str.len, kw_str.data);
+    } break;
     }
+    return w.cursor - buf;
+}
+
+uint32_t
+fmt_tok_verbose(token *tok, char *buf, uint32_t buf_size) {
+    uint32_t result = 0;
+    switch (tok->kind) {
+    case TOK_EOF:
+        result = snprintf(buf, buf_size, "<EOF>");
+        break;
+    case TOK_ID:
+        result = snprintf(buf, buf_size, "<ID>");
+        break;
+    case TOK_NUM:
+        result = snprintf(buf, buf_size, "<Num>");
+        break;
+    case TOK_STR:
+        result = snprintf(buf, buf_size, "<Str>");
+        break;
+    case TOK_PUNCT:
+        result = snprintf(buf, buf_size, "<Punct>");
+        break;
+    case TOK_KW:
+        result = snprintf(buf, buf_size, "<Kw>");
+        break;
+    }
+    buf += result;
+    buf_size -= result;
+    result += fmt_token(tok, buf, buf_size);
+    return result;
 }
