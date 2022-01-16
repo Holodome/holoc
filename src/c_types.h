@@ -36,8 +36,8 @@ typedef enum {
 
     C_TYPE_ENUM   = 0x16,  // enum
     C_TYPE_STRUCT = 0x17,  // struct
-    C_TYPE_PTR    = 0x18,  // *
-    C_TYPE_FUNC   = 0x19,
+    C_TYPE_PTR    = 0x18,  // int*
+    C_TYPE_FUNC   = 0x19,  // int(char, void**)
     C_TYPE_ARRAY  = 0x1A,  // int[10]
     C_TYPE_UNION  = 0x1B,  // union
 } c_type_kind;
@@ -66,5 +66,23 @@ typedef struct c_type {
     struct c_type *func_return;
     c_func_arg *func_args;
 } c_type;
+
+// Structure describing result of converting string to a number
+typedef struct c_number_convert_result {
+    // If given string has been identified as a number
+    bool is_valid;
+    // Parsed int value. Not unsigned here, as sign is not accounted here (sign
+    // is another token in lexer)
+    uint64_t uint_value;
+    // Parsed float value
+    long double float_value;
+    // Resulting type
+    c_type_kind type_kind;
+} c_number_convert_result;
+
+// NOTE: This is more of a function related to preprocessing (or lexing)
+// but since it inderectly implies use of c_type_kind in result it has been
+// decided to be put here
+c_number_convert_result convert_c_number(char *number);
 
 #endif
