@@ -245,6 +245,7 @@ read_utf8_string_literal(pp_lexer *lexer, char terminator) {
     lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
 
+#if 0
 static void
 read_utf16_string_literal(pp_lexer *lexer, char terminator) {
     uint16_t *write_cursor = (uint16_t *)lexer->tok_buf;
@@ -288,6 +289,7 @@ read_utf32_string_literal(pp_lexer *lexer, char terminator) {
     *write_cursor      = 0;
     lexer->tok_buf_len = (char *)write_cursor - lexer->tok_buf;
 }
+#endif
 
 static bool
 parse_string_literal(pp_lexer *lexer) {
@@ -314,6 +316,8 @@ parse_string_literal(pp_lexer *lexer) {
         lexer->cursor   = test_cursor;
         result          = true;
 
+        read_utf8_string_literal(lexer, terminator);
+#if 0
         switch (str_kind) {
         default:
             assert(false);
@@ -329,7 +333,7 @@ parse_string_literal(pp_lexer *lexer) {
             read_utf32_string_literal(lexer, terminator);
             break;
         }
-
+#endif
         if (*test_cursor == '\'') {
             str_kind += PP_TOK_STR_ADVANCE;
         }
