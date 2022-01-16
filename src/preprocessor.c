@@ -13,6 +13,7 @@
 #include "llist.h"
 #include "pp_lexer.h"
 #include "str.h"
+#include "unicode.h"
 
 // FIXME: All copies from lex->string_buf act as if it always was an 1-byte
 // aligned array, which in reality it may be not
@@ -78,6 +79,7 @@ get_new_token(preprocessor *pp) {
     return tok;
 }
 
+#if 0
 static pp_conditional_include *
 get_new_cond_incl(preprocessor *pp) {
     pp_conditional_include *incl = pp->incl_freelist;
@@ -114,7 +116,6 @@ get_new_token_stack_entry(preprocessor *pp) {
     return entry;
 }
 
-#if 0
 static void
 define_macro(preprocessor *pp) {
     pp_lexer *lex = pp->lex;
@@ -684,7 +685,119 @@ convert_pp_token(preprocessor *pp, pp_token *pp_tok) {
         tok.kind = TOK_NUM;
     } break;
     case PP_TOK_STR: {
-        tok.kind = TOK_STR;
+        // First, deduce the type
+        switch (pp_tok->str_kind) {
+        default:
+            assert(false);
+            break;
+        case PP_TOK_STR_SCHAR:
+            tok.type = make_array_type(get_standard_type(C_TYPE_CHAR),
+                                       pp_tok->str.len + 1, pp->ea);
+            break;
+        case PP_TOK_STR_SUTF8:
+            tok.type = make_array_type(get_standard_type(C_TYPE_UCHAR),
+                                       pp_tok->str.len + 1, pp->ea);
+            break;
+        case PP_TOK_STR_SUTF16:
+            // FIXME: Array size
+            tok.type = make_array_type(get_standard_type(C_TYPE_CHAR16),
+                                       pp_tok->str.len + 1, pp->ea);
+            break;
+        case PP_TOK_STR_SUTF32:
+            // FIXME: Array size
+            tok.type = make_array_type(get_standard_type(C_TYPE_CHAR32),
+                                       pp_tok->str.len + 1, pp->ea);
+            break;
+        case PP_TOK_STR_SWIDE:
+            // FIXME: Array size
+            tok.type = make_array_type(get_standard_type(C_TYPE_WCHAR),
+                                       pp_tok->str.len + 1, pp->ea);
+            break;
+        case PP_TOK_STR_CCHAR:
+            tok.type = get_standard_type(C_TYPE_CHAR);
+            break;
+        case PP_TOK_STR_CUTF8:
+            tok.type = get_standard_type(C_TYPE_UCHAR);
+            break;
+        case PP_TOK_STR_CUTF16:
+            tok.type = get_standard_type(C_TYPE_CHAR16);
+            break;
+        case PP_TOK_STR_CUTF32:
+            tok.type = get_standard_type(C_TYPE_CHAR32);
+            break;
+        case PP_TOK_STR_CWIDE:
+            tok.type = get_standard_type(C_TYPE_WCHAR);
+            break;
+        }
+
+        switch (pp_tok->str_kind) {
+        default:
+            assert(false);
+            break;
+        case PP_TOK_STR_SCHAR:
+        case PP_TOK_STR_SUTF8:
+        case PP_TOK_STR_SUTF16:
+        case PP_TOK_STR_SUTF32:
+        case PP_TOK_STR_SWIDE: {
+            uint32_t byte_stride = tok.type->size;
+
+            uint32_t len = 0;
+            char *cursor = pp_tok->str.data;
+            while (*cursor) {
+                uint32_t cp;
+                cursor = utf8_decode(cursor, &cp);
+                ++len;
+            }
+            void *buffer       = aalloc(pp->ea, byte_stride * (len + 1));
+            void *write_cursor = buffer;
+            cursor             = pp_tok->str.data;
+            while (*cursor) {
+                uint32_t cp;
+                cursor = utf8_decode(cursor, &cp);
+                if (byte_stride == 1) {
+                    // TODO: If resulting string is utf8 we can skip decodind
+                    // and encoding
+                    write_cursor = utf8_encode(write_cursor, cp);
+                } else if (byte_stride == 2) {
+                    write_cursor = utf16_encode(write_cursor, cp);
+                } else if (byte_stride == 4) {
+                    memcpy(write_cursor, &cp, 4);
+                    write_cursor = (char *)write_cursor + 4;
+                } else {
+                    assert(false);
+                }
+            }
+            uint32_t zero = 0;
+            memcpy(write_cursor, &zero, byte_stride);
+
+            tok.kind = TOK_STR;
+            tok.str  = string(buffer, byte_stride * len);
+        } break;
+        case PP_TOK_STR_CCHAR:
+        case PP_TOK_STR_CUTF8:
+        case PP_TOK_STR_CUTF16:
+        case PP_TOK_STR_CUTF32:
+        case PP_TOK_STR_CWIDE: {
+            // Treat all character literals as mutltibyte.
+            // Convert it to number
+            uint64_t value       = 0;
+            char *cursor         = pp_tok->str.data;
+            uint32_t byte_stride = tok.type->size;
+            while (*cursor) {
+                uint32_t cp;
+                cursor = utf8_decode(cursor, &cp);
+                if (cp >= 1 << (8 * byte_stride)) {
+                    // TODO: Diagnostic
+                    break;
+                }
+                value = (value << (8 * byte_stride)) | cp;
+            }
+            // Make sure the value is in expected range
+            value &= (1 << (8 * byte_stride)) - 1;
+            tok.kind       = TOK_NUM;
+            tok.uint_value = value;
+        } break;
+        }
     } break;
     case PP_TOK_PUNCT: {
         tok.kind = TOK_PUNCT;
