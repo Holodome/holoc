@@ -245,6 +245,21 @@ convert_c_int(c_number_convert_result *result, char *p) {
 
 static void
 convert_c_float(c_number_convert_result *result, char *p) {
+    long double value = strtold(p, &p);
+    uint32_t type = C_TYPE_DOUBLE;
+    if (*p == 'f' || *p == 'F') {
+        ++p;
+        type = C_TYPE_FLOAT;
+    } else if (*p == 'l' || *p == 'L') {
+        ++p;
+        type = C_TYPE_LDOUBLE;
+    }
+
+    if (!*p) {
+        result->is_valid = true;
+        result->float_value = value;
+        result->type_kind = type;
+    }
 }
 
 c_number_convert_result
