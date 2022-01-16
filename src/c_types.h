@@ -4,6 +4,7 @@
 #include "types.h"
 
 struct c_type;
+struct allocator;
 
 typedef enum {
     C_TYPE_VOID = 0x0,  // void
@@ -62,7 +63,7 @@ typedef struct c_type {
 
     c_struct_member *struct_members;
     struct c_type *ptr_to;
-    uint32_t array_len;
+    uint32_t arr_len;
     struct c_type *func_return;
     c_func_arg *func_args;
 } c_type;
@@ -71,6 +72,11 @@ bool c_type_is_int(c_type_kind kind);
 bool c_type_is_float(c_type_kind kind);
 bool c_type_is_int_signed(c_type_kind kind);
 bool c_type_is_int_unsigned(c_type_kind kind);
+
+bool c_types_are_compatible(c_type *a, c_type *b);
+c_type *get_standard_type(c_type_kind kind);
+c_type *make_ptr_type(c_type *base, struct allocator *a);
+c_type *make_array_type(c_type *base, uint32_t size, struct allocator *a);
 
 uint32_t fmt_c_type(c_type *type, char *buf, uint32_t buf_size);
 

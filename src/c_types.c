@@ -1,11 +1,41 @@
 #include "c_types.h"
 
+#include <assert.h>
 #include <ctype.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "allocator.h"
 #include "buffer_writer.h"
+
+#define MAKE_TYPE(_kind, _size)      \
+    &(c_type) {                      \
+        .kind = _kind, .size = _size \
+    }
+static c_type *type_void = MAKE_TYPE(C_TYPE_VOID, 1);
+
+static c_type *type_char   = MAKE_TYPE(C_TYPE_CHAR, 1);
+static c_type *type_schar  = MAKE_TYPE(C_TYPE_SCHAR, 1);
+static c_type *type_uchar  = MAKE_TYPE(C_TYPE_UCHAR, 1);
+static c_type *type_wchar  = MAKE_TYPE(C_TYPE_WCHAR, 4);
+static c_type *type_char16 = MAKE_TYPE(C_TYPE_CHAR16, 2);
+static c_type *type_char32 = MAKE_TYPE(C_TYPE_CHAR32, 4);
+
+static c_type *type_sint   = MAKE_TYPE(C_TYPE_SINT, 4);
+static c_type *type_uint   = MAKE_TYPE(C_TYPE_UINT, 4);
+static c_type *type_slint  = MAKE_TYPE(C_TYPE_SLINT, 8);
+static c_type *type_ulint  = MAKE_TYPE(C_TYPE_ULINT, 8);
+static c_type *type_sllint = MAKE_TYPE(C_TYPE_SLLINT, 8);
+static c_type *type_ullint = MAKE_TYPE(C_TYPE_ULLINT, 8);
+static c_type *type_ssint  = MAKE_TYPE(C_TYPE_SSINT, 2);
+static c_type *type_usint  = MAKE_TYPE(C_TYPE_USINT, 2);
+
+static c_type *type_float   = MAKE_TYPE(C_TYPE_FLOAT, 4);
+static c_type *type_double  = MAKE_TYPE(C_TYPE_DOUBLE, 8);
+static c_type *type_ldouble = MAKE_TYPE(C_TYPE_LDOUBLE, 8);
+
+static c_type *type_bool = MAKE_TYPE(C_TYPE_BOOL, 1);
 
 bool
 c_type_is_int(c_type_kind kind) {
@@ -32,6 +62,98 @@ c_type_is_int_unsigned(c_type_kind kind) {
            kind == C_TYPE_USINT || kind == C_TYPE_CHAR ||
            kind == C_TYPE_CHAR16 || kind == C_TYPE_CHAR32 ||
            kind == C_TYPE_BOOL;
+}
+
+bool
+c_types_are_compatible(c_type *a, c_type *b) {
+    bool result = false;
+    assert(false);
+    // TODO:
+    return result;
+}
+
+c_type *
+get_standard_type(c_type_kind kind) {
+    c_type *type = 0;
+    switch (kind) {
+    default:
+        break;
+    case C_TYPE_VOID:
+        type = type_void;
+        break;
+    case C_TYPE_CHAR:
+        type = type_char;
+        break;
+    case C_TYPE_SCHAR:
+        type = type_schar;
+        break;
+    case C_TYPE_UCHAR:
+        type = type_uchar;
+        break;
+    case C_TYPE_WCHAR:
+        type = type_wchar;
+        break;
+    case C_TYPE_CHAR16:
+        type = type_char16;
+        break;
+    case C_TYPE_CHAR32:
+        type = type_char32;
+        break;
+    case C_TYPE_SINT:
+        type = type_sint;
+        break;
+    case C_TYPE_UINT:
+        type = type_uint;
+        break;
+    case C_TYPE_SLINT:
+        type = type_slint;
+        break;
+    case C_TYPE_ULINT:
+        type = type_ulint;
+        break;
+    case C_TYPE_SLLINT:
+        type = type_sllint;
+        break;
+    case C_TYPE_ULLINT:
+        type = type_ullint;
+        break;
+    case C_TYPE_SSINT:
+        type = type_ssint;
+        break;
+    case C_TYPE_USINT:
+        type = type_usint;
+        break;
+    case C_TYPE_FLOAT:
+        type = type_float;
+        break;
+    case C_TYPE_DOUBLE:
+        type = type_double;
+        break;
+    case C_TYPE_LDOUBLE:
+        type = type_ldouble;
+        break;
+    case C_TYPE_BOOL:
+        type = type_bool;
+        break;
+    }
+    return type;
+}
+
+c_type *
+make_ptr_type(c_type *base, struct allocator *a) {
+    c_type *type = aalloc(a, sizeof(c_type));
+    type->ptr_to = base;
+    type->kind = C_TYPE_PTR;
+    return type;
+}
+
+c_type *
+make_array_type(c_type *base, uint32_t size, struct allocator *a) {
+    c_type *type = aalloc(a, sizeof(c_type));
+    type->ptr_to = base;
+    type->arr_len = size;
+    type->kind = C_TYPE_ARRAY;
+    return type;
 }
 
 void
