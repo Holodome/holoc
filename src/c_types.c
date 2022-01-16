@@ -7,8 +7,35 @@
 
 #include "buffer_writer.h"
 
+bool
+c_type_is_int(c_type_kind kind) {
+    return c_type_is_int_signed(kind) || c_type_is_int_unsigned(kind);
+}
+
+bool
+c_type_is_float(c_type_kind kind) {
+    return kind == C_TYPE_FLOAT || kind == C_TYPE_DOUBLE ||
+           kind == C_TYPE_LDOUBLE;
+}
+
+bool
+c_type_is_int_signed(c_type_kind kind) {
+    return kind == C_TYPE_SCHAR || kind == C_TYPE_SINT ||
+           kind == C_TYPE_SLINT || kind == C_TYPE_SLLINT ||
+           kind == C_TYPE_SSINT;
+}
+
+bool
+c_type_is_int_unsigned(c_type_kind kind) {
+    return kind == C_TYPE_UCHAR || kind == C_TYPE_UINT ||
+           kind == C_TYPE_ULINT || kind == C_TYPE_ULLINT ||
+           kind == C_TYPE_USINT || kind == C_TYPE_CHAR ||
+           kind == C_TYPE_CHAR16 || kind == C_TYPE_CHAR32 ||
+           kind == C_TYPE_BOOL;
+}
+
 void
-fmt_c_type(c_type *type, buffer_writer *w) {
+fmt_c_type_bw(c_type *type, buffer_writer *w) {
     switch (type->kind) {
     case C_TYPE_VOID: {
         buf_write(w, "void");
@@ -85,14 +112,14 @@ fmt_c_type(c_type *type, buffer_writer *w) {
         // Is this it?..
     } break;
     case C_TYPE_PTR: {
-        fmt_c_type(type->ptr_to, w);
+        fmt_c_type_bw(type->ptr_to, w);
         buf_write(w, "*");
     } break;
     case C_TYPE_FUNC: {
-        fmt_c_type(type->func_return, w);
+        fmt_c_type_bw(type->func_return, w);
         buf_write(w, "(");
         for (c_func_arg *arg = type->func_args; arg; arg = arg->next) {
-            fmt_c_type(arg->type, w);
+            fmt_c_type_bw(arg->type, w);
             if (arg->next) {
                 buf_write(w, ", ");
             }
@@ -100,7 +127,7 @@ fmt_c_type(c_type *type, buffer_writer *w) {
         buf_write(w, ")");
     } break;
     case C_TYPE_ARRAY: {
-        fmt_c_type(type->ptr_to, w);
+        fmt_c_type_bw(type->ptr_to, w);
         buf_write(w, "[%u]", type->array_len);
     } break;
     case C_TYPE_UNION: {
@@ -108,6 +135,13 @@ fmt_c_type(c_type *type, buffer_writer *w) {
         // Is this it?..
     } break;
     }
+}
+
+uint32_t
+format_c_type(c_type *type, char *buf, uint32_t buf_size) {
+    buffer_writer writer = {buf, buf + buf_size};
+    fmt_c_type_bw(type, &writer);
+    return writer.cursor - buf;
 }
 
 static void
@@ -125,7 +159,7 @@ convert_c_int(c_number_convert_result *result, char *p) {
         base = 8;
     }
 
-    uint64_t value     = strtoull(p, &p, base);
+    uint64_t value = strtoull(p, &p, base);
 
     enum { INT_SUF_L = 0x1, INT_SUF_LL = 0x2, INT_SUF_U = 0x4 };
     uint32_t suf = 0;
@@ -237,16 +271,16 @@ convert_c_int(c_number_convert_result *result, char *p) {
                 }
             }
         }
-        result->type_kind = type;
+        result->type_kind  = type;
         result->uint_value = value;
-        result->is_valid  = true;
+        result->is_valid   = true;
     }
 }
 
 static void
 convert_c_float(c_number_convert_result *result, char *p) {
     long double value = strtold(p, &p);
-    uint32_t type = C_TYPE_DOUBLE;
+    uint32_t type     = C_TYPE_DOUBLE;
     if (*p == 'f' || *p == 'F') {
         ++p;
         type = C_TYPE_FLOAT;
@@ -256,9 +290,9 @@ convert_c_float(c_number_convert_result *result, char *p) {
     }
 
     if (!*p) {
-        result->is_valid = true;
+        result->is_valid    = true;
         result->float_value = value;
-        result->type_kind = type;
+        result->type_kind   = type;
     }
 }
 
@@ -271,3 +305,4 @@ convert_c_number(char *number) {
     }
     return result;
 }
+

@@ -67,6 +67,13 @@ typedef struct c_type {
     c_func_arg *func_args;
 } c_type;
 
+bool c_type_is_int(c_type_kind kind);
+bool c_type_is_float(c_type_kind kind);
+bool c_type_is_int_signed(c_type_kind kind);
+bool c_type_is_int_unsigned(c_type_kind kind);
+
+uint32_t fmt_c_type(c_type *type, char *buf, uint32_t buf_size);
+
 // Structure describing result of converting string to a number
 typedef struct c_number_convert_result {
     // If given string has been identified as a number
