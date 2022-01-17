@@ -68,27 +68,12 @@ static string KEYWORD_STRINGS[] = {
 };
 
 static string PUNCTUATOR_STRINGS[] = {
-    WRAP_Z("(unknown)"),
-    WRAP_Z(">>="),
-    WRAP_Z("<<="), 
-    WRAP_Z("+="),
-    WRAP_Z("-="),
-    WRAP_Z("*="),
-    WRAP_Z("/="),
-    WRAP_Z("%="), 
-    WRAP_Z("&="),
-    WRAP_Z("|="),
-    WRAP_Z("^="),
-    WRAP_Z("++"),
-    WRAP_Z("--"),
-    WRAP_Z(">>"),
-    WRAP_Z("<<"),
-    WRAP_Z("&&"),
-    WRAP_Z("||"),
-    WRAP_Z("=="),
-    WRAP_Z("!="),
-    WRAP_Z("<="),
-    WRAP_Z(">="), 
+    WRAP_Z("(unknown)"), WRAP_Z(">>="), WRAP_Z("<<="), WRAP_Z("+="),
+    WRAP_Z("-="),        WRAP_Z("*="),  WRAP_Z("/="),  WRAP_Z("%="),
+    WRAP_Z("&="),        WRAP_Z("|="),  WRAP_Z("^="),  WRAP_Z("++"),
+    WRAP_Z("--"),        WRAP_Z(">>"),  WRAP_Z("<<"),  WRAP_Z("&&"),
+    WRAP_Z("||"),        WRAP_Z("=="),  WRAP_Z("!="),  WRAP_Z("<="),
+    WRAP_Z(">="),
 };
 
 // FIXME: All copies from lex->string_buf act as if it always was an 1-byte
@@ -877,6 +862,74 @@ convert_pp_token(preprocessor *pp, pp_token *pp_tok) {
     } break;
     case PP_TOK_PUNCT: {
         tok.kind = TOK_PUNCT;
+        if (pp_tok->punct_kind < 0x100) {
+            tok.punct = (uint32_t)pp_tok->punct_kind;
+        } else {
+            switch (pp_tok->punct_kind) {
+            default:
+                assert(false);
+            case PP_TOK_PUNCT_IRSHIFT:
+                tok.punct = C_PUNCT_IRSHIFT;
+                break;
+            case PP_TOK_PUNCT_ILSHIFT:
+                tok.punct = C_PUNCT_ILSHIFT;
+                break;
+            case PP_TOK_PUNCT_IADD:
+                tok.punct = C_PUNCT_IADD;
+                break;
+            case PP_TOK_PUNCT_ISUB:
+                tok.punct = C_PUNCT_ISUB;
+                break;
+            case PP_TOK_PUNCT_IMUL:
+                tok.punct = C_PUNCT_IMUL;
+                break;
+            case PP_TOK_PUNCT_IDIV:
+                tok.punct = C_PUNCT_IDIV;
+                break;
+            case PP_TOK_PUNCT_IMOD:
+                tok.punct = C_PUNCT_IMOD;
+                break;
+            case PP_TOK_PUNCT_IAND:
+                tok.punct = C_PUNCT_IAND;
+                break;
+            case PP_TOK_PUNCT_IOR:
+                tok.punct = C_PUNCT_IOR;
+                break;
+            case PP_TOK_PUNCT_IXOR:
+                tok.punct = C_PUNCT_IXOR;
+                break;
+            case PP_TOK_PUNCT_INC:
+                tok.punct = C_PUNCT_INC;
+                break;
+            case PP_TOK_PUNCT_DEC:
+                tok.punct = C_PUNCT_DEC;
+                break;
+            case PP_TOK_PUNCT_RSHIFT:
+                tok.punct = C_PUNCT_RSHIFT;
+                break;
+            case PP_TOK_PUNCT_LSHIFT:
+                tok.punct = C_PUNCT_LSHIFT;
+                break;
+            case PP_TOK_PUNCT_LAND:
+                tok.punct = C_PUNCT_LAND;
+                break;
+            case PP_TOK_PUNCT_LOR:
+                tok.punct = C_PUNCT_LOR;
+                break;
+            case PP_TOK_PUNCT_EQ:
+                tok.punct = C_PUNCT_EQ;
+                break;
+            case PP_TOK_PUNCT_NEQ:
+                tok.punct = C_PUNCT_NEQ;
+                break;
+            case PP_TOK_PUNCT_LEQ:
+                tok.punct = C_PUNCT_LEQ;
+                break;
+            case PP_TOK_PUNCT_GEQ:
+                tok.punct = C_PUNCT_GEQ;
+                break;
+            }
+        }
     } break;
     case PP_TOK_OTHER: {
         assert(false);
@@ -916,7 +969,8 @@ get_kw_str(c_keyword_kind kind) {
 static string
 get_punct_str(c_punct_kind kind) {
     assert(kind > 0x100);
-    assert((kind - 0x100) < (sizeof(PUNCTUATOR_STRINGS) / sizeof(*PUNCTUATOR_STRINGS)));
+    assert((kind - 0x100) <
+           (sizeof(PUNCTUATOR_STRINGS) / sizeof(*PUNCTUATOR_STRINGS)));
     return PUNCTUATOR_STRINGS[kind - 0x100];
 }
 
