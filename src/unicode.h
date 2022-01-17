@@ -26,5 +26,6 @@ void *utf8_decode(void *src, uint32_t *codepoint_p);
 void *utf8_encode(void *dst, uint32_t codepoint);
 
 void *utf16_encode(void *dst, uint32_t codepoint);
+void *utf16_decode(void *src, uint32_t *cp_p);
 
 #endif

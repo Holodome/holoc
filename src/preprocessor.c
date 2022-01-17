@@ -409,6 +409,7 @@ process_pp_directive(preprocessor *pp) {
         }
     }
 }
+
 static void
 push_token_to_stack(preprocessor *pp, token tok) {
     token_stack_entry *entry = get_new_token_stack_entry(pp);

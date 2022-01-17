@@ -7,6 +7,7 @@
 
 #include "str.h"
 #include "unicode.h"
+#include "buffer_writer.h"
 
 #define PP_TOK_STR_ADVANCE 0x10
 #define PP_TOK_PUNCT_ADVANCE 0x100
@@ -490,8 +491,11 @@ fmt_pp_tok(pp_token *tok, char *buf, uint32_t buf_len) {
         if (str_opener.data) {
             char str_closer = str_opener.data[str_opener.len - 1];
             // TODO: Handling for \n characters, and other string encodings
-            result = snprintf(buf, buf_len, "%s%.*s%c", str_opener.data,
-                              tok->str.len, tok->str.data, str_closer);
+            buffer_writer w = { buf, buf + buf_len };
+            buf_write(&w, "%s", str_opener.data);
+            buf_write_raw_utf8(&w, tok->str.data);
+            buf_write(&w, "%c", str_closer);
+            result = w.cursor - buf;
         }
         break;
     case PP_TOK_PUNCT:

@@ -69,26 +69,28 @@ utf8_decode_fast(void *src, uint32_t *cp_p) {
 
 void *
 utf8_decode(void *srcv, uint32_t *codepoint_p) {
-    // TODO: Handling of incorrect encoding is totally broken right now. 
-    uint8_t *src = srcv;
+    // TODO: Handling of incorrect encoding is totally broken right now.
+    uint8_t *src   = srcv;
     uint32_t utf32 = 0;
     if ((src[0] & 0x80) == 0x00) {
         utf32 = src[0];
         ++src;
     } else if ((src[0] & 0xE0) == 0xC0) {
         if ((src[1] & 0xC0) == 0x80) {
-            utf32 = ((src[0] & 0x1F) << 6) | (src[1] & 0x3F);     
+            utf32 = ((src[0] & 0x1F) << 6) | (src[1] & 0x3F);
             src += 2;
         }
     } else if ((src[0] & 0xF0) == 0xE0) {
         if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80) {
-            utf32 = ((src[0] & 0x0F) << 12) | ((src[1] & 0x3F) << 6) | (src[2] & 0x3F);     
+            utf32 = ((src[0] & 0x0F) << 12) | ((src[1] & 0x3F) << 6) |
+                    (src[2] & 0x3F);
             src += 3;
         }
     } else if ((src[0] & 0xF8) == 0xF0) {
-        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80 && (src[3] & 0xC0) == 0x80) {
-            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) | ((src[2] & 0x3F) << 6) 
-                | (src[3] & 0x3F);     
+        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80 &&
+            (src[3] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) |
+                    ((src[2] & 0x3F) << 6) | (src[3] & 0x3F);
             src += 4;
         }
     }
@@ -129,4 +131,17 @@ utf16_encode(void *dst, uint32_t cp) {
         *d++ = 0xDC00 + (cp & 0x3FF);
     }
     return d;
+}
+
+void *
+utf16_decode(void *src, uint32_t *cp_p) {
+    uint16_t *p = src;
+    if (*p & 0xD800) {
+        uint32_t utf32 = 0;
+        utf32 = *p++ & 0x03FF;
+        utf32 = (utf32 << 10) | (*p++ & 0x03FF);
+    } else {
+        *cp_p = *p++;
+    }
+    return p;
 }

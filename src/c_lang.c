@@ -369,21 +369,25 @@ fmt_token(token *tok, char *buf, uint32_t buf_size) {
         switch (tok->type->ptr_to->kind) {
         default:
             buf_write(&w, "\"");
-            break;
-        case C_TYPE_WCHAR:
-            buf_write(&w, "L\"");
+            buf_write_raw_utf8(&w, tok->str.data);
             break;
         case C_TYPE_UCHAR:
             buf_write(&w, "u8\"");
+            buf_write_raw_utf8(&w, tok->str.data);
             break;
         case C_TYPE_CHAR16:
             buf_write(&w, "u\"");
+            buf_write_raw_utf16(&w, tok->str.data);
             break;
         case C_TYPE_CHAR32:
             buf_write(&w, "U\"");
+            buf_write_raw_utf32(&w, tok->str.data);
+            break;
+        case C_TYPE_WCHAR:
+            buf_write(&w, "L\"");
+            buf_write_raw_utf32(&w, tok->str.data);
             break;
         }
-        buf_write(&w, "%.*s", tok->str.len, tok->str.data);
         buf_write(&w, "\"");
         break;
     case TOK_PUNCT:
