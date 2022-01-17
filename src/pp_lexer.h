@@ -10,7 +10,7 @@ typedef enum {
     PP_TOK_STR   = 0x3,
     PP_TOK_PUNCT = 0x4,
     PP_TOK_OTHER = 0x5
-} preprocessor_token_kind;
+} pp_token_kind;
 
 typedef enum {
     PP_TOK_STR_NONE   = 0x0,
@@ -24,7 +24,7 @@ typedef enum {
     PP_TOK_STR_CUTF16 = 0x13,  // u''
     PP_TOK_STR_CUTF32 = 0x14,  // U''
     PP_TOK_STR_CWIDE  = 0x15,  // L''
-} preprocessor_string_kind;
+} pp_string_kind;
 
 typedef enum {
     PP_TOK_PUNCT_IRSHIFT = 0x100,  // >>=
@@ -49,13 +49,13 @@ typedef enum {
     PP_TOK_PUNCT_LEQ     = 0x114,  // <=
     PP_TOK_PUNCT_GEQ     = 0x115,  // >=
     PP_TOK_PUNCT_DHASH   = 0x116,  // ##
-} preprocessor_punct_kind;
+} pp_punct_kind;
 
 // Kind of tokens returned by pp_lexer
 typedef struct pp_token {
     uint32_t kind;
-    preprocessor_string_kind str_kind;
-    preprocessor_punct_kind punct_kind;
+    pp_string_kind str_kind;
+    pp_punct_kind punct_kind;
     string str;
     // TODO: Replace this with flags
     // TODO: Replace this wiht number of whitespaces, so we can fully

@@ -20,7 +20,7 @@ static string PUNCT_STRS[] = {
 };
 
 static string
-get_str_opener(preprocessor_string_kind kind) {
+get_str_opener(pp_string_kind kind) {
     string result = {0};
     switch (kind) {
     default:
@@ -295,7 +295,7 @@ static bool
 parse_string_literal(pp_lexer *lexer) {
     bool result                       = false;
     char *test_cursor                 = lexer->cursor;
-    preprocessor_string_kind str_kind = PP_TOK_STR_SCHAR;
+    pp_string_kind str_kind = PP_TOK_STR_SCHAR;
 
     if (*test_cursor == 'u' && test_cursor[1] == '8') {
         test_cursor += 2;
