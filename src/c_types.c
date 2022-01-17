@@ -426,6 +426,7 @@ convert_c_number(char *number) {
     convert_c_int(&result, number);
     if (!result.is_valid) {
         convert_c_float(&result, number);
+        result.is_float = result.is_valid;
     }
     return result;
 }

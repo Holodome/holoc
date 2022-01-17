@@ -13,9 +13,6 @@
 #include "bump_allocator.h"
 #include "allocator.h"
 
-// FIXME: All copies from lex->string_buf act as if it always was an 1-byte
-// aligned array, which in reality it may be not
-
 static pp_macro **
 get_macro(preprocessor *pp, uint32_t hash) {
     pp_macro **macrop = hash_table_sc_get_u32(

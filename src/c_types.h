@@ -84,6 +84,8 @@ uint32_t fmt_c_type(c_type *type, char *buf, uint32_t buf_size);
 typedef struct c_number_convert_result {
     // If given string has been identified as a number
     bool is_valid;
+    // If set, result is written in float_value. Otherwise in uint_value
+    bool is_float;
     // Parsed int value. Not unsigned here, as sign is not accounted here (sign
     // is another token in lexer)
     uint64_t uint_value;

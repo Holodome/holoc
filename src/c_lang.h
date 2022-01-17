@@ -101,6 +101,6 @@ typedef struct token {
 
 uint32_t fmt_token(token *tok, char *buf, uint32_t buf_size);
 uint32_t fmt_token_verbose(token *tok, char *buf, uint32_t buf_size);
-token convert_pp_token(struct pp_token *pp_tok, struct allocator *a);
+bool convert_pp_token(struct pp_token *pp_tok, token *tok, struct allocator *a);
 
 #endif
