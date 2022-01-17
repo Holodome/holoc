@@ -220,6 +220,7 @@ process_file(string filename) {
     preprocessor *pp       = bump_alloc(&pp_bump, sizeof(preprocessor));
     pp->lex                = &lexer;
     pp->a                  = &pp_bump;
+    pp->ea = a;
     do_pp(pp);
 }
 

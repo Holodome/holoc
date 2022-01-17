@@ -91,7 +91,9 @@ static c_punct_kind
 get_c_punct_kind_from_pp(pp_punct_kind kind) {
     c_punct_kind result = 0;
     if (kind < 0x100) {
-        result = (uint32_t)kind;
+        if (kind != '#') {
+            result = (uint32_t)kind;
+        }
     } else {
         switch (kind) {
         default:
@@ -176,10 +178,11 @@ get_kw_kind(string test) {
 
 bool
 convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
-    bool result = true;
+    bool result = false;
     switch (pp_tok->kind) {
     case PP_TOK_EOF: {
         tok->kind = TOK_EOF;
+        result = true;
     } break;
     case PP_TOK_ID: {
         c_keyword_kind kw = get_kw_kind(pp_tok->str);
@@ -190,6 +193,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             tok->kind = TOK_ID;
             tok->str  = string_dup(a, pp_tok->str);
         }
+        result = true;
     } break;
     case PP_TOK_NUM: {
         c_number_convert_result convert = convert_c_number(pp_tok->str.data);
@@ -202,6 +206,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
                 tok->uint_value = convert.uint_value;
             }
             tok->type = get_standard_type(convert.type_kind);
+            result = true;
             assert(tok->type);
         }
     } break;
@@ -262,6 +267,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             tok->kind = TOK_STR;
             tok->str  = string(buffer, byte_stride * len);
             tok->type = make_array_type(base_type, len + 1, a);
+            result = true;
         } break;
         case PP_TOK_STR_CCHAR:
             base_type_kind = C_TYPE_CHAR;
@@ -299,16 +305,19 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             tok->kind       = TOK_NUM;
             tok->uint_value = value;
             tok->type       = base_type;
+            result = true;
         } break;
         }
     } break;
     case PP_TOK_PUNCT: {
-        tok->kind  = TOK_PUNCT;
-        tok->punct = get_c_punct_kind_from_pp(pp_tok->punct_kind);
-        assert(tok->punct);
+        c_punct_kind punct = get_c_punct_kind_from_pp(pp_tok->punct_kind);
+        if (punct) {
+            tok->kind  = TOK_PUNCT;
+            tok->punct = punct;
+            result = true;
+        }
     } break;
     case PP_TOK_OTHER: {
-        assert(false);
     } break;
     }
     return result;
@@ -394,7 +403,7 @@ fmt_token(token *tok, char *buf, uint32_t buf_size) {
 }
 
 uint32_t
-fmt_tok_verbose(token *tok, char *buf, uint32_t buf_size) {
+fmt_token_verbose(token *tok, char *buf, uint32_t buf_size) {
     uint32_t result = 0;
     switch (tok->kind) {
     case TOK_EOF:

@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "allocator.h"
+#include "bump_allocator.h"
+#include "c_lang.h"
+#include "hashing.h"
 #include "llist.h"
 #include "pp_lexer.h"
 #include "str.h"
-#include "c_lang.h"
-#include "hashing.h"
-#include "bump_allocator.h"
-#include "allocator.h"
 
 static pp_macro **
 get_macro(preprocessor *pp, uint32_t hash) {
@@ -682,6 +682,16 @@ do_pp(preprocessor *pp) {
         LLISTC_ADD_LAST(&tokens, tok);
         if (tok->kind == PP_TOK_EOF) {
             break;
+        }
+    }
+
+    pp_token *token_list = tokens.first;
+    for (tok = token_list; tok; tok = tok->next) {
+        token c_tok = {0};
+        if (convert_pp_token(tok, &c_tok, pp->ea)) {
+            char buffer[4096];
+            fmt_token_verbose(&c_tok, buffer, sizeof(buffer));
+            printf("%s\n", buffer);
         }
     }
 }
