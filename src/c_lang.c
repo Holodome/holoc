@@ -284,61 +284,29 @@ convert_pp_token(pp_token *pp_tok, struct allocator *a) {
         tok.kind = TOK_NUM;
     } break;
     case PP_TOK_STR: {
-        // First, deduce the type
         switch (pp_tok->str_kind) {
+            c_type_kind base_type_kind = 0;
         default:
             assert(false);
             break;
         case PP_TOK_STR_SCHAR:
-            tok.type = make_array_type(get_standard_type(C_TYPE_CHAR),
-                                       pp_tok->str.len + 1, a);
-            break;
+            base_type_kind = C_TYPE_CHAR;
+            goto process_string;
         case PP_TOK_STR_SUTF8:
-            tok.type = make_array_type(get_standard_type(C_TYPE_UCHAR),
-                                       pp_tok->str.len + 1, a);
-            break;
+            base_type_kind = C_TYPE_UCHAR;
+            goto process_string;
         case PP_TOK_STR_SUTF16:
-            // FIXME: Array size
-            tok.type = make_array_type(get_standard_type(C_TYPE_CHAR16),
-                                       pp_tok->str.len + 1, a);
-            break;
+            base_type_kind = C_TYPE_CHAR16;
+            goto process_string;
         case PP_TOK_STR_SUTF32:
-            // FIXME: Array size
-            tok.type = make_array_type(get_standard_type(C_TYPE_CHAR32),
-                                       pp_tok->str.len + 1, a);
-            break;
-        case PP_TOK_STR_SWIDE:
-            // FIXME: Array size
-            tok.type = make_array_type(get_standard_type(C_TYPE_WCHAR),
-                                       pp_tok->str.len + 1, a);
-            break;
-        case PP_TOK_STR_CCHAR:
-            tok.type = get_standard_type(C_TYPE_CHAR);
-            break;
-        case PP_TOK_STR_CUTF8:
-            tok.type = get_standard_type(C_TYPE_UCHAR);
-            break;
-        case PP_TOK_STR_CUTF16:
-            tok.type = get_standard_type(C_TYPE_CHAR16);
-            break;
-        case PP_TOK_STR_CUTF32:
-            tok.type = get_standard_type(C_TYPE_CHAR32);
-            break;
-        case PP_TOK_STR_CWIDE:
-            tok.type = get_standard_type(C_TYPE_WCHAR);
-            break;
-        }
-
-        switch (pp_tok->str_kind) {
-        default:
-            assert(false);
-            break;
-        case PP_TOK_STR_SCHAR:
-        case PP_TOK_STR_SUTF8:
-        case PP_TOK_STR_SUTF16:
-        case PP_TOK_STR_SUTF32:
+            base_type_kind = C_TYPE_CHAR32;
+            goto process_string;
         case PP_TOK_STR_SWIDE: {
-            uint32_t byte_stride = tok.type->size;
+            base_type_kind = C_TYPE_WCHAR;
+        process_string:
+            (void)0;
+            c_type *base_type    = get_standard_type(base_type_kind);
+            uint32_t byte_stride = base_type->size;
 
             uint32_t len = 0;
             char *cursor = pp_tok->str.data;
@@ -347,6 +315,7 @@ convert_pp_token(pp_token *pp_tok, struct allocator *a) {
                 cursor = utf8_decode(cursor, &cp);
                 ++len;
             }
+            tok.type           = make_array_type(base_type, len + 1, a);
             void *buffer       = aalloc(a, byte_stride * (len + 1));
             void *write_cursor = buffer;
             cursor             = pp_tok->str.data;
@@ -373,10 +342,22 @@ convert_pp_token(pp_token *pp_tok, struct allocator *a) {
             tok.str  = string(buffer, byte_stride * len);
         } break;
         case PP_TOK_STR_CCHAR:
+            base_type_kind = C_TYPE_CHAR;
+            goto process_char;
         case PP_TOK_STR_CUTF8:
+            base_type_kind = C_TYPE_UCHAR;
+            goto process_char;
         case PP_TOK_STR_CUTF16:
+            base_type_kind = C_TYPE_CHAR16;
+            goto process_char;
         case PP_TOK_STR_CUTF32:
+            goto process_char;
+            base_type_kind = C_TYPE_CHAR32;
+            goto process_char;
         case PP_TOK_STR_CWIDE: {
+            base_type_kind = C_TYPE_WCHAR;
+        process_char:
+            (void)0;
             // Treat all character literals as mutltibyte.
             // Convert it to number
             uint64_t value       = 0;
@@ -399,8 +380,8 @@ convert_pp_token(pp_token *pp_tok, struct allocator *a) {
         }
     } break;
     case PP_TOK_PUNCT: {
-        tok.kind = TOK_PUNCT;
-        tok.punct= get_c_punct_kind_from_pp(pp_tok->punct_kind);
+        tok.kind  = TOK_PUNCT;
+        tok.punct = get_c_punct_kind_from_pp(pp_tok->punct_kind);
         assert(tok.punct);
     } break;
     case PP_TOK_OTHER: {
