@@ -15,6 +15,82 @@
 #include "str.h"
 #include "unicode.h"
 
+static string KEYWORD_STRINGS[] = {
+    WRAP_Z("(unknown)"),
+    WRAP_Z("auto"),
+    WRAP_Z("break"),
+    WRAP_Z("case"),
+    WRAP_Z("char"),
+    WRAP_Z("const"),
+    WRAP_Z("continue"),
+    WRAP_Z("default"),
+    WRAP_Z("do"),
+    WRAP_Z("double"),
+    WRAP_Z("else"),
+    WRAP_Z("enum"),
+    WRAP_Z("extern"),
+    WRAP_Z("float"),
+    WRAP_Z("for"),
+    WRAP_Z("goto"),
+    WRAP_Z("if"),
+    WRAP_Z("inline"),
+    WRAP_Z("int"),
+    WRAP_Z("long"),
+    WRAP_Z("register"),
+    WRAP_Z("restrict"),
+    WRAP_Z("return"),
+    WRAP_Z("short"),
+    WRAP_Z("signed"),
+    WRAP_Z("unsigned"),
+    WRAP_Z("static"),
+    WRAP_Z("struct"),
+    WRAP_Z("switch"),
+    WRAP_Z("typedef"),
+    WRAP_Z("union"),
+    WRAP_Z("unsigned"),
+    WRAP_Z("void"),
+    WRAP_Z("volatile"),
+    WRAP_Z("while"),
+    WRAP_Z("_Alignas"),
+    WRAP_Z("_Alignof"),
+    WRAP_Z("_Atomic"),
+    WRAP_Z("_Bool"),
+    WRAP_Z("_Complex"),
+    WRAP_Z("_Decimal128"),
+    WRAP_Z("_Decimal32"),
+    WRAP_Z("_Decimal64"),
+    WRAP_Z("_Generic"),
+    WRAP_Z("_Imaginary"),
+    WRAP_Z("_Noreturn"),
+    WRAP_Z("_Static_assert"),
+    WRAP_Z("_Thread_local"),
+    WRAP_Z("_Pragma"),
+};
+
+static string PUNCTUATOR_STRINGS[] = {
+    WRAP_Z("(unknown)"),
+    WRAP_Z(">>="),
+    WRAP_Z("<<="), 
+    WRAP_Z("+="),
+    WRAP_Z("-="),
+    WRAP_Z("*="),
+    WRAP_Z("/="),
+    WRAP_Z("%="), 
+    WRAP_Z("&="),
+    WRAP_Z("|="),
+    WRAP_Z("^="),
+    WRAP_Z("++"),
+    WRAP_Z("--"),
+    WRAP_Z(">>"),
+    WRAP_Z("<<"),
+    WRAP_Z("&&"),
+    WRAP_Z("||"),
+    WRAP_Z("=="),
+    WRAP_Z("!="),
+    WRAP_Z("<="),
+    WRAP_Z(">="), 
+};
+
 // FIXME: All copies from lex->string_buf act as if it always was an 1-byte
 // aligned array, which in reality it may be not
 
@@ -832,12 +908,16 @@ do_pp(preprocessor *pp) {
 
 static string
 get_kw_str(c_keyword_kind kind) {
-    return (string){0};
+    assert(kind < (sizeof(KEYWORD_STRINGS) / sizeof(*KEYWORD_STRINGS)));
+    return KEYWORD_STRINGS[kind];
 }
 
+// NOTE: Only called for multisymbol punctuators (ot ASCII ones)
 static string
 get_punct_str(c_punct_kind kind) {
-    return (string){0};
+    assert(kind > 0x100);
+    assert((kind - 0x100) < (sizeof(PUNCTUATOR_STRINGS) / sizeof(*PUNCTUATOR_STRINGS)));
+    return PUNCTUATOR_STRINGS[kind - 0x100];
 }
 
 uint32_t
