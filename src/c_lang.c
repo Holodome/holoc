@@ -365,7 +365,6 @@ fmt_token(token *tok, char *buf, uint32_t buf_size) {
         }
         break;
     case TOK_STR:
-        assert(tok->type->kind == C_TYPE_ARRAY);
         switch (tok->type->ptr_to->kind) {
         default:
             buf_write(&w, "\"");

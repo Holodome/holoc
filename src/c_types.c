@@ -142,19 +142,19 @@ get_standard_type(c_type_kind kind) {
 c_type *
 make_ptr_type(c_type *base, struct allocator *a) {
     c_type *type = aalloc(a, sizeof(c_type));
-    type->size = sizeof(void *);
+    type->size   = sizeof(void *);
     type->ptr_to = base;
-    type->kind = C_TYPE_PTR;
+    type->kind   = C_TYPE_PTR;
     return type;
 }
 
 c_type *
 make_array_type(c_type *base, uint32_t len, struct allocator *a) {
-    c_type *type = aalloc(a, sizeof(c_type));
-    type->size = len * base->size;
-    type->ptr_to = base;
+    c_type *type  = aalloc(a, sizeof(c_type));
+    type->size    = len * base->size;
+    type->ptr_to  = base;
     type->arr_len = len;
-    type->kind = C_TYPE_ARRAY;
+    type->kind    = C_TYPE_ARRAY;
     return type;
 }
 
@@ -313,10 +313,9 @@ convert_c_int(c_number_convert_result *result, char *p) {
         if (base == 10) {
             if (suf == (INT_SUF_LL | INT_SUF_U)) {
                 type = C_TYPE_ULLINT;
-                ;
             } else if (suf == INT_SUF_LL) {
                 type = C_TYPE_SLLINT;
-            } else if (suf == (INT_SUF_L & INT_SUF_U)) {
+            } else if (suf == (INT_SUF_L | INT_SUF_U)) {
                 if (value <= ULONG_MAX) {
                     type = C_TYPE_ULINT;
                 } else {
@@ -355,7 +354,7 @@ convert_c_int(c_number_convert_result *result, char *p) {
                 } else {
                     type = C_TYPE_ULLINT;
                 }
-            } else if (suf == (INT_SUF_L & INT_SUF_U)) {
+            } else if (suf == (INT_SUF_L | INT_SUF_U)) {
                 if (value <= ULONG_MAX) {
                     type = C_TYPE_ULINT;
                 } else {
