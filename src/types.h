@@ -16,4 +16,6 @@ typedef struct string {
     uint32_t len;
 } string;
 
+#define NOT_IMPL assert(false && "NOT IMPLEMENTED")
+
 #endif

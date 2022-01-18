@@ -70,7 +70,7 @@ typedef struct preprocessor {
     pp_macro *macro_freelist;
     pp_macro_arg *macro_arg_freelist;
     struct pp_token *tok_freelist;
-    pp_conditional_include *incl_freelist;
+    pp_conditional_include *cond_incl_freelist;
     pp_macro_expansion_arg *macro_expansion_arg_freelist;
 } preprocessor;
 

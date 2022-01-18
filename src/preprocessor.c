@@ -41,13 +41,6 @@ free_macro_data(preprocessor *pp, pp_macro *macro) {
         arg->next              = pp->macro_arg_freelist;
         pp->macro_arg_freelist = arg;
     }
-
-    while (macro->definition) {
-        pp_token *tok     = macro->definition;
-        macro->definition = tok;
-        tok->next         = pp->tok_freelist;
-        pp->tok_freelist  = tok;
-    }
 }
 
 static pp_macro_arg *
@@ -72,6 +65,18 @@ get_new_token(preprocessor *pp) {
         tok = bump_alloc(pp->a, sizeof(*tok));
     }
     return tok;
+}
+
+static pp_conditional_include *
+get_new_cond_incl(preprocessor *pp) {
+    pp_conditional_include *incl = pp->cond_incl_freelist;
+    if (incl) {
+        LLIST_POP(pp->cond_incl_freelist);
+        memset(incl, 0, sizeof(*incl));
+    } else {
+        incl = bump_alloc(pp->a, sizeof(*incl));
+    }
+    return incl;
 }
 
 static pp_token *
@@ -111,28 +116,28 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
             result              = true;
         } break;
         case PP_MACRO_FUNC:
-            assert(false);
+            NOT_IMPL;
             break;
         case PP_MACRO_FILE:
-            assert(false);
+            NOT_IMPL;
             break;
         case PP_MACRO_LINE:
-            assert(false);
+            NOT_IMPL;
             break;
         case PP_MACRO_COUNTER:
-            assert(false);
+            NOT_IMPL;
             break;
         case PP_MACRO_TIMESTAMP:
-            assert(false);
+            NOT_IMPL;
             break;
         case PP_MACRO_BASE_FILE:
-            assert(false);
+            NOT_IMPL;
             break;
         case PP_MACRO_DATE:
-            assert(false);
+            NOT_IMPL;
             break;
         case PP_MACRO_TIME:
-            assert(false);
+            NOT_IMPL;
             break;
         }
     }
@@ -144,7 +149,7 @@ static void
 define_macro(preprocessor *pp, pp_token **tokp) {
     pp_token *tok = *tokp;
     if (tok->kind != PP_TOK_ID) {
-        assert(false);
+        NOT_IMPL;
     }
 
     string macro_name        = tok->str;
@@ -152,7 +157,7 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     pp_macro **macrop        = get_macro(pp, macro_name_hash);
     if (*macrop) {
         // TODO: Diagnostic
-        assert(false);
+        NOT_IMPL;
     } else {
         pp_macro *macro = get_new_macro(pp);
         LLIST_ADD(*macrop, macro);
@@ -174,11 +179,11 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     *tokp = tok;
 }
 
-static void 
+static void
 undef_macro(preprocessor *pp, pp_token **tokp) {
     pp_token *tok = *tokp;
     if (tok->kind != PP_TOK_ID) {
-        assert(false);
+        NOT_IMPL;
     }
 
     string macro_name        = tok->str;
@@ -186,10 +191,58 @@ undef_macro(preprocessor *pp, pp_token **tokp) {
     pp_macro **macrop        = get_macro(pp, macro_name_hash);
     if (*macrop) {
         pp_macro *macro = *macrop;
+        free_macro_data(pp, macro);
         *macrop = macro->next;
         LLIST_ADD(pp->macro_freelist, macro);
     } else {
-        assert(false);
+        NOT_IMPL;
+    }
+    *tokp = tok;
+}
+
+static void
+push_cond_incl(preprocessor *pp, bool is_included) {
+    pp_conditional_include *incl = get_new_cond_incl(pp);
+    incl->is_included            = true;
+    LLIST_ADD(pp->cond_incl_stack, incl);
+}
+
+static void
+skip_cond_incl(preprocessor *pp, pp_token **tokp) {
+    uint32_t depth = 0;
+    pp_token *tok  = *tokp;
+    while (tok->kind != PP_TOK_EOF) {
+        if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != '#' ||
+            !tok->at_line_start) {
+            tok = tok->next;
+            continue;
+        }
+
+        pp_token *init = tok;
+        tok = tok->next;
+        if (tok->kind != PP_TOK_ID) {
+            continue;
+        }
+
+        if (string_eq(tok->str, WRAP_Z("if")) ||
+            string_eq(tok->str, WRAP_Z("ifdef")) ||
+            string_eq(tok->str, WRAP_Z("ifndef"))) {
+            ++depth;
+        } else if (string_eq(tok->str, WRAP_Z("elif")) ||
+                   string_eq(tok->str, WRAP_Z("else")) ||
+                   string_eq(tok->str, WRAP_Z("endif"))) {
+            if (!depth) {
+                tok = init;
+                break;
+            }
+            if (string_eq(tok->str, WRAP_Z("endif"))) {
+                --depth;
+            }
+        }
+    }
+
+    if (depth) {
+        NOT_IMPL;
     }
     *tokp = tok;
 }
@@ -206,24 +259,67 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                 tok = tok->next;
                 define_macro(pp, &tok);
             } else if (string_eq(tok->str, WRAP_Z("undef"))) {
-                assert(false);
                 tok = tok->next;
                 undef_macro(pp, &tok);
             } else if (string_eq(tok->str, WRAP_Z("if"))) {
+                NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("elif"))) {
+                NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("else"))) {
+                pp_conditional_include *incl = pp->cond_incl_stack;
+                if (!incl) {
+                    NOT_IMPL;
+                } else {
+                    if (incl->is_after_else) {
+                        NOT_IMPL;
+                    }
+                    incl->is_after_else = true;
+                    if (incl->is_included) {
+                        skip_cond_incl(pp, &tok);
+                    }
+                }
             } else if (string_eq(tok->str, WRAP_Z("endif"))) {
+                tok                          = tok->next;
+                pp_conditional_include *incl = pp->cond_incl_stack;
+                if (!incl) {
+                    NOT_IMPL;
+                } else {
+                    LLIST_POP(pp->cond_incl_stack);
+                    LLIST_ADD(pp->cond_incl_freelist, incl);
+                }
             } else if (string_eq(tok->str, WRAP_Z("ifdef"))) {
+                tok = tok->next;
+                if (tok->kind != PP_TOK_ID) {
+                    NOT_IMPL;
+                }
+                uint32_t macro_name_hash = hash_string(tok->str);
+                bool is_defined          = *get_macro(pp, macro_name_hash) != 0;
+                push_cond_incl(pp, is_defined);
+                if (!is_defined) {
+                    skip_cond_incl(pp, &tok);
+                }
             } else if (string_eq(tok->str, WRAP_Z("ifndef"))) {
+                tok = tok->next;
+                if (tok->kind != PP_TOK_ID) {
+                    NOT_IMPL;
+                }
+                uint32_t macro_name_hash = hash_string(tok->str);
+                bool is_defined          = *get_macro(pp, macro_name_hash) != 0;
+                push_cond_incl(pp, !is_defined);
+                if (is_defined) {
+                    skip_cond_incl(pp, &tok);
+                }
             } else if (string_eq(tok->str, WRAP_Z("line"))) {
-                assert(false);
+                NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("pragma"))) {
-                assert(false);
+                NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("error"))) {
-                assert(false);
+                NOT_IMPL;
             } else {
-                assert(false);
+                NOT_IMPL;
             }
+        } else {
+            NOT_IMPL;
         }
 
         while (!tok->at_line_start) {
