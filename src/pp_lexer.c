@@ -5,9 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "buffer_writer.h"
 #include "str.h"
 #include "unicode.h"
-#include "buffer_writer.h"
 
 #define PP_TOK_STR_ADVANCE 0x10
 #define PP_TOK_PUNCT_ADVANCE 0x100
@@ -107,7 +107,7 @@ parse_whitespaces(pp_lexer *lexer) {
 
 static uint32_t
 from_hex(char cp) {
-    uint32_t result = 0;
+    uint32_t result;
     if ('0' <= cp && cp <= '9') {
         result = cp - '0';
     } else if ('A' <= cp && cp <= 'F') {
@@ -173,7 +173,7 @@ read_escaped_char(pp_lexer *lexer) {
     } else if (*lexer->cursor == 'U') {
         ++lexer->cursor;
         uint32_t unicode_value;
-        if (read_unicode_value(lexer, 4, &unicode_value)) {
+        if (read_unicode_value(lexer, 8, &unicode_value)) {
             result = unicode_value;
         } else {
             --lexer->cursor;
@@ -294,8 +294,8 @@ read_utf32_string_literal(pp_lexer *lexer, char terminator) {
 
 static bool
 parse_string_literal(pp_lexer *lexer) {
-    bool result                       = false;
-    char *test_cursor                 = lexer->cursor;
+    bool result             = false;
+    char *test_cursor       = lexer->cursor;
     pp_string_kind str_kind = PP_TOK_STR_SCHAR;
 
     if (*test_cursor == 'u' && test_cursor[1] == '8') {
@@ -496,7 +496,7 @@ fmt_pp_tok(pp_token *tok, char *buf, uint32_t buf_len) {
         if (str_opener.data) {
             char str_closer = str_opener.data[str_opener.len - 1];
             // TODO: Handling for \n characters, and other string encodings
-            buffer_writer w = { buf, buf + buf_len };
+            buffer_writer w = {buf, buf + buf_len};
             buf_write(&w, "%s", str_opener.data);
             buf_write_raw_utf8(&w, tok->str.data);
             buf_write(&w, "%c", str_closer);

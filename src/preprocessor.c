@@ -203,7 +203,7 @@ undef_macro(preprocessor *pp, pp_token **tokp) {
 static void
 push_cond_incl(preprocessor *pp, bool is_included) {
     pp_conditional_include *incl = get_new_cond_incl(pp);
-    incl->is_included            = true;
+    incl->is_included            = is_included;
     LLIST_ADD(pp->cond_incl_stack, incl);
 }
 
@@ -219,7 +219,7 @@ skip_cond_incl(preprocessor *pp, pp_token **tokp) {
         }
 
         pp_token *init = tok;
-        tok = tok->next;
+        tok            = tok->next;
         if (tok->kind != PP_TOK_ID) {
             continue;
         }
@@ -360,7 +360,7 @@ void
 do_pp(preprocessor *pp) {
     linked_list_constructor tokens = {0};
 
-    pp_token *tok = 0;
+    pp_token *tok;
     for (;;) {
         pp_lexer_parse(pp->lex);
         tok  = get_new_token(pp);
@@ -387,4 +387,3 @@ do_pp(preprocessor *pp) {
     /*     } */
     /* } */
 }
-

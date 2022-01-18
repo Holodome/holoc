@@ -347,7 +347,6 @@ convert_c_int(c_number_convert_result *result, char *p) {
         } else {
             if (suf == (INT_SUF_LL | INT_SUF_U)) {
                 type = C_TYPE_ULLINT;
-                ;
             } else if (suf == INT_SUF_LL) {
                 if (value <= LLONG_MAX) {
                     type = C_TYPE_SLLINT;

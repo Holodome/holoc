@@ -137,9 +137,10 @@ void *
 utf16_decode(void *src, uint32_t *cp_p) {
     uint16_t *p = src;
     if (*p & 0xD800) {
-        uint32_t utf32 = 0;
+        uint32_t utf32;
         utf32 = *p++ & 0x03FF;
         utf32 = (utf32 << 10) | (*p++ & 0x03FF);
+        *cp_p = utf32;
     } else {
         *cp_p = *p++;
     }

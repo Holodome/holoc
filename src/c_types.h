@@ -5,6 +5,7 @@
 
 struct c_type;
 struct allocator;
+struct buffer_writer;
 
 typedef enum {
     C_TYPE_VOID = 0x0,  // void
@@ -78,6 +79,7 @@ c_type *get_standard_type(c_type_kind kind);
 c_type *make_ptr_type(c_type *base, struct allocator *a);
 c_type *make_array_type(c_type *base, uint32_t size, struct allocator *a);
 
+void fmt_c_typew(c_type *type, struct buffer_writer *w);
 uint32_t fmt_c_type(c_type *type, char *buf, uint32_t buf_size);
 
 // Structure describing result of converting string to a number

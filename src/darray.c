@@ -1,12 +1,10 @@
 #include "darray.h"
 
-#include <stdlib.h>
-
 #include "allocator.h"
 
 void *
 da_grow(void *da, uintptr_t stride, allocator *a) {
-    void *result = 0;
+    void *result;
     if (da) {
         darray_header *header = da_header(da);
         uint32_t new_capacity = header->capacity * 2;

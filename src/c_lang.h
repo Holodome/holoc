@@ -5,6 +5,7 @@
 
 struct pp_token;
 struct allocator;
+struct buffer_writer;
 
 typedef enum {
     C_KW_AUTO          = 0x1,   // auto
@@ -103,15 +104,17 @@ typedef struct {
     uint64_t uint_value;
     long double float_value;
     struct c_type *type;
-} fmt_c_number_args;
+} fmt_c_num_args;
 
 typedef struct {
     struct c_type *type;
     string str;
-} fmt_c_string_args;
+} fmt_c_str_args;
 
-uint32_t fmt_c_num(fmt_c_number_args args, char *buf, uint32_t buf_size);
-uint32_t fmt_c_str(fmt_c_string_args args, char *buf, uint32_t buf_size);
+void fmt_c_numw(fmt_c_num_args args, struct buffer_writer *w);
+uint32_t fmt_c_num(fmt_c_num_args args, char *buf, uint32_t buf_size);
+void fmt_c_strw(fmt_c_str_args args, struct buffer_writer *w);
+uint32_t fmt_c_str(fmt_c_str_args args, char *buf, uint32_t buf_size);
 uint32_t fmt_token(token *tok, char *buf, uint32_t buf_size);
 uint32_t fmt_token_verbose(token *tok, char *buf, uint32_t buf_size);
 bool convert_pp_token(struct pp_token *pp_tok, token *tok, struct allocator *a);

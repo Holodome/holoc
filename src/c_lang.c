@@ -212,7 +212,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
     } break;
     case PP_TOK_STR: {
         switch (pp_tok->str_kind) {
-            c_type_kind base_type_kind = 0;
+            c_type_kind base_type_kind;
         default:
             assert(false);
             break;
@@ -323,8 +323,8 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
     return result;
 }
 
-static void
-fmt_c_num_internal(fmt_c_number_args args, buffer_writer *w) {
+void
+fmt_c_numw(fmt_c_num_args args, buffer_writer *w) {
     if (c_type_is_int(args.type->kind)) {
         buf_write(w, "%llu", args.uint_value);
         switch (args.type->kind) {
@@ -358,14 +358,14 @@ fmt_c_num_internal(fmt_c_number_args args, buffer_writer *w) {
 }
 
 uint32_t
-fmt_c_numr(fmt_c_number_args args, char *buf, uint32_t buf_size) {
+fmt_c_numr(fmt_c_num_args args, char *buf, uint32_t buf_size) {
     buffer_writer w = {buf, buf + buf_size};
-    fmt_c_num_internal(args, &w);
+    fmt_c_numw(args, &w);
     return w.cursor - buf;
 }
 
-static void
-fmt_c_str_internal(fmt_c_string_args args, buffer_writer *w) {
+void
+fmt_c_strw(fmt_c_str_args args, buffer_writer *w) {
     switch (args.type->ptr_to->kind) {
     default:
         buf_write(w, "\"");
@@ -392,9 +392,9 @@ fmt_c_str_internal(fmt_c_string_args args, buffer_writer *w) {
 }
 
 uint32_t
-fmt_c_str(fmt_c_string_args args, char *buf, uint32_t buf_size) {
+fmt_c_str(fmt_c_str_args args, char *buf, uint32_t buf_size) {
     buffer_writer w = {buf, buf + buf_size};
-    fmt_c_str_internal(args, &w);
+    fmt_c_strw(args, &w);
     return w.cursor - buf;
 }
 
@@ -408,14 +408,13 @@ fmt_token(token *tok, char *buf, uint32_t buf_size) {
         buf_write(&w, "%.*s", tok->str.len, tok->str.data);
         break;
     case TOK_NUM:
-        fmt_c_num_internal((fmt_c_number_args){.uint_value  = tok->uint_value,
-                                               .float_value = tok->float_value,
-                                               .type        = tok->type},
-                           &w);
+        fmt_c_numw((fmt_c_num_args){.uint_value  = tok->uint_value,
+                                    .float_value = tok->float_value,
+                                    .type        = tok->type},
+                   &w);
         break;
     case TOK_STR:
-        fmt_c_str_internal(
-            (fmt_c_string_args){.type = tok->type, .str = tok->str}, &w);
+        fmt_c_strw((fmt_c_str_args){.type = tok->type, .str = tok->str}, &w);
         break;
     case TOK_PUNCT:
         if (tok->punct < 0x100) {
@@ -461,4 +460,3 @@ fmt_token_verbose(token *tok, char *buf, uint32_t buf_size) {
     result += fmt_token(tok, buf, buf_size);
     return result;
 }
-

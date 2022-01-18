@@ -77,4 +77,3 @@ buf_write_raw_utf32(buffer_writer *w, void *strv) {
         write_cp(w, cp);
     }
 }
-

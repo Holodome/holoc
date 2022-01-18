@@ -9,6 +9,9 @@ DEPS = $(wildcard src/*.h)
 TESTS = $(wildcard tests/*.c)
 TEST_EXES = $(TESTS:%.c=$(DIR)/%.exe)
 
+# all: format holoc 
+all: holoc 
+
 holoc: $(OBJS) | $(DIR)
 	$(CC) -o $(DIR)/$@ $^ $(LDFLAGS)
 
