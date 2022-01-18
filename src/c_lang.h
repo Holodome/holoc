@@ -99,6 +99,19 @@ typedef struct token {
     c_keyword_kind kw;
 } token;
 
+typedef struct {
+    uint64_t uint_value;
+    long double float_value;
+    struct c_type *type;
+} fmt_c_number_args;
+
+typedef struct {
+    struct c_type *type;
+    string str;
+} fmt_c_string_args;
+
+uint32_t fmt_c_num(fmt_c_number_args args, char *buf, uint32_t buf_size);
+uint32_t fmt_c_str(fmt_c_string_args args, char *buf, uint32_t buf_size);
 uint32_t fmt_token(token *tok, char *buf, uint32_t buf_size);
 uint32_t fmt_token_verbose(token *tok, char *buf, uint32_t buf_size);
 bool convert_pp_token(struct pp_token *pp_tok, token *tok, struct allocator *a);

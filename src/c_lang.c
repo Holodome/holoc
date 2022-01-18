@@ -182,7 +182,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
     switch (pp_tok->kind) {
     case PP_TOK_EOF: {
         tok->kind = TOK_EOF;
-        result = true;
+        result    = true;
     } break;
     case PP_TOK_ID: {
         c_keyword_kind kw = get_kw_kind(pp_tok->str);
@@ -206,7 +206,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
                 tok->uint_value = convert.uint_value;
             }
             tok->type = get_standard_type(convert.type_kind);
-            result = true;
+            result    = true;
             assert(tok->type);
         }
     } break;
@@ -267,7 +267,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             tok->kind = TOK_STR;
             tok->str  = string(buffer, byte_stride * len);
             tok->type = make_array_type(base_type, len + 1, a);
-            result = true;
+            result    = true;
         } break;
         case PP_TOK_STR_CCHAR:
             base_type_kind = C_TYPE_CHAR;
@@ -305,7 +305,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             tok->kind       = TOK_NUM;
             tok->uint_value = value;
             tok->type       = base_type;
-            result = true;
+            result          = true;
         } break;
         }
     } break;
@@ -314,13 +314,88 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
         if (punct) {
             tok->kind  = TOK_PUNCT;
             tok->punct = punct;
-            result = true;
+            result     = true;
         }
     } break;
     case PP_TOK_OTHER: {
     } break;
     }
     return result;
+}
+
+static void
+fmt_c_num_internal(fmt_c_number_args args, buffer_writer *w) {
+    if (c_type_is_int(args.type->kind)) {
+        buf_write(w, "%llu", args.uint_value);
+        switch (args.type->kind) {
+        default:
+            break;
+        case C_TYPE_ULLINT:
+        case C_TYPE_SLLINT:
+            buf_write(w, "ll");
+            break;
+        case C_TYPE_ULINT:
+        case C_TYPE_SLINT:
+            buf_write(w, "l");
+            break;
+        }
+        if (c_type_is_int_unsigned(args.type->kind)) {
+            buf_write(w, "u");
+        }
+    } else {
+        buf_write(w, "%Lg", args.float_value);
+        switch (args.type->kind) {
+        default:
+            break;
+        case C_TYPE_FLOAT:
+            buf_write(w, "f");
+            break;
+        case C_TYPE_LDOUBLE:
+            buf_write(w, "l");
+            break;
+        }
+    }
+}
+
+uint32_t
+fmt_c_numr(fmt_c_number_args args, char *buf, uint32_t buf_size) {
+    buffer_writer w = {buf, buf + buf_size};
+    fmt_c_num_internal(args, &w);
+    return w.cursor - buf;
+}
+
+static void
+fmt_c_str_internal(fmt_c_string_args args, buffer_writer *w) {
+    switch (args.type->ptr_to->kind) {
+    default:
+        buf_write(w, "\"");
+        buf_write_raw_utf8(w, args.str.data);
+        break;
+    case C_TYPE_UCHAR:
+        buf_write(w, "u8\"");
+        buf_write_raw_utf8(w, args.str.data);
+        break;
+    case C_TYPE_CHAR16:
+        buf_write(w, "u\"");
+        buf_write_raw_utf16(w, args.str.data);
+        break;
+    case C_TYPE_CHAR32:
+        buf_write(w, "U\"");
+        buf_write_raw_utf32(w, args.str.data);
+        break;
+    case C_TYPE_WCHAR:
+        buf_write(w, "L\"");
+        buf_write_raw_utf32(w, args.str.data);
+        break;
+    }
+    buf_write(w, "\"");
+}
+
+uint32_t
+fmt_c_str(fmt_c_string_args args, char *buf, uint32_t buf_size) {
+    buffer_writer w = {buf, buf + buf_size};
+    fmt_c_str_internal(args, &w);
+    return w.cursor - buf;
 }
 
 uint32_t
@@ -333,61 +408,14 @@ fmt_token(token *tok, char *buf, uint32_t buf_size) {
         buf_write(&w, "%.*s", tok->str.len, tok->str.data);
         break;
     case TOK_NUM:
-        if (c_type_is_int(tok->type->kind)) {
-            buf_write(&w, "%llu", tok->uint_value);
-            switch (tok->type->kind) {
-            default:
-                break;
-            case C_TYPE_ULLINT:
-            case C_TYPE_SLLINT:
-                buf_write(&w, "ll");
-                break;
-            case C_TYPE_ULINT:
-            case C_TYPE_SLINT:
-                buf_write(&w, "l");
-                break;
-            }
-            if (c_type_is_int_unsigned(tok->type->kind)) {
-                buf_write(&w, "u");
-            }
-        } else {
-            buf_write(&w, "%Lg", tok->float_value);
-            switch (tok->type->kind) {
-            default:
-                break;
-            case C_TYPE_FLOAT:
-                buf_write(&w, "f");
-                break;
-            case C_TYPE_LDOUBLE:
-                buf_write(&w, "l");
-                break;
-            }
-        }
+        fmt_c_num_internal((fmt_c_number_args){.uint_value  = tok->uint_value,
+                                               .float_value = tok->float_value,
+                                               .type        = tok->type},
+                           &w);
         break;
     case TOK_STR:
-        switch (tok->type->ptr_to->kind) {
-        default:
-            buf_write(&w, "\"");
-            buf_write_raw_utf8(&w, tok->str.data);
-            break;
-        case C_TYPE_UCHAR:
-            buf_write(&w, "u8\"");
-            buf_write_raw_utf8(&w, tok->str.data);
-            break;
-        case C_TYPE_CHAR16:
-            buf_write(&w, "u\"");
-            buf_write_raw_utf16(&w, tok->str.data);
-            break;
-        case C_TYPE_CHAR32:
-            buf_write(&w, "U\"");
-            buf_write_raw_utf32(&w, tok->str.data);
-            break;
-        case C_TYPE_WCHAR:
-            buf_write(&w, "L\"");
-            buf_write_raw_utf32(&w, tok->str.data);
-            break;
-        }
-        buf_write(&w, "\"");
+        fmt_c_str_internal(
+            (fmt_c_string_args){.type = tok->type, .str = tok->str}, &w);
         break;
     case TOK_PUNCT:
         if (tok->punct < 0x100) {
