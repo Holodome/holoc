@@ -16,23 +16,24 @@ typedef struct pp_macro_arg {
 } pp_macro_arg;
 
 typedef enum {
-    PP_MACRO_REG       = 0x0,
-    PP_MACRO_FILE      = 0x1,  // __FILE__
-    PP_MACRO_LINE      = 0x2,  // __LINE__
-    PP_MACRO_COUNTER   = 0x3,  // __COUNTER__
-    PP_MACRO_TIMESTAMP = 0x4,  // __TIMESTAMP__
-    PP_MACRO_BASE_FILE = 0x5,  // __BASE_FILE__
-    PP_MACRO_DATE      = 0x6,  // __DATE__
-    PP_MACRO_TIME      = 0x7,  // __TIME__
+    PP_MACRO_OBJ       = 0x0,
+    PP_MACRO_FUNC      = 0x1,
+    PP_MACRO_FILE      = 0x2,  // __FILE__
+    PP_MACRO_LINE      = 0x3,  // __LINE__
+    PP_MACRO_COUNTER   = 0x4,  // __COUNTER__
+    PP_MACRO_TIMESTAMP = 0x5,  // __TIMESTAMP__
+    PP_MACRO_BASE_FILE = 0x6,  // __BASE_FILE__
+    PP_MACRO_DATE      = 0x7,  // __DATE__
+    PP_MACRO_TIME      = 0x8,  // __TIME__
 } pp_macro_kind;
 
 typedef struct pp_macro {
     pp_macro_kind kind;
     string name;
     uint32_t name_hash;
-    bool is_function_like;
 
     pp_macro_arg *args;
+    uint32_t definition_len;
     struct pp_token *definition;
     struct pp_macro *next;
 } pp_macro;
