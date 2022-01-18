@@ -5,7 +5,7 @@
 #include <stdio.h>
 #define LAST 10
 
-#if 0
+#ifdef ASDSADAD
 /* !@!# */
 /* привет мир */
 #endif 

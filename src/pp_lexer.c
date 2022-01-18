@@ -429,6 +429,11 @@ bool
 pp_lexer_parse(pp_lexer *lexer) {
     lexer->tok         = (pp_token){0};
     lexer->tok_buf_len = 0;
+    if (lexer->cursor == lexer->data) {
+        lexer->tok.at_line_start = true;
+    } else {
+        lexer->tok.at_line_start = false;
+    }
 
     for (;;) {
         {

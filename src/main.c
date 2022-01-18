@@ -243,7 +243,8 @@ main(int argc, char **argv) {
         }
     }
 
-    da_push(filenames, WRAP_Z("examples/example.c"), a);
+    /* da_push(filenames, WRAP_Z("examples/example.c"), a); */
+    da_push(filenames, WRAP_Z("examples/pp/a.h"), a);
 
     if (!da_size(filenames)) {
         erroutf("No input files\n");

@@ -315,6 +315,8 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                 NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("error"))) {
                 NOT_IMPL;
+            } else if (string_eq(tok->str, WRAP_Z("include"))) {
+                /* NOT_IMPL; */
             } else {
                 NOT_IMPL;
             }
