@@ -174,6 +174,26 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     *tokp = tok;
 }
 
+static void 
+undef_macro(preprocessor *pp, pp_token **tokp) {
+    pp_token *tok = *tokp;
+    if (tok->kind != PP_TOK_ID) {
+        assert(false);
+    }
+
+    string macro_name        = tok->str;
+    uint32_t macro_name_hash = hash_string(macro_name);
+    pp_macro **macrop        = get_macro(pp, macro_name_hash);
+    if (*macrop) {
+        pp_macro *macro = *macrop;
+        *macrop = macro->next;
+        LLIST_ADD(pp->macro_freelist, macro);
+    } else {
+        assert(false);
+    }
+    *tokp = tok;
+}
+
 static bool
 process_pp_directive(preprocessor *pp, pp_token **tokp) {
     bool result   = false;
@@ -185,6 +205,24 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
             if (string_eq(tok->str, WRAP_Z("define"))) {
                 tok = tok->next;
                 define_macro(pp, &tok);
+            } else if (string_eq(tok->str, WRAP_Z("undef"))) {
+                assert(false);
+                tok = tok->next;
+                undef_macro(pp, &tok);
+            } else if (string_eq(tok->str, WRAP_Z("if"))) {
+            } else if (string_eq(tok->str, WRAP_Z("elif"))) {
+            } else if (string_eq(tok->str, WRAP_Z("else"))) {
+            } else if (string_eq(tok->str, WRAP_Z("endif"))) {
+            } else if (string_eq(tok->str, WRAP_Z("ifdef"))) {
+            } else if (string_eq(tok->str, WRAP_Z("ifndef"))) {
+            } else if (string_eq(tok->str, WRAP_Z("line"))) {
+                assert(false);
+            } else if (string_eq(tok->str, WRAP_Z("pragma"))) {
+                assert(false);
+            } else if (string_eq(tok->str, WRAP_Z("error"))) {
+                assert(false);
+            } else {
+                assert(false);
             }
         }
 
