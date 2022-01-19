@@ -7,6 +7,7 @@ struct c_type;
 struct buffer_writer;
 
 typedef enum {
+    AST_NONE      = 0x0,   // Do nothing
     AST_ID        = 0x1,   // Identifier
     AST_STR       = 0x2,   // Sting literal
     AST_NUM       = 0x3,   // Number literal
@@ -25,6 +26,12 @@ typedef enum {
     AST_CAST      = 0x10,  // (int) x
     AST_MEMB      = 0x11,  // a.x
     AST_RETURN    = 0x12,  // return;
+
+    AST_STRUCT    = 0x13,  // struct x { int x; };
+    AST_ENUM      = 0x14,  // enum x { A, B, C };
+    AST_DECL      = 0x15,  // int x;
+    AST_FUNC      = 0x16,  
+    AST_TYPEDEF   = 0x17,
 } ast_kind;
 
 typedef enum {
@@ -189,6 +196,12 @@ typedef struct ast_return {
     _AST_FIELDS;
     ast *expr;
 } ast_return;
+
+typedef struct ast_typedef {
+    _AST_FIELDS;
+    struct ast *underlying;
+    string name;
+} ast_typedef;
 
 void fmt_astw(void *ast, struct buffer_writer *w);
 uint32_t fmt_ast(ast *ast, char *buf, uint32_t buf_size);
