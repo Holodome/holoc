@@ -159,7 +159,7 @@ make_array_type(c_type *base, uint32_t len, struct allocator *a) {
 }
 
 void
-fmt_c_type_bw(c_type *type, buffer_writer *w) {
+fmt_c_typew(c_type *type, buffer_writer *w) {
     switch (type->kind) {
     case C_TYPE_VOID: {
         buf_write(w, "void");
@@ -236,14 +236,14 @@ fmt_c_type_bw(c_type *type, buffer_writer *w) {
         // Is this it?..
     } break;
     case C_TYPE_PTR: {
-        fmt_c_type_bw(type->ptr_to, w);
+        fmt_c_typew(type->ptr_to, w);
         buf_write(w, "*");
     } break;
     case C_TYPE_FUNC: {
-        fmt_c_type_bw(type->func_return, w);
+        fmt_c_typew(type->func_return, w);
         buf_write(w, "(");
         for (c_func_arg *arg = type->func_args; arg; arg = arg->next) {
-            fmt_c_type_bw(arg->type, w);
+            fmt_c_typew(arg->type, w);
             if (arg->next) {
                 buf_write(w, ", ");
             }
@@ -251,7 +251,7 @@ fmt_c_type_bw(c_type *type, buffer_writer *w) {
         buf_write(w, ")");
     } break;
     case C_TYPE_ARRAY: {
-        fmt_c_type_bw(type->ptr_to, w);
+        fmt_c_typew(type->ptr_to, w);
         buf_write(w, "[%u]", type->arr_len);
     } break;
     case C_TYPE_UNION: {
@@ -264,7 +264,7 @@ fmt_c_type_bw(c_type *type, buffer_writer *w) {
 uint32_t
 format_c_type(c_type *type, char *buf, uint32_t buf_size) {
     buffer_writer writer = {buf, buf + buf_size};
-    fmt_c_type_bw(type, &writer);
+    fmt_c_typew(type, &writer);
     return writer.cursor - buf;
 }
 

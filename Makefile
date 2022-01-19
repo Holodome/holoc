@@ -18,6 +18,10 @@ holoc: $(OBJS) | $(DIR)
 run: holoc 
 	$(DIR)/holoc
 
+$(DIR)/%.i: %.c
+	mkdir -p $(dir $@)
+	$(CC) -E $(CFLAGS) -c -o $@ $<  
+
 $(DIR)/%.o: %.c | $(DEPS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c -o $@ $<  
