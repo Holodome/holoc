@@ -91,6 +91,8 @@ typedef enum token_kind {
 } token_kind;
 
 typedef struct token {
+    struct token *next;
+
     token_kind kind;
     string str;
     uint64_t uint_value;
@@ -98,8 +100,6 @@ typedef struct token {
     struct c_type *type;
     c_punct_kind punct;
     c_keyword_kind kw;
-
-    struct token *next;
 } token;
 
 typedef struct {

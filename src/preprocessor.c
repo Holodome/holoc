@@ -333,29 +333,6 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
     return result;
 }
 
-static void
-preprocess(preprocessor *pp, pp_token *tok) {
-    while (tok->kind != PP_TOK_EOF) {
-        if (expand_macro(pp, &tok)) {
-            continue;
-        }
-
-        if (process_pp_directive(pp, &tok)) {
-            continue;
-        }
-
-        token c_tok = {0};
-        if (convert_pp_token(tok, &c_tok, pp->ea)) {
-            char buffer[4096];
-            fmt_token_verbose(&c_tok, buffer, sizeof(buffer));
-            printf("%s\n", buffer);
-        } else {
-            assert(false);
-        }
-        tok = tok->next;
-    }
-}
-
 token *
 do_pp(preprocessor *pp) {
     linked_list_constructor tokens = {0};
@@ -376,16 +353,24 @@ do_pp(preprocessor *pp) {
         }
     }
 
-    pp_token *token_list = tokens.first;
-    preprocess(pp, token_list);
-    /* for (tok = token_list; tok; tok = tok->next) { */
-    /*     token c_tok = {0}; */
-    /*     if (convert_pp_token(tok, &c_tok, pp->ea)) { */
-    /*         char buffer[4096]; */
-    /*         fmt_token_verbose(&c_tok, buffer, sizeof(buffer)); */
-    /*         printf("%s\n", buffer); */
-    /*     } */
-    /* } */
-    NOT_IMPL;
-    return 0;
+    tok = tokens.first;
+
+    linked_list_constructor converted = {0};
+    while (tok->kind != PP_TOK_EOF) {
+        if (expand_macro(pp, &tok)) {
+            continue;
+        }
+
+        if (process_pp_directive(pp, &tok)) {
+            continue;
+        }
+
+        token *c_tok = aalloc(pp->ea, sizeof(token));
+        if (!convert_pp_token(tok, c_tok, pp->ea)) {
+            NOT_IMPL;
+        }
+        tok = tok->next;
+        LLISTC_ADD_LAST(&converted, c_tok);
+    }
+    return (token *)converted.first;
 }

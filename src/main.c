@@ -7,11 +7,11 @@
 #include "ast.h"
 #include "ast_builder.h"
 #include "bump_allocator.h"
+#include "c_lang.h"
 #include "darray.h"
 #include "pp_lexer.h"
 #include "preprocessor.h"
 #include "str.h"
-#include "c_lang.h"
 
 typedef struct {
     // print preprocessing tokens verbose, its on its own line
@@ -231,22 +231,32 @@ process_file(string filename) {
     pp->lex                = &lexer;
     pp->a                  = &pp_bump;
     pp->ea                 = a;
-    token *toks = do_pp(pp);
+    token *toks            = do_pp(pp);
 
     if (settings.tp) {
+        for (token *tok = toks; tok; tok = tok->next) {
+            char buffer[4096];
+            fmt_token(tok, buffer, sizeof(buffer));
+            printf("%s\n", buffer);
+        }
         return;
     }
 
     if (settings.tpv) {
+        for (token *tok = toks; tok; tok = tok->next) {
+            char buffer[4096];
+            fmt_token_verbose(tok, buffer, sizeof(buffer));
+            printf("%s\n", buffer);
+        }
         return;
     }
 
     bump_allocator ast_b_bump = {0};
-    ast_builder *ast_b = bump_alloc(&ast_b_bump, sizeof(ast_builder));
-    ast_b->a = &ast_b_bump;
-    ast_b->ea = a;
-    ast_b->toks = toks;
-    ast_b->tok = toks;
+    ast_builder *ast_b        = bump_alloc(&ast_b_bump, sizeof(ast_builder));
+    ast_b->a                  = &ast_b_bump;
+    ast_b->ea                 = a;
+    ast_b->toks               = toks;
+    ast_b->tok                = toks;
 
     if (settings.ast) {
         for (;;) {

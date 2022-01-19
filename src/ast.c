@@ -322,7 +322,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         buf_write(w, "Typedef: %s\n", td->name.data);
         buf_write(w, "%*c", depth, ' ');
         buf_write(w, "Type:\n");
-        fmt_ast_verbosew_internal(td->underlying, w, depth + 1); 
+        fmt_ast_verbosew_internal(td->underlying, w, depth + 1);
     } break;
     case AST_TYPE: {
         NOT_IMPL;
@@ -330,7 +330,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     }
 }
 
-void 
+void
 fmt_ast_verbosew(void *node, buffer_writer *w) {
     fmt_ast_verbosew_internal(node, w, 0);
 }

@@ -495,7 +495,6 @@ fmt_pp_tok(pp_token *tok, char *buf, uint32_t buf_len) {
         str_opener = get_str_opener(tok->str_kind);
         if (str_opener.data) {
             char str_closer = str_opener.data[str_opener.len - 1];
-            // TODO: Handling for \n characters, and other string encodings
             buffer_writer w = {buf, buf + buf_len};
             buf_write(&w, "%s", str_opener.data);
             buf_write_raw_utf8(&w, tok->str.data);

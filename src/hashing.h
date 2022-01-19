@@ -17,13 +17,6 @@ Version: 0
 //  pointer, and deletion can be done with setting hash value to zero
 // or_zero being 1 means that hash table may use new slot for this hash
 // @NOTE(hl): Entry count should be power of two
-// @TODO(hl): This uses hash table which is constructed as bucket array
-//  but in cases where this function is used, hash values can be put in separate
-//  array for better cache locality (actually this can be implemented using this
-//  function directly - just say that hash_offset is 0 and stride is sizeof(u32)
-//  and pass array of u32
-//   then by subtracting base of array from the resulting pointer we can get
-//   index in array, and use it to access array with values)
 void *hash_table_oa_get_u32(void *entries, uint32_t entry_count,
                             uintptr_t stride, uintptr_t hash_offset,
                             uint32_t hash, bool or_zero);
