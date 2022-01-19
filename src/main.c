@@ -4,19 +4,31 @@
 #include <string.h>
 
 #include "allocator.h"
+#include "ast.h"
+#include "ast_builder.h"
 #include "bump_allocator.h"
 #include "darray.h"
 #include "pp_lexer.h"
 #include "preprocessor.h"
 #include "str.h"
+#include "c_lang.h"
 
 typedef struct {
-    bool ptv;   // print preprocessing tokens verbose, its on its own line
-    bool ptvf;  // print preprocessing tokens verbose, as if they were on
-                // logical source lines
-    bool ptf;   // print preprocessing tokens, as if they were on logical source
-                // lines
-    bool pt;    // print preprocessing tokens, each on its own line
+    // print preprocessing tokens verbose, its on its own line
+    bool ptv;
+    // print preprocessing tokens verbose, as if they were on logical source
+    // lines
+    bool ptvf;
+    // print preprocessing tokens, as if they were on logical source lines
+    bool ptf;
+    // print preprocessing tokens, each on its own line
+    bool pt;
+    // print c tokens, each on its own line
+    bool tp;
+    // print c tokens verbose, each on its own line
+    bool tpv;
+    // dump ast tree in tree format
+    bool ast;
 } program_settings;
 
 static program_settings settings;
@@ -214,13 +226,40 @@ process_file(string filename) {
         return;
     }
 
-    printf("Preprocessing:\n");
     bump_allocator pp_bump = {0};
     preprocessor *pp       = bump_alloc(&pp_bump, sizeof(preprocessor));
     pp->lex                = &lexer;
     pp->a                  = &pp_bump;
     pp->ea                 = a;
-    do_pp(pp);
+    token *toks = do_pp(pp);
+
+    if (settings.tp) {
+        return;
+    }
+
+    if (settings.tpv) {
+        return;
+    }
+
+    bump_allocator ast_b_bump = {0};
+    ast_builder *ast_b = bump_alloc(&ast_b_bump, sizeof(ast_builder));
+    ast_b->a = &ast_b_bump;
+    ast_b->ea = a;
+    ast_b->toks = toks;
+    ast_b->tok = toks;
+
+    if (settings.ast) {
+        for (;;) {
+            ast *toplevel = build_toplevel_ast(ast_b);
+            if (!toplevel) {
+                break;
+            }
+            char buffer[16384];
+            fmt_ast_verbose(toplevel, buffer, sizeof(buffer));
+            printf("%s", buffer);
+        }
+        return;
+    }
 }
 
 int
@@ -237,13 +276,19 @@ main(int argc, char **argv) {
             settings.ptf = true;
         } else if (strcmp(argv[arg_idx], "--pt") == 0) {
             settings.pt = true;
+        } else if (strcmp(argv[arg_idx], "--tp") == 0) {
+            settings.tp = true;
+        } else if (strcmp(argv[arg_idx], "--tpv") == 0) {
+            settings.tpv = true;
+        } else if (strcmp(argv[arg_idx], "--ast") == 0) {
+            settings.ast = true;
         } else {
-            da_push(filenames, WRAP_Z(argv[arg_idx]), a);
+            da_push(filenames, stringz(argv[arg_idx]), a);
         }
     }
 
     /* da_push(filenames, WRAP_Z("examples/example.c"), a); */
-    da_push(filenames, WRAP_Z("examples/pp/a.h"), a);
+    /* da_push(filenames, WRAP_Z("examples/pp/a.h"), a); */
 
     if (!da_size(filenames)) {
         erroutf("No input files\n");

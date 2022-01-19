@@ -74,6 +74,6 @@ typedef struct preprocessor {
     pp_macro_expansion_arg *macro_expansion_arg_freelist;
 } preprocessor;
 
-void do_pp(preprocessor *pp);
+struct token *do_pp(preprocessor *pp);
 
 #endif

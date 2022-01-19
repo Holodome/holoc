@@ -270,7 +270,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         buf_write(w, "Block:\n");
         buf_write(w, "%*c", depth + 1, ' ');
         buf_write(w, "Statements:\n");
-        fmt_ast_verbosew_internal(block->sts, w, depth + 2);
+        fmt_ast_verbosew_internal(block->st, w, depth + 2);
     } break;
     case AST_GOTO: {
         NOT_IMPL;
@@ -328,6 +328,11 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         NOT_IMPL;
     } break;
     }
+}
+
+void 
+fmt_ast_verbosew(void *node, buffer_writer *w) {
+    fmt_ast_verbosew_internal(node, w, 0);
 }
 
 uint32_t

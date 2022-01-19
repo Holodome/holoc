@@ -356,7 +356,7 @@ preprocess(preprocessor *pp, pp_token *tok) {
     }
 }
 
-void
+token *
 do_pp(preprocessor *pp) {
     linked_list_constructor tokens = {0};
 
@@ -386,4 +386,6 @@ do_pp(preprocessor *pp) {
     /*         printf("%s\n", buffer); */
     /*     } */
     /* } */
+    NOT_IMPL;
+    return 0;
 }

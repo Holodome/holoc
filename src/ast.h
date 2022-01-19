@@ -167,7 +167,7 @@ typedef struct ast_case {
 
 typedef struct ast_block {
     _AST_FIELDS;
-    ast *sts;
+    ast *st;
 } ast_block;
 
 typedef struct ast_goto {
