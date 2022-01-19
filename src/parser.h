@@ -9,9 +9,7 @@ struct bump_allocator;
 struct c_type;
 struct ast_builder;
 
-typedef enum {
-    _
-} parser_object_flags;
+typedef enum { _ } parser_object_flags;
 
 typedef struct parser_object {
     struct parser_object *next;
@@ -26,11 +24,11 @@ typedef struct parser_scope {
 
 typedef struct parser {
     struct bump_allocator *a;
-    
+
     struct ast_builder *b;
 
     parser_object *globals;
     parser_scope *scope;
 } parser;
 
-#endif 
+#endif

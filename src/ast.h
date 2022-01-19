@@ -1,5 +1,5 @@
-#ifndef C_AST_H
-#define C_AST_H
+#ifndef AST_H
+#define AST_H
 
 #include "types.h"
 
@@ -37,53 +37,53 @@ typedef enum {
 } ast_kind;
 
 typedef enum {
-    AST_UNARY_MINUS = 0x1,  // -
-    AST_UNARY_PLUS  = 0x2,  // +
-    AST_UNARY_LNOT  = 0x3,  // !
-    AST_UNARY_NOT   = 0x4,  // ~
+    AST_UN_MINUS = 0x1,  // -
+    AST_UN_PLUS  = 0x2,  // +
+    AST_UN_LNOT  = 0x3,  // !
+    AST_UN_NOT   = 0x4,  // ~
 
-    AST_UNARY_PREINC  = 0x5,  // ++x
-    AST_UNARY_POSTINC = 0x6,  // x++
-    AST_UNARY_PREDEC  = 0x7,  // --x
-    AST_UNARY_POSTDEC = 0x8,  // x--
+    AST_UN_PREINC  = 0x5,  // ++x
+    AST_UN_POSTINC = 0x6,  // x++
+    AST_UN_PREDEC  = 0x7,  // --x
+    AST_UN_POSTDEC = 0x8,  // x--
 
-    AST_UNARY_DEREF = 0x9,  // *
-    AST_UNARY_ADDR  = 0xA,  // &
+    AST_UN_DEREF = 0x9,  // *
+    AST_UN_ADDR  = 0xA,  // &
 } ast_unary_kind;
 
 typedef enum {
-    AST_BINARY_ADD    = 0x1,   // +
-    AST_BINARY_SUB    = 0x2,   // -
-    AST_BINARY_MUL    = 0x3,   // *
-    AST_BINARY_DIV    = 0x4,   // /
-    AST_BINARY_MOD    = 0x5,   // %
-    AST_BINARY_LE     = 0x6,   // <=
-    AST_BINARY_L      = 0x7,   // <
-    AST_BINARY_GE     = 0x8,   // >=
-    AST_BINARY_G      = 0x9,   // >
-    AST_BINARY_EQ     = 0xA,   // ==
-    AST_BINARY_NEQ    = 0xB,   // !=
-    AST_BINARY_AND    = 0xC,   // &
-    AST_BINARY_OR     = 0xD,   // |
-    AST_BINARY_XOR    = 0xE,   // ^
-    AST_BINARY_LSHIFT = 0xF,   // <<
-    AST_BINARY_RSHIFT = 0x10,  // >>
-    AST_BINARY_LAND   = 0x11,  // &&
-    AST_BINARY_LOR    = 0x12,  // ||
+    AST_BIN_ADD    = 0x1,   // +
+    AST_BIN_SUB    = 0x2,   // -
+    AST_BIN_MUL    = 0x3,   // *
+    AST_BIN_DIV    = 0x4,   // /
+    AST_BIN_MOD    = 0x5,   // %
+    AST_BIN_LE     = 0x6,   // <=
+    AST_BIN_L      = 0x7,   // <
+    AST_BIN_GE     = 0x8,   // >=
+    AST_BIN_G      = 0x9,   // >
+    AST_BIN_EQ     = 0xA,   // ==
+    AST_BIN_NEQ    = 0xB,   // !=
+    AST_BIN_AND    = 0xC,   // &
+    AST_BIN_OR     = 0xD,   // |
+    AST_BIN_XOR    = 0xE,   // ^
+    AST_BIN_LSHIFT = 0xF,   // <<
+    AST_BIN_RSHIFT = 0x10,  // >>
+    AST_BIN_LAND   = 0x11,  // &&
+    AST_BIN_LOR    = 0x12,  // ||
 
-    AST_BINARY_A       = 0x13,  // =
-    AST_BINARY_ADDA    = 0x14,  // +=
-    AST_BINARY_SUBA    = 0x16,  // -=
-    AST_BINARY_MULA    = 0x17,  // *=
-    AST_BINARY_DIVA    = 0x18,  // /=
-    AST_BINARY_MODA    = 0x19,  // %=
-    AST_BINARY_LSHIFTA = 0x1A,  // <<=
-    AST_BINARY_RSHIFTA = 0x1B,  // >>=
-    AST_BINARY_ANDA    = 0x1C,  // &=
-    AST_BINARY_ORA     = 0x1D,  // |=
-    AST_BINARY_XORA    = 0x1E,  // ^=
+    AST_BIN_A       = 0x13,  // =
+    AST_BIN_ADDA    = 0x14,  // +=
+    AST_BIN_SUBA    = 0x16,  // -=
+    AST_BIN_MULA    = 0x17,  // *=
+    AST_BIN_DIVA    = 0x18,  // /=
+    AST_BIN_MODA    = 0x19,  // %=
+    AST_BIN_LSHIFTA = 0x1A,  // <<=
+    AST_BIN_RSHIFTA = 0x1B,  // >>=
+    AST_BIN_ANDA    = 0x1C,  // &=
+    AST_BIN_ORA     = 0x1D,  // |=
+    AST_BIN_XORA    = 0x1E,  // ^=
 
-    AST_BINARY_COMMA = 0x1F,  // ,
+    AST_BIN_COMMA = 0x1F,  // ,
 } ast_binary_kind;
 
 #define _AST_FIELDS   \
@@ -135,20 +135,21 @@ typedef struct ast_ternary {
 typedef struct ast_if {
     _AST_FIELDS;
     ast *cond;
-    ast *expr;
-    ast *else_expr;
+    ast *cond_true;
+    ast *cond_false;
 } ast_if;
 
 typedef struct ast_for {
     _AST_FIELDS;
     ast *init;
     ast *cond;
-    ast *inc;
+    ast *iter;
+    ast *loop;
 } ast_for;
 
 typedef struct ast_do {
     _AST_FIELDS;
-    ast *expr;
+    ast *loop;
     ast *cond;
 } ast_do;
 
@@ -235,6 +236,8 @@ typedef struct ast_type {
 } ast_type;
 
 void fmt_astw(void *ast, struct buffer_writer *w);
-uint32_t fmt_ast(ast *ast, char *buf, uint32_t buf_size);
+uint32_t fmt_ast(void *ast, char *buf, uint32_t buf_size);
+void fmt_ast_verbosew(void *ast, struct buffer_writer *w);
+uint32_t fmt_ast_verbose(void *ast, char *buf, uint32_t buf_size);
 
 #endif

@@ -10,5 +10,4 @@ typedef struct type_manager {
     struct allocator *a;
 } type_manager;
 
-#endif 
-
+#endif

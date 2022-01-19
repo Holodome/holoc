@@ -5,7 +5,7 @@
 #include "ast.h"
 #include "ast_builder.h"
 
-static void 
+static void
 parse_typedef(parser *p, ast_typedef *td) {
     NOT_IMPL;
 }
@@ -18,13 +18,13 @@ whatever(parser *p) {
         parse_typedef(p, (ast_typedef *)toplevel);
         break;
     case AST_FUNC:
-    NOT_IMPL;
+        NOT_IMPL;
         break;
     case AST_STRUCT:
-    NOT_IMPL;
+        NOT_IMPL;
         break;
     case AST_ENUM:
-    NOT_IMPL;
+        NOT_IMPL;
         break;
     default:
         assert(false);

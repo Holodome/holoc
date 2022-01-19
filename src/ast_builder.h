@@ -21,4 +21,4 @@ typedef struct ast_builder {
 
 struct ast *build_toplevel_ast(ast_builder *b);
 
-#endif 
+#endif

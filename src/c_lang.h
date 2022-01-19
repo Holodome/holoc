@@ -121,6 +121,7 @@ uint32_t fmt_token(token *tok, char *buf, uint32_t buf_size);
 uint32_t fmt_token_verbose(token *tok, char *buf, uint32_t buf_size);
 bool convert_pp_token(struct pp_token *pp_tok, token *tok, struct allocator *a);
 #define IS_KW(_tok, _kw) ((_tok)->kind == TOK_KW && (_tok)->kw == (_kw))
-#define IS_PUNCT(_tok, _punct) ((_tok)->kind == TOK_PUNCT && (_tok)->punct == (_punct))
+#define IS_PUNCT(_tok, _punct) \
+    ((_tok)->kind == TOK_PUNCT && (_tok)->punct == (_punct))
 
 #endif
