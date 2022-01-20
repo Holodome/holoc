@@ -5,7 +5,39 @@
 #include <string.h>
 
 #include "allocator.h"
+#include "darray.h"
 #include "str.h"
+
+static void
+add_default_include_paths(file_storage *fs) {
+    allocator *a  = get_system_allocator();
+    string *paths = 0;
+    // Linux folders
+    da_push(paths, WRAP_Z("/usr/local/include"), a);
+    da_push(paths, WRAP_Z("/usr/include/x86_64-linux-gnu"), a);
+    da_push(paths, WRAP_Z("/usr/include"), a);
+    // HL: This is copy from my mac clang paths
+    da_push(paths,
+            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Toolchains/"
+                   "XcodeDefault.xctoolchain/usr/lib/clang/13.0.0/include"),
+            a);
+    da_push(paths,
+            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Platforms/"
+                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"),
+            a);
+    da_push(paths,
+            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Toolchains/"
+                   "XcodeDefault.xctoolchain/usr/include"),
+            a);
+    da_push(paths,
+            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Platforms/"
+                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
+                   "Frameworks"),
+            a);
+
+    fs->include_paths = paths;
+    fs->include_path_count = da_size(paths);
+}
 
 char *
 canonicalize_newline(char *p) {
@@ -136,7 +168,7 @@ get_file(file_storage *fs, string name) {
 
     if (!file) {
         file                = aalloc(fs->a, sizeof(file));
-        file->name          = name;
+        file->name          = string_dup(fs->a, name);
         string contents     = read_file_data(name, fs->a);
         file->contents_init = contents;
 
@@ -158,7 +190,7 @@ get_file(file_storage *fs, string name) {
 void
 report_error_internalv(char *filename, char *file_contents, uint32_t nline,
                        uint32_t ncol, char *fmt, va_list args) {
-    char *line = file_contents;
+    char *line            = file_contents;
     uint32_t line_counter = 0;
     while (line_counter < nline) {
         if (!*line) {
@@ -195,7 +227,8 @@ report_error_internal(char *filename, char *file_contents, uint32_t line,
 
 void
 report_errorv(file *f, uint32_t line, uint32_t col, char *fmt, va_list args) {
-    report_error_internalv(f->name.data, f->contents.data, line, col, fmt, args);
+    report_error_internalv(f->name.data, f->contents.data, line, col, fmt,
+                           args);
 }
 
 void
