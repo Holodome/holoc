@@ -6,9 +6,10 @@
 
 #include "allocator.h"
 #include "darray.h"
+#include "filepath.h"
 #include "str.h"
 
-static void
+void
 add_default_include_paths(file_storage *fs) {
     allocator *a  = get_system_allocator();
     string *paths = 0;
@@ -35,7 +36,7 @@ add_default_include_paths(file_storage *fs) {
                    "Frameworks"),
             a);
 
-    fs->include_paths = paths;
+    fs->include_paths      = paths;
     fs->include_path_count = da_size(paths);
 }
 
@@ -157,8 +158,46 @@ read_file_data(string filename, allocator *a) {
     return string(data, size);
 }
 
+static bool
+file_exists(char *filename) {
+    bool result = false;
+    FILE *f     = fopen(filename, "rb");
+    if (f) {
+        fclose(f);
+        result = true;
+    }
+    return result;
+}
+
+static string
+get_filepath_in_same_dir(file_storage *fs, string name, string current_path) {
+    string result      = {0};
+    string current_dir = path_dirname(current_path);
+    char buffer[4096];
+    snprintf(buffer, sizeof(buffer), "%.*s/%s", current_dir.len,
+             current_dir.data, name.data);
+    if (file_exists(buffer)) {
+        result = string_memdup(fs->a, buffer);
+    }
+    return result;
+}
+
+static string
+get_filepath_from_include_paths(file_storage *fs, string name) {
+    string result = {0};
+    for (uint32_t i = 0; i < fs->include_path_count; ++i) {
+        string dir = fs->include_paths[i];
+        char buffer[4096];
+        snprintf(buffer, sizeof(buffer), "%s/%s", dir.data, name.data);
+        if (file_exists(buffer)) {
+            result = string_memdup(fs->a, buffer);
+        }
+    }
+    return result;
+}
+
 file *
-get_file(file_storage *fs, string name) {
+get_file(file_storage *fs, string name, string current_name) {
     file *file = 0;
     for (file = fs->files; file; file = file->next) {
         if (string_eq(file->name, name)) {
@@ -167,6 +206,17 @@ get_file(file_storage *fs, string name) {
     }
 
     if (!file) {
+        string actual_path = {0};
+        if (current_name.data) {
+            actual_path = get_filepath_in_same_dir(fs, name, current_name);
+        }
+        if (!actual_path.data) {
+            actual_path = get_filepath_from_include_paths(fs, name);
+        }
+        if (!actual_path.data) {
+            NOT_IMPL;
+        }
+
         file                = aalloc(fs->a, sizeof(file));
         file->name          = string_dup(fs->a, name);
         string contents     = read_file_data(name, fs->a);

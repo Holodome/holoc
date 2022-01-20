@@ -96,11 +96,6 @@ path_to_absolute(string path, struct allocator *a) {
     return result;
 }
 
-typedef struct string_llnode {
-    string str;
-    struct string_llnode *next;
-} string_llnode;
-
 string
 path_clean(string path, struct allocator *a) {
     bool is_rooted = string_startswith(path, WRAP_Z("/"));

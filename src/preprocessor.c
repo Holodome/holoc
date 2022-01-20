@@ -8,6 +8,7 @@
 #include "allocator.h"
 #include "bump_allocator.h"
 #include "c_lang.h"
+#include "file_storage.h"
 #include "hashing.h"
 #include "llist.h"
 #include "pp_lexer.h"
@@ -77,6 +78,18 @@ get_new_cond_incl(preprocessor *pp) {
         incl = bump_alloc(pp->a, sizeof(*incl));
     }
     return incl;
+}
+
+static pp_parse_stack *
+get_new_parse_stack_entry(preprocessor *pp) {
+    pp_parse_stack *entry = pp->parse_stack_freelist;
+    if (entry) {
+        LLIST_POP(pp->parse_stack_freelist);
+        memset(entry, 0, sizeof(*entry));
+    } else {
+        entry = bump_alloc(pp->a, sizeof(*entry));
+    }
+    return entry;
 }
 
 static pp_token *
@@ -247,6 +260,10 @@ skip_cond_incl(preprocessor *pp, pp_token **tokp) {
     *tokp = tok;
 }
 
+static void 
+include_file(preprocessor *pp, string filename) {
+}
+
 static bool
 process_pp_directive(preprocessor *pp, pp_token **tokp) {
     bool result   = false;
@@ -316,7 +333,34 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
             } else if (string_eq(tok->str, WRAP_Z("error"))) {
                 NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("include"))) {
-                /* NOT_IMPL; */
+                tok = tok->next;
+                if (tok->at_line_start) {
+                    NOT_IMPL;
+                }
+
+                if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == '<') {
+                    char filename_buffer[4096];
+                    char *buf_eof = filename_buffer + sizeof(filename_buffer);
+                    char *cursor  = filename_buffer;
+                    while (tok->kind != PP_TOK_PUNCT ||
+                           tok->punct_kind != '>' || !tok->at_line_start) {
+                        cursor += fmt_pp_tok(tok, cursor, buf_eof - cursor);
+                    }
+
+                    if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != '>') {
+                        NOT_IMPL;
+                    } else {
+                        tok = tok->next;
+                    }
+
+                    string filename = string(filename_buffer, cursor - filename_buffer);
+                    include_file(pp, filename);
+                } else if (tok->kind == PP_TOK_STR) {
+                    include_file(pp, tok->str);
+                    tok = tok->next;
+                } else {
+                    NOT_IMPL;
+                }
             } else {
                 NOT_IMPL;
             }
@@ -333,15 +377,24 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
     return result;
 }
 
-token *
-do_pp(preprocessor *pp) {
+static pp_token *
+get_pp_tokens_for_file(preprocessor *pp, string filename) {
     linked_list_constructor tokens = {0};
+
+    file *f = get_file(pp->fs, filename);
+
+    pp_lexer lex         = {0};
+    lex.tok_buf          = pp->lexer_buffer;
+    lex.tok_buf_capacity = sizeof(pp->lexer_buffer);
+    lex.data             = f->contents.data;
+    lex.eof              = STRING_END(f->contents);
+    lex.cursor           = lex.data;
 
     pp_token *tok;
     for (;;) {
-        pp_lexer_parse(pp->lex);
+        pp_lexer_parse(&lex);
         tok  = get_new_token(pp);
-        *tok = pp->lex->tok;
+        *tok = lex.tok;
         if (tok->str.data) {
             allocator a = bump_get_allocator(pp->a);
             tok->str    = string_dup(&a, tok->str);
@@ -352,9 +405,12 @@ do_pp(preprocessor *pp) {
             break;
         }
     }
+    return (pp_token *)tokens.first;
+}
 
-    tok = tokens.first;
-
+token *
+do_pp(preprocessor *pp, string filename) {
+    pp_token *tok                     = get_pp_tokens_for_file(pp, filename);
     linked_list_constructor converted = {0};
     while (tok->kind != PP_TOK_EOF) {
         if (expand_macro(pp, &tok)) {
