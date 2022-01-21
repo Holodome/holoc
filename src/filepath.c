@@ -9,27 +9,14 @@
 #include "darray.h"
 #include "str.h"
 
-static bool
-fmt_current_dir(char *buf, uint32_t buf_size) {
-    char *result = getcwd(buf, buf_size);
-    return result != 0;
+void
+get_current_dir(char *buf, uint32_t buf_size) {
+    getcwd(buf, buf_size);
 }
 
-string
-get_current_dir(struct allocator *a) {
-    char buffer[4096];
-    string result = {0};
-    if (fmt_current_dir(buffer, sizeof(buffer))) {
-        result = string_memdup(a, buffer);
-    }
-    return result;
-}
-
-string
-get_realpath(string path, struct allocator *a) {
-    char buffer[4096];
-    char *result = realpath(path.data, buffer);
-    return string_memdup(a, result);
+void
+get_realpath(char *str, char *buf, uint32_t buf_size) {
+    realpath(str, buf);
 }
 
 bool
@@ -90,7 +77,7 @@ path_to_absolute(string path, struct allocator *a) {
         result = path;
     } else {
         char dir[4096] = "";
-        fmt_current_dir(dir, sizeof(dir));
+        get_current_dir(dir, sizeof(dir));
         result = string_memprintf(a, "%s/%.*s", dir, path.len, path.data);
     }
     return result;

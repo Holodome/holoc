@@ -196,6 +196,19 @@ get_filepath_from_include_paths(file_storage *fs, string name) {
     return result;
 }
 
+static string
+get_filepath_relative(file_storage *fs, string name) {
+    string result = {0};
+    char buffer[4096];
+    get_current_dir(buffer, sizeof(buffer));
+    uint32_t dir_len = strlen(buffer);
+    snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "%s", name.data);
+    if (file_exists(buffer)) {
+        result = string_memdup(fs->a, buffer);
+    }
+    return result;
+}
+
 file *
 get_file(file_storage *fs, string name, string current_name) {
     file *file = 0;
@@ -213,6 +226,10 @@ get_file(file_storage *fs, string name, string current_name) {
         if (!actual_path.data) {
             actual_path = get_filepath_from_include_paths(fs, name);
         }
+        if (!actual_path.data) {
+            actual_path = get_filepath_relative(fs, name);
+        }
+
         if (!actual_path.data) {
             NOT_IMPL;
         }

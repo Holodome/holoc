@@ -5,8 +5,10 @@
 
 struct allocator;
 
-string get_current_dir(struct allocator *a);
-string get_realpath(string path, struct allocator *a);
+// Returns path of current directory 
+void get_current_dir(char *buf, uint32_t buf_size);
+// NOTE: can cause overflows
+void get_realpath(char *str, char *buf, uint32_t buf_size);
 bool path_is_dir(string path);
 string path_dirname(string path);
 string path_filename(string path);
