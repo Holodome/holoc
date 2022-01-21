@@ -5,6 +5,8 @@
 
 #include "bump_allocator.h"
 
+static uint64_t allocated;
+
 static ALLOCATOR_REALLOC(system_realloc) {
     void *new_ptr = 0;
     if (new_size == 0) {
@@ -15,6 +17,8 @@ static ALLOCATOR_REALLOC(system_realloc) {
             memset((char *)new_ptr + old_size, 0, new_size - old_size);
         }
     }
+    allocated -= old_size;
+    allocated += new_size;
     return new_ptr;
 }
 

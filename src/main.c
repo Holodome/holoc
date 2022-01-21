@@ -52,7 +52,11 @@ process_file(string filename) {
     pp->fs = &fs;
 
     token *toks = do_pp(pp, filename);
-    (void)toks;
+    for (token *tok = toks; tok; tok = tok->next) {
+        char buffer[4096];
+        fmt_token_verbose(tok, buffer, sizeof(buffer));
+        printf("%s\n", buffer);
+    }
 }
 
 #if 0

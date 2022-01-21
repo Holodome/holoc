@@ -118,12 +118,18 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
         case PP_MACRO_OBJ: {
             uint32_t idx      = 0;
             pp_token *initial = tok;
+            // Make sure we always skip the macro token
+            tok = tok->next;
+            linked_list_constructor def = {0};
             for (pp_token *temp                    = macro->definition;
                  idx < macro->definition_len; temp = temp->next, ++idx) {
                 pp_token *new_token = copy_pp_token(pp, temp);
-                LLIST_ADD(tok, new_token);
+                LLISTC_ADD_LAST(&def, new_token);
             }
-            tok->next           = initial->next;
+            if (def.first) {
+                ((pp_token *)def.last)->next = tok;
+                tok = def.first;
+            }
             tok->has_whitespace = initial->has_whitespace;
             tok->at_line_start  = initial->at_line_start;
             result              = true;
@@ -467,15 +473,16 @@ do_pp(preprocessor *pp, string filename) {
         if (!convert_pp_token(tok, c_tok, pp->ea)) {
             NOT_IMPL;
         }
-        tok = tok->next;
         LLISTC_ADD_LAST(&converted, c_tok);
-#if HOLOCD_DEBUG 
+        tok = tok->next;
+#if HOLOC_DEBUG 
         {
             char buffer[4096];
             uint32_t len = fmt_token_verbose(c_tok, buffer, sizeof(buffer));
             char *debug_info = aalloc(get_debug_allocator(), len + 1);
             memcpy(debug_info, buffer, len + 1);
             tok->_debug_info = debug_info;
+            printf("%s\n", buffer);
         }
 #endif 
     }
