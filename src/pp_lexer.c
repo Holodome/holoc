@@ -8,6 +8,7 @@
 #include "buffer_writer.h"
 #include "str.h"
 #include "unicode.h"
+#include "allocator.h"
 
 #define PP_TOK_STR_ADVANCE 0x10
 #define PP_TOK_PUNCT_ADVANCE 0x100
@@ -475,7 +476,16 @@ pp_lexer_parse(pp_lexer *lexer) {
 
         assert(false);
     }
+#if HOLOC_DEBUG
+    {
+        char buffer[4096] = {0};
+        uint32_t len = fmt_pp_tok_verbose(&lexer->tok, buffer, sizeof(buffer));
 
+        char *debug_info = aalloc(get_debug_allocator(), len + 1);
+        memcpy(debug_info, buffer, len + 1);
+        lexer->tok._debug_info = debug_info;
+    }
+#endif 
     return lexer->tok.kind != PP_TOK_EOF;
 }
 

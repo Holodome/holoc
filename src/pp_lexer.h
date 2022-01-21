@@ -66,6 +66,9 @@ typedef struct pp_token {
     bool at_line_start;
     // Not used in pp_lexer directly, but in preprocessor
     struct pp_token *next;
+#if HOLOC_DEBUG
+    char *_debug_info;
+#endif 
 } pp_token;
 
 // Structure holding state needed to process the source file at the first stage
