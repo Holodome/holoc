@@ -260,7 +260,7 @@ skip_cond_incl(preprocessor *pp, pp_token **tokp) {
     *tokp = tok;
 }
 
-static linked_list_constructor 
+static linked_list_constructor
 get_pp_tokens_for_file(preprocessor *pp, string filename) {
     linked_list_constructor tokens = {0};
 
@@ -270,18 +270,18 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     }
     file *f = get_file(pp->fs, filename, current_file);
 
-    pp_lexer lex         = {0};
-    lex.tok_buf          = pp->lexer_buffer;
-    lex.tok_buf_capacity = sizeof(pp->lexer_buffer);
-    lex.data             = f->contents.data;
-    lex.eof              = STRING_END(f->contents);
-    lex.cursor           = lex.data;
+    pp_lexer *lex = bump_alloc(pp->a, sizeof(pp_lexer));
+    lex->tok_buf          = pp->lexer_buffer;
+    lex->tok_buf_capacity = sizeof(pp->lexer_buffer);
+    lex->data             = f->contents.data;
+    lex->eof              = STRING_END(f->contents);
+    lex->cursor           = lex->data;
 
     pp_token *tok;
     for (;;) {
-        pp_lexer_parse(&lex);
+        pp_lexer_parse(lex);
         tok  = get_new_token(pp);
-        *tok = lex.tok;
+        *tok = lex->tok;
         if (tok->str.data) {
             allocator a = bump_get_allocator(pp->a);
             tok->str    = string_dup(&a, tok->str);
@@ -295,12 +295,18 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     return tokens;
 }
 
-static void 
+static void
 include_file(preprocessor *pp, pp_token **tokp, string filename) {
-    linked_list_constructor tokens = get_pp_tokens_for_file(pp, filename);
-    pp_token *new_after = *tokp;
-    *tokp = tokens.first;
+    linked_list_constructor tokens  = get_pp_tokens_for_file(pp, filename);
+    pp_token *new_after             = *tokp;
+    *tokp                           = tokens.first;
     ((pp_token *)tokens.last)->next = new_after;
+}
+static int64_t
+eval_pp_expr(preprocessor *pp, pp_token **tokp) {
+    int64_t result = 0;
+
+    return result;
 }
 
 static bool
@@ -318,9 +324,33 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                 tok = tok->next;
                 undef_macro(pp, &tok);
             } else if (string_eq(tok->str, WRAP_Z("if"))) {
-                NOT_IMPL;
+                tok                 = tok->next;
+                int64_t expr_result = eval_pp_expr(pp, &tok);
+                push_cond_incl(pp, expr_result != 0);
+                if (!expr_result) {
+                    skip_cond_incl(pp, &tok);
+                }
             } else if (string_eq(tok->str, WRAP_Z("elif"))) {
-                NOT_IMPL;
+                tok                          = tok->next;
+                pp_conditional_include *incl = pp->cond_incl_stack;
+                if (!incl) {
+                    NOT_IMPL;
+                } else {
+                    if (incl->is_after_else) {
+                        NOT_IMPL;
+                    }
+
+                    if (!incl->is_included) {
+                        int64_t expr_result = eval_pp_expr(pp, &tok);
+                        if (expr_result) {
+                            incl->is_included = true;
+                        } else {
+                            skip_cond_incl(pp, &tok);
+                        }
+                    } else {
+                        skip_cond_incl(pp, &tok);
+                    }
+                }
             } else if (string_eq(tok->str, WRAP_Z("else"))) {
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
@@ -370,7 +400,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
             } else if (string_eq(tok->str, WRAP_Z("pragma"))) {
                 NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("error"))) {
-                NOT_IMPL;
+                /* NOT_IMPL; */
             } else if (string_eq(tok->str, WRAP_Z("include"))) {
                 tok = tok->next;
                 if (tok->at_line_start) {
@@ -382,8 +412,9 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                     char filename_buffer[4096];
                     char *buf_eof = filename_buffer + sizeof(filename_buffer);
                     char *cursor  = filename_buffer;
-                    while ((tok->kind != PP_TOK_PUNCT ||
-                           tok->punct_kind != '>') && !tok->at_line_start) {
+                    while (
+                        (tok->kind != PP_TOK_PUNCT || tok->punct_kind != '>') &&
+                        !tok->at_line_start) {
                         cursor += fmt_pp_tok(tok, cursor, buf_eof - cursor);
                         tok = tok->next;
                     }
@@ -394,7 +425,8 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                         tok = tok->next;
                     }
 
-                    string filename = string(filename_buffer, cursor - filename_buffer);
+                    string filename =
+                        string(filename_buffer, cursor - filename_buffer);
                     include_file(pp, &tok, filename);
                 } else if (tok->kind == PP_TOK_STR) {
                     include_file(pp, &tok, tok->str);
@@ -417,11 +449,12 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
     *tokp = tok;
     return result;
 }
+
 token *
 do_pp(preprocessor *pp, string filename) {
-    pp_token *tok                     = get_pp_tokens_for_file(pp, filename).first;
+    pp_token *tok = get_pp_tokens_for_file(pp, filename).first;
     linked_list_constructor converted = {0};
-    while (tok->kind != PP_TOK_EOF) {
+    while (tok->next) {
         if (expand_macro(pp, &tok)) {
             continue;
         }
@@ -436,6 +469,15 @@ do_pp(preprocessor *pp, string filename) {
         }
         tok = tok->next;
         LLISTC_ADD_LAST(&converted, c_tok);
+#if HOLOCD_DEBUG 
+        {
+            char buffer[4096];
+            uint32_t len = fmt_token_verbose(c_tok, buffer, sizeof(buffer));
+            char *debug_info = aalloc(get_debug_allocator(), len + 1);
+            memcpy(debug_info, buffer, len + 1);
+            tok->_debug_info = debug_info;
+        }
+#endif 
     }
     return (token *)converted.first;
 }

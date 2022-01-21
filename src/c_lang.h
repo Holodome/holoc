@@ -107,6 +107,9 @@ typedef struct token {
     struct c_type *type;
     c_punct_kind punct;
     c_keyword_kind kw;
+#if HOLOCD_DEBUG
+    char *_debug_info;
+#endif
 } token;
 
 typedef struct {
