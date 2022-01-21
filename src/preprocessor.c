@@ -260,8 +260,47 @@ skip_cond_incl(preprocessor *pp, pp_token **tokp) {
     *tokp = tok;
 }
 
+static linked_list_constructor 
+get_pp_tokens_for_file(preprocessor *pp, string filename) {
+    linked_list_constructor tokens = {0};
+
+    file *current_file = 0;
+    if (pp->parse_stack) {
+        current_file = pp->parse_stack->file;
+    }
+    file *f = get_file(pp->fs, filename, current_file);
+
+    pp_lexer lex         = {0};
+    lex.tok_buf          = pp->lexer_buffer;
+    lex.tok_buf_capacity = sizeof(pp->lexer_buffer);
+    lex.data             = f->contents.data;
+    lex.eof              = STRING_END(f->contents);
+    lex.cursor           = lex.data;
+
+    pp_token *tok;
+    for (;;) {
+        pp_lexer_parse(&lex);
+        tok  = get_new_token(pp);
+        *tok = lex.tok;
+        if (tok->str.data) {
+            allocator a = bump_get_allocator(pp->a);
+            tok->str    = string_dup(&a, tok->str);
+        }
+
+        LLISTC_ADD_LAST(&tokens, tok);
+        if (tok->kind == PP_TOK_EOF) {
+            break;
+        }
+    }
+    return tokens;
+}
+
 static void 
-include_file(preprocessor *pp, string filename) {
+include_file(preprocessor *pp, pp_token **tokp, string filename) {
+    linked_list_constructor tokens = get_pp_tokens_for_file(pp, filename);
+    pp_token *new_after = *tokp;
+    *tokp = tokens.first;
+    ((pp_token *)tokens.last)->next = new_after;
 }
 
 static bool
@@ -339,12 +378,14 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                 }
 
                 if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == '<') {
+                    tok = tok->next;
                     char filename_buffer[4096];
                     char *buf_eof = filename_buffer + sizeof(filename_buffer);
                     char *cursor  = filename_buffer;
-                    while (tok->kind != PP_TOK_PUNCT ||
-                           tok->punct_kind != '>' || !tok->at_line_start) {
+                    while ((tok->kind != PP_TOK_PUNCT ||
+                           tok->punct_kind != '>') && !tok->at_line_start) {
                         cursor += fmt_pp_tok(tok, cursor, buf_eof - cursor);
+                        tok = tok->next;
                     }
 
                     if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != '>') {
@@ -354,9 +395,9 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                     }
 
                     string filename = string(filename_buffer, cursor - filename_buffer);
-                    include_file(pp, filename);
+                    include_file(pp, &tok, filename);
                 } else if (tok->kind == PP_TOK_STR) {
-                    include_file(pp, tok->str);
+                    include_file(pp, &tok, tok->str);
                     tok = tok->next;
                 } else {
                     NOT_IMPL;
@@ -376,41 +417,9 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
     *tokp = tok;
     return result;
 }
-
-static pp_token *
-get_pp_tokens_for_file(preprocessor *pp, string filename) {
-    linked_list_constructor tokens = {0};
-
-    file *f = get_file(pp->fs, filename);
-
-    pp_lexer lex         = {0};
-    lex.tok_buf          = pp->lexer_buffer;
-    lex.tok_buf_capacity = sizeof(pp->lexer_buffer);
-    lex.data             = f->contents.data;
-    lex.eof              = STRING_END(f->contents);
-    lex.cursor           = lex.data;
-
-    pp_token *tok;
-    for (;;) {
-        pp_lexer_parse(&lex);
-        tok  = get_new_token(pp);
-        *tok = lex.tok;
-        if (tok->str.data) {
-            allocator a = bump_get_allocator(pp->a);
-            tok->str    = string_dup(&a, tok->str);
-        }
-
-        LLISTC_ADD_LAST(&tokens, tok);
-        if (tok->kind == PP_TOK_EOF) {
-            break;
-        }
-    }
-    return (pp_token *)tokens.first;
-}
-
 token *
 do_pp(preprocessor *pp, string filename) {
-    pp_token *tok                     = get_pp_tokens_for_file(pp, filename);
+    pp_token *tok                     = get_pp_tokens_for_file(pp, filename).first;
     linked_list_constructor converted = {0};
     while (tok->kind != PP_TOK_EOF) {
         if (expand_macro(pp, &tok)) {

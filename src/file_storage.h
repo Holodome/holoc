@@ -27,7 +27,7 @@ typedef struct file_storage {
     uint32_t include_path_count;
 } file_storage;
 
-file *get_file(file_storage *fs, string name, string current_name);
+file *get_file(file_storage *fs, string name, file *current_file);
 void add_default_include_paths(file_storage *fs);
 
 void report_error_internalv(char *filename, char *file_contents, uint32_t line,

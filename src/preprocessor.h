@@ -8,7 +8,7 @@ struct bump_allocator;
 struct pp_token;
 struct c_type;
 
-#define PREPROCESSOR_MACRO_HASH_SIZE 8192
+#define PREPROCESSOR_MACRO_HASH_SIZE 2048
 
 typedef struct pp_macro_arg {
     string name;
@@ -43,37 +43,39 @@ typedef struct pp_conditional_include {
     bool is_after_else;
     struct pp_conditional_include *next;
 } pp_conditional_include;
-// #pragma once files
-// @NOTE: Number of files is generally small, so we are okay with having linked
-// list instead of hash map
-typedef struct pp_guarded_file {
-    string name;
-    struct pp_guarded_file *next;
-} pp_guarded_file;
 
 typedef struct pp_macro_expansion_arg {
     struct p_token *tokens;
     struct pp_macro_expansion_arg *next;
 } pp_macro_expansion_arg;
 
+typedef struct pp_parse_stack {
+    struct pp_parse_stack *next;
+    struct file *file;
+    struct pp_lexer *lexer;
+} pp_parse_stack;
+
 typedef struct preprocessor {
-    struct pp_lexer *lex;
     struct bump_allocator *a;
     struct allocator *ea;
+
+    struct file_storage *fs;
+    char lexer_buffer[4096];
 
     // Value for __COUNTER__
     uint32_t counter_value;
     pp_conditional_include *cond_incl_stack;
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
-    pp_guarded_file *included_files;
+    pp_parse_stack *parse_stack;
 
     pp_macro *macro_freelist;
     pp_macro_arg *macro_arg_freelist;
     struct pp_token *tok_freelist;
     pp_conditional_include *cond_incl_freelist;
     pp_macro_expansion_arg *macro_expansion_arg_freelist;
+    pp_parse_stack *parse_stack_freelist;
 } preprocessor;
 
-struct token *do_pp(preprocessor *pp);
+struct token *do_pp(preprocessor *pp, string name);
 
 #endif

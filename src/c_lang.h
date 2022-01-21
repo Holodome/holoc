@@ -90,8 +90,15 @@ typedef enum token_kind {
     TOK_KW    = 0x5,  // Keyword
 } token_kind;
 
+typedef struct {
+    string filename;
+    uint32_t line;
+    uint32_t column;
+} source_location;
+
 typedef struct token {
     struct token *next;
+    source_location loc;
 
     token_kind kind;
     string str;

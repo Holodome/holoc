@@ -14,11 +14,6 @@ get_current_dir(char *buf, uint32_t buf_size) {
     getcwd(buf, buf_size);
 }
 
-void
-get_realpath(char *str, char *buf, uint32_t buf_size) {
-    realpath(str, buf);
-}
-
 bool
 path_is_dir(string path) {
     bool result;

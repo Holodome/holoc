@@ -202,7 +202,7 @@ get_filepath_relative(file_storage *fs, string name) {
     char buffer[4096];
     get_current_dir(buffer, sizeof(buffer));
     uint32_t dir_len = strlen(buffer);
-    snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "%s", name.data);
+    snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "/%s", name.data);
     if (file_exists(buffer)) {
         result = string_memdup(fs->a, buffer);
     }
@@ -210,7 +210,7 @@ get_filepath_relative(file_storage *fs, string name) {
 }
 
 file *
-get_file(file_storage *fs, string name, string current_name) {
+get_file(file_storage *fs, string name, file *current_file) {
     file *file = 0;
     for (file = fs->files; file; file = file->next) {
         if (string_eq(file->name, name)) {
@@ -220,8 +220,9 @@ get_file(file_storage *fs, string name, string current_name) {
 
     if (!file) {
         string actual_path = {0};
-        if (current_name.data) {
-            actual_path = get_filepath_in_same_dir(fs, name, current_name);
+        if (current_file) {
+            actual_path =
+                get_filepath_in_same_dir(fs, name, current_file->full_path);
         }
         if (!actual_path.data) {
             actual_path = get_filepath_from_include_paths(fs, name);
@@ -234,9 +235,11 @@ get_file(file_storage *fs, string name, string current_name) {
             NOT_IMPL;
         }
 
+        assert(file_exists(actual_path.data));
+
         file                = aalloc(fs->a, sizeof(file));
         file->name          = string_dup(fs->a, name);
-        string contents     = read_file_data(name, fs->a);
+        string contents     = read_file_data(actual_path, fs->a);
         file->contents_init = contents;
 
         char *s = contents.data;

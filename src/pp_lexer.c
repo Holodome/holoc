@@ -465,11 +465,11 @@ pp_lexer_parse(pp_lexer *lexer) {
             break;
         }
 
-        if (parse_punctuator(lexer)) {
+        if (parse_ident(lexer)) {
             break;
         }
 
-        if (parse_ident(lexer)) {
+        if (parse_punctuator(lexer)) {
             break;
         }
 
