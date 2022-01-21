@@ -480,7 +480,6 @@ pp_lexer_parse(pp_lexer *lexer) {
     {
         char buffer[4096] = {0};
         uint32_t len = fmt_pp_tok_verbose(&lexer->tok, buffer, sizeof(buffer));
-
         char *debug_info = aalloc(get_debug_allocator(), len + 1);
         memcpy(debug_info, buffer, len + 1);
         lexer->tok._debug_info = debug_info;

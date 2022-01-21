@@ -119,16 +119,17 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
             uint32_t idx      = 0;
             pp_token *initial = tok;
             // Make sure we always skip the macro token
-            tok = tok->next;
+            tok                         = tok->next;
             linked_list_constructor def = {0};
             for (pp_token *temp                    = macro->definition;
                  idx < macro->definition_len; temp = temp->next, ++idx) {
                 pp_token *new_token = copy_pp_token(pp, temp);
                 LLISTC_ADD_LAST(&def, new_token);
             }
+            // If expansion is not empty
             if (def.first) {
                 ((pp_token *)def.last)->next = tok;
-                tok = def.first;
+                tok                          = def.first;
             }
             tok->has_whitespace = initial->has_whitespace;
             tok->at_line_start  = initial->at_line_start;
@@ -171,11 +172,11 @@ define_macro(preprocessor *pp, pp_token **tokp) {
         NOT_IMPL;
     }
 
+    // Get macro
     string macro_name        = tok->str;
     uint32_t macro_name_hash = hash_string(macro_name);
     pp_macro **macrop        = get_macro(pp, macro_name_hash);
     if (*macrop) {
-        // TODO: Diagnostic
         NOT_IMPL;
     } else {
         pp_macro *macro = get_new_macro(pp);
@@ -188,7 +189,39 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     macro->name      = macro_name;
     macro->name_hash = macro_name_hash;
 
-    tok               = tok->next;
+    tok = tok->next;
+    // Function-like macro
+    if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == '(' &&
+        !tok->has_whitespace) {
+        tok                          = tok->next;
+        linked_list_constructor args = {0};
+        for (;;) {
+            if (tok->kind != PP_TOK_ID) {
+                NOT_IMPL;
+                break;
+            }
+
+            pp_macro_arg *arg = get_new_macro_arg(pp);
+            arg->name         = tok->str;
+            LLISTC_ADD_LAST(&args, arg);
+
+            tok = tok->next;
+            if (!tok->at_line_start && tok->kind == PP_TOK_PUNCT &&
+                tok->punct_kind == ',') {
+                tok = tok->next;
+            } else if (!tok->at_line_start && tok->kind == PP_TOK_PUNCT &&
+                       tok->punct_kind != ')') {
+                break;
+            } else {
+                NOT_IMPL;
+                break;
+            }
+        }
+
+        macro->args = args.first;
+    }
+
+    // Store definition
     macro->definition = tok;
     while (!tok->at_line_start) {
         ++macro->definition_len;
@@ -276,7 +309,7 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     }
     file *f = get_file(pp->fs, filename, current_file);
 
-    pp_lexer *lex = bump_alloc(pp->a, sizeof(pp_lexer));
+    pp_lexer *lex         = bump_alloc(pp->a, sizeof(pp_lexer));
     lex->tok_buf          = pp->lexer_buffer;
     lex->tok_buf_capacity = sizeof(pp->lexer_buffer);
     lex->data             = f->contents.data;
@@ -308,6 +341,7 @@ include_file(preprocessor *pp, pp_token **tokp, string filename) {
     *tokp                           = tokens.first;
     ((pp_token *)tokens.last)->next = new_after;
 }
+
 static int64_t
 eval_pp_expr(preprocessor *pp, pp_token **tokp) {
     int64_t result = 0;
@@ -475,16 +509,16 @@ do_pp(preprocessor *pp, string filename) {
         }
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = tok->next;
-#if HOLOC_DEBUG 
+#if HOLOC_DEBUG
         {
             char buffer[4096];
-            uint32_t len = fmt_token_verbose(c_tok, buffer, sizeof(buffer));
+            uint32_t len     = fmt_token_verbose(c_tok, buffer, sizeof(buffer));
             char *debug_info = aalloc(get_debug_allocator(), len + 1);
             memcpy(debug_info, buffer, len + 1);
             tok->_debug_info = debug_info;
             printf("%s\n", buffer);
         }
-#endif 
+#endif
     }
     return (token *)converted.first;
 }

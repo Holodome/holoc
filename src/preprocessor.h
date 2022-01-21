@@ -16,15 +16,27 @@ typedef struct pp_macro_arg {
 } pp_macro_arg;
 
 typedef enum {
-    PP_MACRO_OBJ       = 0x0,
-    PP_MACRO_FUNC      = 0x1,
-    PP_MACRO_FILE      = 0x2,  // __FILE__
-    PP_MACRO_LINE      = 0x3,  // __LINE__
-    PP_MACRO_COUNTER   = 0x4,  // __COUNTER__
-    PP_MACRO_TIMESTAMP = 0x5,  // __TIMESTAMP__
-    PP_MACRO_BASE_FILE = 0x6,  // __BASE_FILE__
-    PP_MACRO_DATE      = 0x7,  // __DATE__
-    PP_MACRO_TIME      = 0x8,  // __TIME__
+    // Object-like macro
+    PP_MACRO_OBJ = 0x0,
+    // Function-like macro
+    PP_MACRO_FUNC = 0x1,
+    // NOTE: These macros generated depending on location in source code,
+    // so their definition differs. That's why they are put in their own macro
+    // kinds
+    // __FILE__
+    PP_MACRO_FILE      = 0x2,  
+    // __LINE__
+    PP_MACRO_LINE      = 0x3, 
+    // __COUNTER__
+    PP_MACRO_COUNTER   = 0x4,
+    // __TIMESTAMP__
+    PP_MACRO_TIMESTAMP = 0x5,
+    // __BASE_FILE__
+    PP_MACRO_BASE_FILE = 0x6,
+    // __DATE__
+    PP_MACRO_DATE      = 0x7,
+    // __TIME__
+    PP_MACRO_TIME      = 0x8,
 } pp_macro_kind;
 
 typedef struct pp_macro {
