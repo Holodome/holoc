@@ -166,6 +166,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
                             --parens_depth;
                         }
                         ++tok_count;
+                        tok = tok->next;
                     }
 
                     // TODO: Variadic
@@ -218,6 +219,13 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
                     pp_token *new_token = copy_pp_token(pp, temp);
                     LLISTC_ADD_LAST(&def, new_token);
                 }
+                if (def.first) {
+                    ((pp_token *)def.last)->next = tok;
+                    tok                          = def.first;
+                }
+                tok->has_whitespace = initial->has_whitespace;
+                tok->at_line_start  = initial->at_line_start;
+                result              = true;
             } else {
                 tok = initial;
             }
@@ -326,8 +334,12 @@ define_macro(preprocessor *pp, pp_token **tokp) {
             tok->punct_kind != ')') {
             NOT_IMPL;
         } else {
+            tok = tok->next;
             macro->args = args.first;
         }
+        macro->kind = PP_MACRO_FUNC;
+    } else {
+        macro->kind = PP_MACRO_OBJ;
     }
 
     // Store definition
@@ -603,7 +615,7 @@ token *
 do_pp(preprocessor *pp, string filename) {
     pp_token *tok = get_pp_tokens_for_file(pp, filename).first;
     linked_list_constructor converted = {0};
-    while (tok->next) {
+    while (tok) {
         if (expand_macro(pp, &tok)) {
             continue;
         }
@@ -624,7 +636,7 @@ do_pp(preprocessor *pp, string filename) {
             uint32_t len     = fmt_token_verbose(c_tok, buffer, sizeof(buffer));
             char *debug_info = aalloc(get_debug_allocator(), len + 1);
             memcpy(debug_info, buffer, len + 1);
-            tok->_debug_info = debug_info;
+            c_tok->_debug_info = debug_info;
             printf("%s\n", buffer);
         }
 #endif

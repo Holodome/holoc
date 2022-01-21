@@ -55,7 +55,7 @@ process_file(string filename) {
     for (token *tok = toks; tok; tok = tok->next) {
         char buffer[4096];
         fmt_token_verbose(tok, buffer, sizeof(buffer));
-        printf("%s\n", buffer);
+        /* printf("%s\n", buffer); */
     }
 }
 
