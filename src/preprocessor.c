@@ -116,10 +116,10 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
             assert(false);
             break;
         case PP_MACRO_OBJ: {
-            uint32_t idx      = 0;
             pp_token *initial = tok;
-            // Make sure we always skip the macro token
-            tok                         = tok->next;
+            tok               = tok->next;
+
+            uint32_t idx                = 0;
             linked_list_constructor def = {0};
             for (pp_token *temp                    = macro->definition;
                  idx < macro->definition_len; temp = temp->next, ++idx) {
@@ -135,9 +135,55 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
             tok->at_line_start  = initial->at_line_start;
             result              = true;
         } break;
-        case PP_MACRO_FUNC:
-            NOT_IMPL;
-            break;
+        case PP_MACRO_FUNC: {
+            pp_token *initial = tok;
+            tok               = tok->next;
+            if (!tok->has_whitespace && tok->kind == PP_TOK_PUNCT &&
+                tok->punct_kind == '(') {
+                tok = tok->next;
+
+                uint32_t arg_idx  = 0;
+                pp_macro_arg *arg = macro->args;
+                for (;;) {
+                    pp_token *first_arg_token = tok;
+                    uint32_t parens_depth     = 0;
+                    uint32_t tok_count        = 0;
+                    for (;;) {
+                        if (tok->kind == PP_TOK_PUNCT &&
+                            tok->punct_kind == ')' && parens_depth == 0) {
+                            break;
+                        } else if (tok->kind == PP_TOK_PUNCT &&
+                                   tok->punct_kind == ',' &&
+                                   parens_depth == 0) {
+                            tok = tok->next;
+                            break;
+                        } else if (tok->kind == PP_TOK_PUNCT &&
+                                   tok->punct_kind == '(') {
+                            ++parens_depth;
+                        } else if (tok->kind == PP_TOK_PUNCT &&
+                                   tok->punct_kind == ')') {
+                            assert(parens_depth);
+                            --parens_depth;
+                        }
+                        ++tok_count;
+                    }
+
+                    // TODO: Variadic
+                    ++arg_idx;
+                    arg->toks = first_arg_token;
+                    arg->tok_count = tok_count;
+                    if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
+                        if (arg_idx != macro->arg_count) {
+                            NOT_IMPL;
+                        }
+                        tok = tok->next;
+                        break;
+                    }
+                }
+            } else {
+                tok = initial;
+            }
+        } break;
         case PP_MACRO_FILE:
             NOT_IMPL;
             break;
@@ -196,29 +242,54 @@ define_macro(preprocessor *pp, pp_token **tokp) {
         tok                          = tok->next;
         linked_list_constructor args = {0};
         for (;;) {
-            if (tok->kind != PP_TOK_ID) {
-                NOT_IMPL;
+            if (tok->at_line_start) {
                 break;
             }
 
-            pp_macro_arg *arg = get_new_macro_arg(pp);
-            arg->name         = tok->str;
-            LLISTC_ADD_LAST(&args, arg);
+            // Eat argument
+            if (tok->kind == PP_TOK_PUNCT &&
+                tok->punct_kind == PP_TOK_PUNCT_VARARGS) {
+                if (macro->is_variadic) {
+                    NOT_IMPL;
+                }
 
-            tok = tok->next;
+                macro->is_variadic = true;
+                pp_macro_arg *arg  = get_new_macro_arg(pp);
+                arg->name          = WRAP_Z("__VA_ARGS__");
+                LLISTC_ADD_LAST(&args, arg);
+
+                tok = tok->next;
+            } else if (tok->kind != PP_TOK_ID) {
+                NOT_IMPL;
+                break;
+            } else {
+                if (macro->is_variadic) {
+                    NOT_IMPL;
+                }
+
+                pp_macro_arg *arg = get_new_macro_arg(pp);
+                arg->name         = tok->str;
+                LLISTC_ADD_LAST(&args, arg);
+                ++macro->arg_count;
+
+                tok = tok->next;
+            }
+
+            // Parse post-argument
             if (!tok->at_line_start && tok->kind == PP_TOK_PUNCT &&
                 tok->punct_kind == ',') {
                 tok = tok->next;
-            } else if (!tok->at_line_start && tok->kind == PP_TOK_PUNCT &&
-                       tok->punct_kind != ')') {
-                break;
             } else {
-                NOT_IMPL;
                 break;
             }
         }
 
-        macro->args = args.first;
+        if (tok->at_line_start || tok->kind != PP_TOK_PUNCT ||
+            tok->punct_kind != ')') {
+            NOT_IMPL;
+        } else {
+            macro->args = args.first;
+        }
     }
 
     // Store definition
