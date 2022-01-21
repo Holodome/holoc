@@ -7,15 +7,31 @@ Version: 0
 #ifndef TYPES_H
 #define TYPES_H
 
+// Include headers that provide necessary types
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 
+// We want to make string a first-class citizen of program
+// Where possible, strings should be used instead of c-strings
+// in order to minimize conversions (and strlen count)
+// There are a few places where c-strings are necessary (in lower-level API's,
+// interacting with OS). In that cases writing non-terminated string to buffer
+// may be a solution, but practically these places should not be exposed as
+// high-level API and main part of the program should be fine using only strings
 typedef struct string {
     char *data;
     uint32_t len;
 } string;
 
+// Not implemented macro, useful when need to put assert(false) but
+// want to distinguish it from assert(false) that guard unreachable paths
+// TODO: make real unreachable macro so that assert(false) is nonexistent
 #define NOT_IMPL assert(false && "NOT IMPLEMENTED")
+// This is a flag used to attach debug information to structs
+// so that viewing them in debugger is more informative
+#ifndef HOLOC_DEBUG
+#define HOLOC_DEBUG 1
+#endif
 
 #endif
