@@ -16,7 +16,7 @@ typedef struct pp_macro_arg {
     string name;
     // Because we know that macro can only expand itself one time (there is no
     // recursive expansion we can use this hack to store macro argument
-    // invocation tokens. These two fields are populated during expand_macro
+    // invocation tokens. These three fields are populated during expand_macro
     // function, and cleared afterwards
     uint32_t tok_count;
     struct pp_token *toks;

@@ -155,7 +155,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
                         } else if (tok->kind == PP_TOK_PUNCT &&
                                    tok->punct_kind == ',' &&
                                    parens_depth == 0) {
-                            tok = tok->next;
+                            tok           = tok->next;
                             break;
                         } else if (tok->kind == PP_TOK_PUNCT &&
                                    tok->punct_kind == '(') {
@@ -170,15 +170,53 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
 
                     // TODO: Variadic
                     ++arg_idx;
-                    arg->toks = first_arg_token;
+                    arg->toks      = first_arg_token;
                     arg->tok_count = tok_count;
+                    arg            = arg->next;
+
                     if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
                         if (arg_idx != macro->arg_count) {
                             NOT_IMPL;
                         }
-                        tok = tok->next;
                         break;
                     }
+                }
+
+                if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
+                    tok = tok->next;
+                } else {
+                    NOT_IMPL;
+                }
+
+                uint32_t idx                = 0;
+                linked_list_constructor def = {0};
+                for (pp_token *temp                    = macro->definition;
+                     idx < macro->definition_len; temp = temp->next, ++idx) {
+                    bool is_arg = false;
+                    if (temp->kind == PP_TOK_ID) {
+                        for (arg = macro->args; arg;
+                             arg               = arg->next) {
+                            if (string_eq(arg->name, temp->str)) {
+                                uint32_t arg_tok_idx = 0;
+                                for (pp_token *arg_tok = arg->toks;
+                                     arg_tok_idx < arg->tok_count;
+                                     arg_tok = arg_tok->next, ++arg_tok_idx) {
+                                    pp_token *new_token =
+                                        copy_pp_token(pp, arg_tok);
+                                    LLISTC_ADD_LAST(&def, new_token);
+                                }
+                                is_arg = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (is_arg) {
+                        continue;
+                    }
+
+                    pp_token *new_token = copy_pp_token(pp, temp);
+                    LLISTC_ADD_LAST(&def, new_token);
                 }
             } else {
                 tok = initial;
