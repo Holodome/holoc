@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bump_allocator.h"
+
 static ALLOCATOR_REALLOC(system_realloc) {
     void *new_ptr = 0;
     if (new_size == 0) {
@@ -22,3 +24,15 @@ allocator *
 get_system_allocator(void) {
     return &system_allocator;
 }
+
+#if HOLOC_DEBUG
+
+allocator *
+get_debug_allocator(void) {
+    static bump_allocator a = {0};
+    static allocator storage;
+    storage = bump_get_allocator(&a);
+    return &storage;
+}
+
+#endif

@@ -34,5 +34,10 @@ typedef struct allocator {
 
 // Returns allocator that uses libc functions (malloc, free, realloc)
 allocator *get_system_allocator(void);
+#if HOLOC_DEBUG
+// Allocator that should be used for debug allocations
+// Internally implemented as bump allocator
+allocator *get_debug_allocator(void);
+#endif
 
 #endif
