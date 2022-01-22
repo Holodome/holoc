@@ -352,7 +352,7 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     uint32_t macro_name_hash = hash_string(macro_name);
     pp_macro **macrop        = get_macro(pp, macro_name_hash);
     if (*macrop) {
-        NOT_IMPL;
+        /* NOT_IMPL; */
     } else {
         pp_macro *macro = get_new_macro(pp);
         LLIST_ADD(*macrop, macro);
@@ -371,13 +371,12 @@ define_macro(preprocessor *pp, pp_token **tokp) {
         tok = tok->next;
         if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
             define_macro_function_like_args(pp, &tok, macro);
-            if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
-                NOT_IMPL;
-            }
         }
 
         if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
             tok = tok->next;
+        } else {
+            NOT_IMPL;
         }
         macro->kind = PP_MACRO_FUNC;
     } else {
@@ -566,7 +565,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                 tok                          = tok->next;
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
-                    NOT_IMPL;
+                    /* NOT_IMPL; */
                 } else {
                     LLIST_POP(pp->cond_incl_stack);
                     LLIST_ADD(pp->cond_incl_freelist, incl);
@@ -627,8 +626,9 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                         string(filename_buffer, cursor - filename_buffer);
                     include_file(pp, &tok, filename);
                 } else if (tok->kind == PP_TOK_STR) {
-                    include_file(pp, &tok, tok->str);
+                    string filename = tok->str;
                     tok = tok->next;
+                    include_file(pp, &tok, filename);
                 } else {
                     NOT_IMPL;
                 }
@@ -663,7 +663,7 @@ do_pp(preprocessor *pp, string filename) {
 
         token *c_tok = aalloc(pp->ea, sizeof(token));
         if (!convert_pp_token(tok, c_tok, pp->ea)) {
-            NOT_IMPL;
+            /* NOT_IMPL; */
         }
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = tok->next;
