@@ -64,7 +64,7 @@ static string KEYWORD_STRINGS[] = {
 };
 
 static string PUNCTUATOR_STRINGS[] = {
-    WRAP_Z("(unknown)"), WRAP_Z(">="), WRAP_Z("<<="), WRAP_Z("+="),
+    WRAP_Z("(unknown)"), WRAP_Z(">>="), WRAP_Z("<<="), WRAP_Z("..."), WRAP_Z("+="),
     WRAP_Z("-="),        WRAP_Z("*="), WRAP_Z("/="),  WRAP_Z("%="),
     WRAP_Z("&="),        WRAP_Z("|="), WRAP_Z("^="),  WRAP_Z("++"),
     WRAP_Z("--"),        WRAP_Z(">"),  WRAP_Z("<<"),  WRAP_Z("&&"),
@@ -103,6 +103,9 @@ get_c_punct_kind_from_pp(pp_punct_kind kind) {
             break;
         case PP_TOK_PUNCT_ILSHIFT:
             result = C_PUNCT_ILSHIFT;
+            break;
+        case PP_TOK_PUNCT_VARARGS:
+            result = C_PUNCT_VARARGS;
             break;
         case PP_TOK_PUNCT_IADD:
             result = C_PUNCT_IADD;

@@ -31,12 +31,12 @@ hash_table_sc_get_u32_(void **entries, uint32_t entry_count,
     uint32_t hash_slot_idx = hash & hash_mask;
     void **entry           = entries + hash_slot_idx;
     while (*entry) {
-        void *entry_hash_ptr = (uint8_t *)*entry + hash_offset;
+        void *entry_hash_ptr = (char *)*entry + hash_offset;
         uint32_t entry_hash  = *(uint32_t *)entry_hash_ptr;
         if (entry_hash == hash) {
             break;
         } else {
-            entry = (void **)((uint8_t *)entry + chain_offset);
+            entry = (void **)((char *)*entry + chain_offset);
         }
     }
 

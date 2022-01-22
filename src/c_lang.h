@@ -79,6 +79,7 @@ typedef enum {
     C_PUNCT_NEQ     = 0x112,  // !=
     C_PUNCT_LEQ     = 0x113,  // <=
     C_PUNCT_GEQ     = 0x114,  // >=
+    C_PUNCT_VARARGS = 0x115,  // ... (in functions)
 } c_punct_kind;
 
 typedef enum token_kind {
