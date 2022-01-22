@@ -441,12 +441,15 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     }
     file *f = get_file(pp->fs, filename, current_file);
 
-    pp_lexer *lex         = bump_alloc(pp->a, sizeof(pp_lexer));
-    lex->tok_buf          = pp->lexer_buffer;
-    lex->tok_buf_capacity = sizeof(pp->lexer_buffer);
-    lex->data             = f->contents.data;
-    lex->eof              = STRING_END(f->contents);
-    lex->cursor           = lex->data;
+    pp_lexer *lex          = bump_alloc(pp->a, sizeof(pp_lexer));
+    lex->tok_buf           = pp->lexer_buffer;
+    lex->tok_buf_capacity  = sizeof(pp->lexer_buffer);
+    lex->data              = f->contents.data;
+    lex->eof               = STRING_END(f->contents);
+    lex->cursor            = lex->data;
+    lex->tok.at_line_start = true;
+    lex->line              = 1;
+    lex->last_line_start   = lex->data;
 
     pp_token *tok;
     for (;;) {
@@ -648,7 +651,6 @@ do_pp(preprocessor *pp, string filename) {
             char *debug_info = aalloc(get_debug_allocator(), len + 1);
             memcpy(debug_info, buffer, len + 1);
             c_tok->_debug_info = debug_info;
-            printf("%s\n", buffer);
         }
 #endif
     }

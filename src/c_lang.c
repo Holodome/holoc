@@ -64,12 +64,12 @@ static string KEYWORD_STRINGS[] = {
 };
 
 static string PUNCTUATOR_STRINGS[] = {
-    WRAP_Z("(unknown)"), WRAP_Z(">>="), WRAP_Z("<<="), WRAP_Z("..."), WRAP_Z("+="),
-    WRAP_Z("-="),        WRAP_Z("*="), WRAP_Z("/="),  WRAP_Z("%="),
-    WRAP_Z("&="),        WRAP_Z("|="), WRAP_Z("^="),  WRAP_Z("++"),
-    WRAP_Z("--"),        WRAP_Z(">"),  WRAP_Z("<<"),  WRAP_Z("&&"),
-    WRAP_Z("||"),        WRAP_Z("=="), WRAP_Z("!="),  WRAP_Z("<="),
-    WRAP_Z(">="),
+    WRAP_Z("(unknown)"), WRAP_Z(">>="), WRAP_Z("<<="), 
+    WRAP_Z("+="),        WRAP_Z("-="),  WRAP_Z("*="),  WRAP_Z("/="),
+    WRAP_Z("%="),        WRAP_Z("&="),  WRAP_Z("|="),  WRAP_Z("^="),
+    WRAP_Z("++"),        WRAP_Z("--"),  WRAP_Z(">"),   WRAP_Z("<<"),
+    WRAP_Z("&&"),        WRAP_Z("||"),  WRAP_Z("=="),  WRAP_Z("!="),
+    WRAP_Z("<="),        WRAP_Z(">="),WRAP_Z("...")
 };
 
 static string
@@ -182,6 +182,8 @@ get_kw_kind(string test) {
 bool
 convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
     bool result = false;
+    tok->at_line_start = pp_tok->at_line_start;
+    tok->has_whitespace = pp_tok->has_whitespace;
     switch (pp_tok->kind) {
     case PP_TOK_EOF: {
         tok->kind = TOK_EOF;

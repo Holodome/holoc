@@ -76,6 +76,8 @@ parse_whitespaces(pp_lexer *lexer) {
         result = true;
         if (*lexer->cursor == '\n') {
             lexer->tok.at_line_start = true;
+            lexer->last_line_start = lexer->cursor;
+            ++lexer->line;
         }
         ++lexer->cursor;
     }
@@ -92,6 +94,10 @@ parse_whitespaces(pp_lexer *lexer) {
     if (next_eq(lexer, WRAP_Z("/*"))) {
         result = true;
         while (*lexer->cursor && !next_eq(lexer, WRAP_Z("*/"))) {
+            if (*lexer->cursor == '\n') {
+                lexer->last_line_start = lexer->cursor;
+                ++lexer->line;
+            }
             ++lexer->cursor;
         }
 
@@ -430,9 +436,7 @@ bool
 pp_lexer_parse(pp_lexer *lexer) {
     lexer->tok         = (pp_token){0};
     lexer->tok_buf_len = 0;
-    if (lexer->cursor == lexer->data) {
-        lexer->tok.at_line_start = true;
-    } else {
+    if (lexer->cursor != lexer->data) {
         lexer->tok.at_line_start = false;
     }
 

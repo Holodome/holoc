@@ -9,10 +9,10 @@
 #include "bump_allocator.h"
 #include "c_lang.h"
 #include "darray.h"
+#include "file_storage.h"
 #include "pp_lexer.h"
 #include "preprocessor.h"
 #include "str.h"
-#include "file_storage.h"
 
 #define STB_SPRINTF_IMPLEMENTATION
 #include "stb_sprintf.h"
@@ -37,25 +37,30 @@ typedef struct {
 
 static program_settings settings;
 
-static void 
+static void
 process_file(string filename) {
     allocator *a = get_system_allocator();
 
     file_storage fs = {0};
-    fs.a = a;
+    fs.a            = a;
     add_default_include_paths(&fs);
 
     bump_allocator ba = {0};
-    preprocessor *pp = aalloc(a, sizeof(*pp));
-    pp->a = &ba;
-    pp->ea = a;
-    pp->fs = &fs;
+    preprocessor *pp  = aalloc(a, sizeof(*pp));
+    pp->a             = &ba;
+    pp->ea            = a;
+    pp->fs            = &fs;
 
     token *toks = do_pp(pp, filename);
     for (token *tok = toks; tok; tok = tok->next) {
         char buffer[4096];
-        fmt_token_verbose(tok, buffer, sizeof(buffer));
-        /* printf("%s\n", buffer); */
+        fmt_token(tok, buffer, sizeof(buffer));
+        if (tok->at_line_start) {
+            printf("\n");
+        } else if (tok->has_whitespace) {
+            printf(" ");
+        }
+        printf("%s", buffer);
     }
 }
 

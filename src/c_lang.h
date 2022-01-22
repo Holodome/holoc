@@ -73,7 +73,7 @@ typedef enum {
     C_PUNCT_DEC     = 0x10C,  // --
     C_PUNCT_RSHIFT  = 0x10D,  // >>
     C_PUNCT_LSHIFT  = 0x10E,  // <<
-    C_PUNCT_LAND    = 0x11F,  // &&
+    C_PUNCT_LAND    = 0x10F,  // &&
     C_PUNCT_LOR     = 0x110,  // ||
     C_PUNCT_EQ      = 0x111,  // ==
     C_PUNCT_NEQ     = 0x112,  // !=
@@ -94,7 +94,7 @@ typedef enum token_kind {
 typedef struct {
     string filename;
     uint32_t line;
-    uint32_t column;
+    uint32_t col;
 } source_location;
 
 typedef struct token {
@@ -108,6 +108,9 @@ typedef struct token {
     struct c_type *type;
     c_punct_kind punct;
     c_keyword_kind kw;
+
+    bool has_whitespace;
+    bool at_line_start;
 #if HOLOC_DEBUG
     char *_debug_info;
 #endif

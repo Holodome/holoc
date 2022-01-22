@@ -87,6 +87,9 @@ typedef struct pp_lexer {
     char *eof;
     char *cursor;
 
+    char *last_line_start;
+    uint32_t line;
+
     pp_token tok;
     char *tok_buf;
     uint32_t tok_buf_capacity;
