@@ -3,15 +3,28 @@
 
 #include "types.h"
 
+struct buffer_writer;
+
+// Kind of token
 typedef enum {
-    PP_TOK_EOF   = 0x0,
-    PP_TOK_ID    = 0x1,
-    PP_TOK_NUM   = 0x2,
-    PP_TOK_STR   = 0x3,
+    // End of file marker. Always the last token
+    PP_TOK_EOF = 0x0,
+    // Identifier
+    PP_TOK_ID = 0x1,
+    // Number (float or int)
+    PP_TOK_NUM = 0x2,
+    // String (utf8)
+    PP_TOK_STR = 0x3,
+    // Punctuator
     PP_TOK_PUNCT = 0x4,
+    // Typically non-utf8 characters encountered in invalid locations (ike
+    // inside non-expanded #if)
     PP_TOK_OTHER = 0x5
 } pp_token_kind;
 
+// Type of string literal.
+// Character literal are also considered strings.
+// S... means string, C... means character.
 typedef enum {
     PP_TOK_STR_NONE   = 0x0,
     PP_TOK_STR_SCHAR  = 0x1,   // ""
@@ -26,6 +39,11 @@ typedef enum {
     PP_TOK_STR_CWIDE  = 0x15,  // L''
 } pp_string_kind;
 
+// Kind of punctuator. Multisymbol puncutators start from 256, reserving
+// lower enum values for ASCII ones. This enum may be completely the same as C
+// one, but they made different to fully differentiate betweeen C and
+// Preprocessor tokens. In reality only two punctuators that are allowed in
+// preprocessor are not allowed in language: # and ##.
 typedef enum {
     PP_TOK_PUNCT_IRSHIFT = 0x100,  // >>=
     PP_TOK_PUNCT_ILSHIFT = 0x101,  // <<=
@@ -53,22 +71,24 @@ typedef enum {
 
 // Kind of tokens returned by pp_lexer
 typedef struct pp_token {
-    uint32_t kind;
+    // Not used in pp_lexer directly, but in preprocessor
+    struct pp_token *next;
+    pp_token_kind kind;
     pp_string_kind str_kind;
     pp_punct_kind punct_kind;
     string str;
-    // TODO: Replace this with flags
-    // TODO: Replace this wiht number of whitespaces, so we can fully
-    // reconstruct source tree
+    // This information must be present to parse preprocessor directives.
+    // Function-like macros are sensetive to spaces and all preprocessor
+    // directives take one full source line.
+    // This can also be used to make somewhat-readable printing of tokens.
     bool has_whitespace;
-    // TODO: Replace this with skipped line number, so we can fully reconstruct
-    // source tree
     bool at_line_start;
-    // Not used in pp_lexer directly, but in preprocessor
-    struct pp_token *next;
+
+    uint32_t line;
+    uint32_t col;
 #if HOLOC_DEBUG
     char *_debug_info;
-#endif 
+#endif
 } pp_token;
 
 // Structure holding state needed to process the source file at the first stage
@@ -83,25 +103,41 @@ typedef struct pp_token {
 // preprocessing context in source (not part of macro invocation) _shold_ be
 // correct c tokens.
 typedef struct pp_lexer {
+    // Start of data that we parse
     char *data;
+    // End of data, so range checking is always done in pointers and not with
+    // start-size
     char *eof;
+    // Current byte
     char *cursor;
-
+    // Where last \n was encountered. This can be used to generate column number
     char *last_line_start;
+    // Byte start of token. This with last_line_start can be used to generate
+    // column number
+    char *tok_start;
+    // Line number
     uint32_t line;
-
+    // Parsed token
     pp_token tok;
+    // External buffer used for writing token strings to it
     char *tok_buf;
+    // Size of tok_buf
     uint32_t tok_buf_capacity;
+    // Occupied size if tok_buf
     uint32_t tok_buf_len;
 } pp_lexer;
+
+void init_pp_lexer(pp_lexer *lex, char *data, char *eof, char *tok_buf,
+                   uint32_t tok_buf_size);
 
 // Generates one new token at writes it in lexer->tok
 bool pp_lexer_parse(pp_lexer *lexer);
 // Formats token like it is seen in code
+void fmt_pp_tokw(struct buffer_writer *w, pp_token *tok);
 uint32_t fmt_pp_tok(pp_token *tok, char *buf, uint32_t buf_len);
 // Formats token like it is seen in code, while also providing token kind
 // information
+void fmt_pp_tok_verbosew(struct buffer_writer *w, pp_token *tok);
 uint32_t fmt_pp_tok_verbose(pp_token *tok, char *buf, uint32_t buf_len);
 
 #endif
