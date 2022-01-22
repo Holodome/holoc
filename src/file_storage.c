@@ -307,3 +307,4 @@ report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...) {
     va_start(args, fmt);
     report_errorv(f, line, col, fmt, args);
 }
+

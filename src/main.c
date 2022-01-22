@@ -77,9 +77,10 @@ mptv(string filename) {
     pp_lexer *lex = aalloc(a, sizeof(*lex));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
-    while (pp_lexer_parse(lex)) {
+    pp_token tok = {0};
+    while (pp_lexer_parse(lex, &tok)) {
         char buffer[4096];
-        fmt_pp_tok_verbose(buffer, sizeof(buffer), &lex->tok);
+        fmt_pp_tok_verbose(buffer, sizeof(buffer), &tok);
         printf("%s\n", buffer);
     }
 }
@@ -97,12 +98,13 @@ mptf(string filename) {
     pp_lexer *lex = aalloc(a, sizeof(*lex));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
-    while (pp_lexer_parse(lex)) {
+    pp_token tok = {0};
+    while (pp_lexer_parse(lex, &tok)) {
         char buffer[4096];
-        fmt_pp_tok(buffer, sizeof(buffer), &lex->tok);
-        if (lex->tok.at_line_start) {
+        fmt_pp_tok(buffer, sizeof(buffer), &tok);
+        if (tok.at_line_start) {
             printf("\n");
-        } else if (lex->tok.has_whitespace) {
+        } else if (tok.has_whitespace) {
             printf(" ");
         }
         printf("%s", buffer);
@@ -122,9 +124,10 @@ mpt(string filename) {
     pp_lexer *lex = aalloc(a, sizeof(*lex));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
-    while (pp_lexer_parse(lex)) {
+    pp_token tok = {0};
+    while (pp_lexer_parse(lex, &tok)) {
         char buffer[4096];
-        fmt_pp_tok(buffer, sizeof(buffer), &lex->tok);
+        fmt_pp_tok(buffer, sizeof(buffer), &tok);
         printf("%s\n", buffer);
     }
 }

@@ -95,8 +95,7 @@ get_c_punct_kind_from_pp(pp_punct_kind kind) {
         }
     } else {
         switch (kind) {
-        default:
-            assert(false);
+            INVALID_DEFAULT_CASE;
         case PP_TOK_PUNCT_IRSHIFT:
             result = C_PUNCT_IRSHIFT;
             break;
@@ -183,9 +182,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
     bool result         = false;
     tok->at_line_start  = pp_tok->at_line_start;
     tok->has_whitespace = pp_tok->has_whitespace;
-    tok->line           = pp_tok->line;
-    tok->col            = pp_tok->col;
-    tok->filename       = pp_tok->filename;
+    tok->loc            = pp_tok->loc;
     switch (pp_tok->kind) {
     case PP_TOK_EOF: {
         tok->kind = TOK_EOF;
@@ -265,7 +262,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
                     memcpy(write_cursor, &cp, 4);
                     write_cursor = (char *)write_cursor + 4;
                 } else {
-                    assert(false);
+                    UNREACHABLE;
                 }
             }
             uint32_t zero = 0;
@@ -446,8 +443,8 @@ fmt_token(char *buf, uint32_t buf_len, token *tok) {
 
 void
 fmt_token_verbosew(buffer_writer *w, token *tok) {
-    buf_write(w, "%.*s:%u:%u: ", tok->filename.len, tok->filename.data,
-              tok->line, tok->col);
+    buf_write(w, "%.*s:%u:%u: ", tok->loc.filename.len, tok->loc.filename.data,
+              tok->loc.line, tok->loc.col);
     switch (tok->kind) {
         INVALID_DEFAULT_CASE;
     case TOK_EOF:
@@ -478,3 +475,4 @@ fmt_token_verbose(char *buf, uint32_t buf_len, token *tok) {
     fmt_token_verbosew(&w, tok);
     return w.cursor - buf;
 }
+

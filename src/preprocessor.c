@@ -102,9 +102,7 @@ copy_pp_token(preprocessor *pp, pp_token *tok) {
 
 static void
 copy_pp_token_loc(pp_token *dst, pp_token *src) {
-    dst->filename = src->filename;
-    dst->line     = src->line;
-    dst->col      = src->col;
+    dst->loc = src->loc;
 }
 
 static bool
@@ -119,9 +117,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
 
     if (macro) {
         switch (macro->kind) {
-        default:
-            assert(false);
-            break;
+            INVALID_DEFAULT_CASE;
         case PP_MACRO_OBJ: {
             pp_token *initial = tok;
             tok               = tok->next;
@@ -454,12 +450,10 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     pp_lexer *lex = bump_alloc(pp->a, sizeof(pp_lexer));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents),
                   pp->lexer_buffer, sizeof(pp->lexer_buffer));
-    pp_token *tok;
     for (;;) {
-        pp_lexer_parse(lex);
-        tok           = get_new_token(pp);
-        *tok          = lex->tok;
-        tok->filename = f->name;
+        pp_token *tok = get_new_token(pp);
+        pp_lexer_parse(lex, tok);
+        tok->loc.filename = f->name;
         if (tok->str.data) {
             allocator a = bump_get_allocator(pp->a);
             tok->str    = string_dup(&a, tok->str);

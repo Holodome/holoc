@@ -84,9 +84,7 @@ typedef struct pp_token {
     bool has_whitespace;
     bool at_line_start;
 
-    string filename;
-    uint32_t line;
-    uint32_t col;
+    source_loc loc;
 #if HOLOC_DEBUG
     char *_debug_info;
 #endif
@@ -118,8 +116,6 @@ typedef struct pp_lexer {
     char *tok_start;
     // Line number
     uint32_t line;
-    // Parsed token
-    pp_token tok;
     // External buffer used for writing token strings to it
     char *tok_buf;
     // Size of tok_buf
@@ -133,7 +129,7 @@ void init_pp_lexer(pp_lexer *lex, char *data, char *eof, char *tok_buf,
                    uint32_t tok_buf_size);
 
 // Generates one new token at writes it in lexer->tok
-bool pp_lexer_parse(pp_lexer *lexer);
+bool pp_lexer_parse(pp_lexer *lexer, pp_token *tok);
 // Formats token like it is seen in code
 void fmt_pp_tokw(struct buffer_writer *w, pp_token *tok);
 uint32_t fmt_pp_tok(char *buf, uint32_t buf_len, pp_token *tok);

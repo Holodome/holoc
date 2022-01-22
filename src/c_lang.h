@@ -93,9 +93,7 @@ typedef enum token_kind {
 
 typedef struct token {
     struct token *next;
-    string filename;
-    uint32_t line;
-    uint32_t col;
+    source_loc loc;
 
     token_kind kind;
     string str;

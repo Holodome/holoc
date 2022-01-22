@@ -76,15 +76,15 @@ next_eq(pp_lexer *lex, string lit) {
 
 // Handling of whitespace characters
 static bool
-parse_whitespaces(pp_lexer *lex) {
+parse_whitespaces(pp_lexer *lex, pp_token *tok) {
     bool result = false;
 
     // Skip ASCII whitespaces
     while (isspace(*lex->cursor)) {
         result = true;
         if (*lex->cursor == '\n') {
-            lex->tok.at_line_start = true;
-            lex->last_line_start   = lex->cursor + 1;
+            tok->at_line_start   = true;
+            lex->last_line_start = lex->cursor + 1;
             ++lex->line;
         }
         ++lex->cursor;
@@ -100,8 +100,8 @@ parse_whitespaces(pp_lexer *lex) {
         if (*lex->cursor != 0) {
             ++lex->cursor;
             ++lex->line;
-            lex->tok.at_line_start = true;
-            lex->last_line_start   = lex->cursor;
+            tok->at_line_start   = true;
+            lex->last_line_start = lex->cursor;
         }
     }
 
@@ -127,7 +127,7 @@ parse_whitespaces(pp_lexer *lex) {
     // sequentially, we may need to call this function multiple times (like if
     // multiline comment is followed by spaces they won't be skipped in single
     // pass)
-    lex->tok.has_whitespace = lex->tok.has_whitespace || result;
+    tok->has_whitespace = tok->has_whitespace || result;
     return result;
 }
 
@@ -338,7 +338,7 @@ read_utf32_string_literal(pp_lexer *lex, char terminator) {
 #endif
 
 static bool
-parse_string_literal(pp_lexer *lex) {
+parse_string_literal(pp_lexer *lex, pp_token *tok) {
     bool result             = false;
     char *test_cursor       = lex->cursor;
     pp_string_kind str_kind = PP_TOK_STR_SCHAR;
@@ -383,16 +383,16 @@ parse_string_literal(pp_lexer *lex) {
         if (*test_cursor == '\'') {
             str_kind += PP_TOK_STR_ADVANCE;
         }
-        lex->tok.kind     = PP_TOK_STR;
-        lex->tok.str_kind = str_kind;
-        lex->tok.str      = string(lex->tok_buf, lex->tok_buf_len);
+        tok->kind     = PP_TOK_STR;
+        tok->str_kind = str_kind;
+        tok->str      = string(lex->tok_buf, lex->tok_buf_len);
     }
 
     return result;
 }
 
 static bool
-parse_number(pp_lexer *lex) {
+parse_number(pp_lexer *lex, pp_token *tok) {
     bool result        = false;
     char *write_cursor = lex->tok_buf;
     char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
@@ -420,15 +420,15 @@ parse_number(pp_lexer *lex) {
         *write_cursor    = 0;
         lex->tok_buf_len = write_cursor - lex->tok_buf;
         assert(lex->tok_buf_len < lex->tok_buf_capacity);
-        lex->tok.kind = PP_TOK_NUM;
-        lex->tok.str  = string(lex->tok_buf, lex->tok_buf_len);
+        tok->kind = PP_TOK_NUM;
+        tok->str  = string(lex->tok_buf, lex->tok_buf_len);
     }
 
     return result;
 }
 
 static bool
-parse_punctuator(pp_lexer *lex) {
+parse_punctuator(pp_lexer *lex, pp_token *tok) {
     bool result = false;
     for (uint32_t idx = 0; idx < sizeof(PUNCT_STRS) / sizeof(*PUNCT_STRS);
          ++idx) {
@@ -436,8 +436,8 @@ parse_punctuator(pp_lexer *lex) {
         if (next_eq(lex, punct)) {
             lex->cursor += punct.len;
 
-            lex->tok.kind       = PP_TOK_PUNCT;
-            lex->tok.punct_kind = PP_TOK_PUNCT_ADVANCE + idx;
+            tok->kind       = PP_TOK_PUNCT;
+            tok->punct_kind = PP_TOK_PUNCT_ADVANCE + idx;
 
             result = true;
             break;
@@ -446,8 +446,8 @@ parse_punctuator(pp_lexer *lex) {
 
     if (!result) {
         if (ispunct(*lex->cursor)) {
-            lex->tok.kind       = PP_TOK_PUNCT;
-            lex->tok.punct_kind = *lex->cursor++;
+            tok->kind       = PP_TOK_PUNCT;
+            tok->punct_kind = *lex->cursor++;
 
             result = true;
         }
@@ -457,7 +457,7 @@ parse_punctuator(pp_lexer *lex) {
 }
 
 static bool
-parse_ident(pp_lexer *lex) {
+parse_ident(pp_lexer *lex, pp_token *tok) {
     bool result = false;
     if (isalpha(*lex->cursor) || *lex->cursor == '_') {
         char *write_cursor = lex->tok_buf;
@@ -476,8 +476,8 @@ parse_ident(pp_lexer *lex) {
 
         lex->tok_buf_len = write_cursor - lex->tok_buf;
         assert(lex->tok_buf_len < lex->tok_buf_capacity);
-        lex->tok.kind = PP_TOK_ID;
-        lex->tok.str  = string(lex->tok_buf, lex->tok_buf_len);
+        tok->kind = PP_TOK_ID;
+        tok->str  = string(lex->tok_buf, lex->tok_buf_len);
 
         result = true;
     }
@@ -485,49 +485,51 @@ parse_ident(pp_lexer *lex) {
 }
 
 bool
-pp_lexer_parse(pp_lexer *lex) {
-    lex->tok         = (pp_token){0};
+pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
     lex->tok_buf_len = 0;
     if (lex->cursor != lex->data) {
-        lex->tok.at_line_start = false;
+        tok->at_line_start = false;
+    } else {
+        tok->at_line_start = true;
     }
 
     for (;;) {
         {
             char cp = *lex->cursor;
             if (!cp) {
-                lex->tok.kind = PP_TOK_EOF;
+                tok->kind      = PP_TOK_EOF;
+                lex->tok_start = lex->cursor;
                 break;
             } else if (cp & 0x80) {
                 ++lex->cursor;
 
-                lex->tok.kind    = PP_TOK_OTHER;
+                tok->kind        = PP_TOK_OTHER;
                 lex->tok_buf[0]  = cp;
                 lex->tok_buf[1]  = 0;
                 lex->tok_buf_len = 1;
-                lex->tok.str     = string(lex->tok_buf, lex->tok_buf_len);
+                tok->str         = string(lex->tok_buf, lex->tok_buf_len);
                 break;
             }
         }
 
-        if (parse_whitespaces(lex)) {
+        if (parse_whitespaces(lex, tok)) {
             continue;
         }
 
         lex->tok_start = lex->cursor;
-        if (parse_string_literal(lex)) {
+        if (parse_string_literal(lex, tok)) {
             break;
         }
 
-        if (parse_number(lex)) {
+        if (parse_number(lex, tok)) {
             break;
         }
 
-        if (parse_ident(lex)) {
+        if (parse_ident(lex, tok)) {
             break;
         }
 
-        if (parse_punctuator(lex)) {
+        if (parse_punctuator(lex, tok)) {
             break;
         }
 
@@ -536,28 +538,27 @@ pp_lexer_parse(pp_lexer *lex) {
 #if HOLOC_DEBUG
     {
         char buffer[4096] = {0};
-        uint32_t len = fmt_pp_tok_verbose(buffer, sizeof(buffer), &lex->tok);
-        char *debug_info = aalloc(get_debug_allocator(), len + 1);
+        uint32_t len      = fmt_pp_tok_verbose(buffer, sizeof(buffer), tok);
+        char *debug_info  = aalloc(get_debug_allocator(), len + 1);
         memcpy(debug_info, buffer, len + 1);
-        lex->tok._debug_info = debug_info;
+        tok->_debug_info = debug_info;
     }
 #endif
-    lex->tok.line = lex->line;
-    lex->tok.col  = lex->tok_start - lex->last_line_start + 1;
-    return lex->tok.kind != PP_TOK_EOF;
+    tok->loc.line = lex->line;
+    tok->loc.col  = lex->tok_start - lex->last_line_start + 1;
+    return tok->kind != PP_TOK_EOF;
 }
 
 void
 init_pp_lexer(pp_lexer *lex, char *data, char *eof, char *tok_buf,
               uint32_t tok_buf_size) {
-    lex->tok_buf           = tok_buf;
-    lex->tok_buf_capacity  = tok_buf_size;
-    lex->data              = data;
-    lex->eof               = eof;
-    lex->cursor            = data;
-    lex->tok.at_line_start = true;
-    lex->line              = 1;
-    lex->last_line_start   = data;
+    lex->tok_buf          = tok_buf;
+    lex->tok_buf_capacity = tok_buf_size;
+    lex->data             = data;
+    lex->eof              = eof;
+    lex->cursor           = data;
+    lex->line             = 1;
+    lex->last_line_start  = data;
 }
 
 void
@@ -600,7 +601,8 @@ fmt_pp_tok(char *buf, uint32_t buf_len, pp_token *tok) {
 
 void
 fmt_pp_tok_verbosew(buffer_writer *w, pp_token *tok) {
-    buf_write(w, "%u:%u: ", tok->line, tok->col);
+    buf_write(w, "%.*s:%u:%u: ", tok->loc.filename.len, tok->loc.filename.data,
+              tok->loc.line, tok->loc.col);
     switch (tok->kind) {
         INVALID_DEFAULT_CASE;
     case PP_TOK_EOF:
