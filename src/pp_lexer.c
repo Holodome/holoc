@@ -68,7 +68,7 @@ next_eq(pp_lexer *lex, string lit) {
            (memcmp(lex->cursor, lit.data, lit.len) == 0);
 #else
     // In theory memcmp does per-byte compares, so in won't touch uninitialized
-    // memory. But it actually may use some form os SIMD so this assumption
+    // memory. But it actually may use some form of SIMD so this assumption
     // would be incorrect.
     return memcmp(lex->cursor, lit.data, lit.len) == 0;
 #endif
@@ -101,7 +101,7 @@ parse_whitespaces(pp_lexer *lex) {
             ++lex->cursor;
             ++lex->line;
             lex->tok.at_line_start = true;
-            lex->last_line_start = lex->cursor;
+            lex->last_line_start   = lex->cursor;
         }
     }
 
@@ -257,7 +257,15 @@ read_escaped_char(pp_lexer *lex) {
 static void
 read_utf8_string_literal(pp_lexer *lex, char terminator) {
     char *write_cursor = lex->tok_buf;
+    char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
+    assert(write_cursor != write_eof);
     for (;;) {
+        // Make sure buffer is always terminated
+        if (write_cursor + 1 >= write_eof) {
+            NOT_IMPL;
+            break;
+        }
+
         uint32_t cp = *lex->cursor++;
         if (cp == '\n') {
             printf("Unterminated string constant\n");
@@ -270,10 +278,17 @@ read_utf8_string_literal(pp_lexer *lex, char terminator) {
             cp = read_escaped_char(lex);
         }
 
-        write_cursor = utf8_encode(write_cursor, cp);
+        char utf8[5]    = {0};
+        uint32_t cp_len = (char *)utf8_encode(utf8, cp) - utf8;
+        if (write_cursor + cp_len >= write_eof) {
+            break;
+        }
+        memcpy(write_cursor, utf8, cp_len);
+        write_cursor += cp_len;
     }
     *write_cursor    = 0;
-    lex->tok_buf_len = (char *)write_cursor - lex->tok_buf;
+    lex->tok_buf_len = write_cursor - lex->tok_buf;
+    assert(lex->tok_buf_len < lex->tok_buf_capacity);
 }
 
 #if 0
@@ -380,11 +395,17 @@ static bool
 parse_number(pp_lexer *lex) {
     bool result        = false;
     char *write_cursor = lex->tok_buf;
+    char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
+    assert(write_cursor != write_eof);
     if (isdigit(*lex->cursor) ||
         (*lex->cursor == '.' && isdigit(lex->cursor[1]))) {
         result          = true;
         *write_cursor++ = *lex->cursor++;
         for (;;) {
+            if (write_cursor + 1 >= write_eof) {
+                NOT_IMPL;
+                break;
+            }
             if (isalnum(*lex->cursor) || *lex->cursor == '_' ||
                 *lex->cursor == '\'') {
                 *write_cursor++ = *lex->cursor++;
@@ -398,8 +419,9 @@ parse_number(pp_lexer *lex) {
         }
         *write_cursor    = 0;
         lex->tok_buf_len = write_cursor - lex->tok_buf;
-        lex->tok.kind    = PP_TOK_NUM;
-        lex->tok.str     = string(lex->tok_buf, lex->tok_buf_len);
+        assert(lex->tok_buf_len < lex->tok_buf_capacity);
+        lex->tok.kind = PP_TOK_NUM;
+        lex->tok.str  = string(lex->tok_buf, lex->tok_buf_len);
     }
 
     return result;
@@ -439,16 +461,23 @@ parse_ident(pp_lexer *lex) {
     bool result = false;
     if (isalpha(*lex->cursor) || *lex->cursor == '_') {
         char *write_cursor = lex->tok_buf;
+        char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
+        assert(write_cursor != write_eof);
         *write_cursor++    = *lex->cursor++;
 
         while (isalnum(*lex->cursor) || *lex->cursor == '_') {
+            if (write_cursor + 1 >= write_eof) {
+                NOT_IMPL;
+                break;
+            }
             *write_cursor++ = *lex->cursor++;
         }
         *write_cursor = 0;
 
         lex->tok_buf_len = write_cursor - lex->tok_buf;
-        lex->tok.kind    = PP_TOK_ID;
-        lex->tok.str     = string(lex->tok_buf, lex->tok_buf_len);
+        assert(lex->tok_buf_len < lex->tok_buf_capacity);
+        lex->tok.kind = PP_TOK_ID;
+        lex->tok.str  = string(lex->tok_buf, lex->tok_buf_len);
 
         result = true;
     }
