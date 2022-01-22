@@ -67,7 +67,7 @@ static string PUNCTUATOR_STRINGS[] = {
     WRAP_Z("(unknown)"), WRAP_Z(">>="), WRAP_Z("<<="), WRAP_Z("+="),
     WRAP_Z("-="),        WRAP_Z("*="),  WRAP_Z("/="),  WRAP_Z("%="),
     WRAP_Z("&="),        WRAP_Z("|="),  WRAP_Z("^="),  WRAP_Z("++"),
-    WRAP_Z("--"),        WRAP_Z(">"),   WRAP_Z("<<"),  WRAP_Z("&&"),
+    WRAP_Z("--"),        WRAP_Z(">>"),  WRAP_Z("<<"),  WRAP_Z("&&"),
     WRAP_Z("||"),        WRAP_Z("=="),  WRAP_Z("!="),  WRAP_Z("<="),
     WRAP_Z(">="),        WRAP_Z("...")};
 
@@ -406,6 +406,7 @@ void
 fmt_tokenw(buffer_writer *w, token *tok) {
     switch (tok->kind) {
     case TOK_EOF:
+        buf_write(w, "");
         break;
     case TOK_ID:
         buf_write(w, "%.*s", tok->str.len, tok->str.data);
