@@ -82,6 +82,7 @@ mptv(string filename) {
         char buffer[4096];
         fmt_pp_tok_verbose(buffer, sizeof(buffer), &tok);
         printf("%s\n", buffer);
+        memset(&tok, 0, sizeof(tok));
     }
 }
 
@@ -108,6 +109,7 @@ mptf(string filename) {
             printf(" ");
         }
         printf("%s", buffer);
+        memset(&tok, 0, sizeof(tok));
     }
 }
 
@@ -129,6 +131,7 @@ mpt(string filename) {
         char buffer[4096];
         fmt_pp_tok(buffer, sizeof(buffer), &tok);
         printf("%s\n", buffer);
+        memset(&tok, 0, sizeof(tok));
     }
 }
 
@@ -251,8 +254,8 @@ main(int argc, char **argv) {
     for (uint32_t filename_idx = 0; filename_idx < da_size(settings.filenames);
          filename_idx++) {
         string filename = settings.filenames[filename_idx];
-        printf("Filename %u: %.*s\n", filename_idx, filename.len,
-               filename.data);
+        /* printf("Filename %u: %.*s\n", filename_idx, filename.len, */
+        /*        filename.data); */
 
         process_file(filename);
     }

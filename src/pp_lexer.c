@@ -358,6 +358,7 @@ parse_string_literal(pp_lexer *lex, pp_token *tok) {
     }
 
     if (*test_cursor == '\'' || *test_cursor == '\"') {
+        bool is_char = *test_cursor == '\'';
         char terminator = *test_cursor++;
         lex->cursor     = test_cursor;
         result          = true;
@@ -380,7 +381,7 @@ parse_string_literal(pp_lexer *lex, pp_token *tok) {
             break;
         }
 #endif
-        if (*test_cursor == '\'') {
+        if (is_char) {
             str_kind += PP_TOK_STR_ADVANCE;
         }
         tok->kind     = PP_TOK_STR;
