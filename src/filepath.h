@@ -5,7 +5,7 @@
 
 struct allocator;
 
-// Returns path of current directory 
+// Returns path of current directory
 void get_current_dir(char *buf, uint32_t buf_size);
 // Check if given path corresponds to directory
 bool path_is_dir(string path);

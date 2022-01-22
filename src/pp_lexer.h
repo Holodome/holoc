@@ -84,6 +84,7 @@ typedef struct pp_token {
     bool has_whitespace;
     bool at_line_start;
 
+    string filename;
     uint32_t line;
     uint32_t col;
 #if HOLOC_DEBUG

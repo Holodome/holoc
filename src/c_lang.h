@@ -91,15 +91,11 @@ typedef enum token_kind {
     TOK_KW    = 0x5,  // Keyword
 } token_kind;
 
-typedef struct {
+typedef struct token {
+    struct token *next;
     string filename;
     uint32_t line;
     uint32_t col;
-} source_location;
-
-typedef struct token {
-    struct token *next;
-    source_location loc;
 
     token_kind kind;
     string str;
@@ -131,8 +127,10 @@ void fmt_c_numw(fmt_c_num_args args, struct buffer_writer *w);
 uint32_t fmt_c_num(fmt_c_num_args args, char *buf, uint32_t buf_size);
 void fmt_c_strw(fmt_c_str_args args, struct buffer_writer *w);
 uint32_t fmt_c_str(fmt_c_str_args args, char *buf, uint32_t buf_size);
-uint32_t fmt_token(token *tok, char *buf, uint32_t buf_size);
-uint32_t fmt_token_verbose(token *tok, char *buf, uint32_t buf_size);
+void fmt_tokenw(struct buffer_writer *w, token *tok);
+uint32_t fmt_token(char *buf, uint32_t buf_size, token *tok);
+void fmt_token_verbosew(struct buffer_writer *w, token *tok);
+uint32_t fmt_token_verbose(char *buf, uint32_t buf_size, token *tok);
 bool convert_pp_token(struct pp_token *pp_tok, token *tok, struct allocator *a);
 #define IS_KW(_tok, _kw) ((_tok)->kind == TOK_KW && (_tok)->kw == (_kw))
 #define IS_PUNCT(_tok, _punct) \

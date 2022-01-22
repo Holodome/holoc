@@ -146,7 +146,7 @@ mtp(string filename) {
     token *toks = do_pp(pp, filename);
     for (token *tok = toks; tok; tok = tok->next) {
         char buffer[4096];
-        fmt_token(tok, buffer, sizeof(buffer));
+        fmt_token(buffer, sizeof(buffer), tok);
         printf("%s\n", buffer);
     }
 }
@@ -168,7 +168,7 @@ mtpv(string filename) {
     token *toks = do_pp(pp, filename);
     for (token *tok = toks; tok; tok = tok->next) {
         char buffer[4096];
-        fmt_token_verbose(tok, buffer, sizeof(buffer));
+        fmt_token_verbose(buffer, sizeof(buffer), tok);
         printf("%s\n", buffer);
     }
 }
@@ -190,7 +190,7 @@ mtpf(string filename) {
     token *toks = do_pp(pp, filename);
     for (token *tok = toks; tok; tok = tok->next) {
         char buffer[4096];
-        fmt_token(tok, buffer, sizeof(buffer));
+        fmt_token(buffer, sizeof(buffer), tok);
         if (tok->at_line_start) {
             printf("\n");
         } else if (tok->has_whitespace) {

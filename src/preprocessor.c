@@ -100,6 +100,13 @@ copy_pp_token(preprocessor *pp, pp_token *tok) {
     return new;
 }
 
+static void
+copy_pp_token_loc(pp_token *dst, pp_token *src) {
+    dst->filename = src->filename;
+    dst->line     = src->line;
+    dst->col      = src->col;
+}
+
 static bool
 expand_macro(preprocessor *pp, pp_token **tokp) {
     bool result     = false;
@@ -124,6 +131,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
             for (pp_token *temp                    = macro->definition;
                  idx < macro->definition_len; temp = temp->next, ++idx) {
                 pp_token *new_token = copy_pp_token(pp, temp);
+                copy_pp_token_loc(new_token, initial);
                 LLISTC_ADD_LAST(&def, new_token);
             }
             // If expansion is not empty
@@ -210,6 +218,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
                                      arg_tok = arg_tok->next, ++arg_tok_idx) {
                                     pp_token *new_token =
                                         copy_pp_token(pp, arg_tok);
+                                    copy_pp_token_loc(new_token, initial);
                                     LLISTC_ADD_LAST(&def, new_token);
                                 }
                                 is_arg = true;
@@ -223,6 +232,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
                     }
 
                     pp_token *new_token = copy_pp_token(pp, temp);
+                    copy_pp_token_loc(new_token, initial);
                     LLISTC_ADD_LAST(&def, new_token);
                 }
                 if (def.first) {
@@ -447,8 +457,9 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     pp_token *tok;
     for (;;) {
         pp_lexer_parse(lex);
-        tok  = get_new_token(pp);
-        *tok = lex->tok;
+        tok           = get_new_token(pp);
+        *tok          = lex->tok;
+        tok->filename = f->name;
         if (tok->str.data) {
             allocator a = bump_get_allocator(pp->a);
             tok->str    = string_dup(&a, tok->str);
@@ -640,7 +651,7 @@ do_pp(preprocessor *pp, string filename) {
 #if HOLOC_DEBUG
         {
             char buffer[4096];
-            uint32_t len     = fmt_token_verbose(c_tok, buffer, sizeof(buffer));
+            uint32_t len     = fmt_token_verbose(buffer, sizeof(buffer), c_tok);
             char *debug_info = aalloc(get_debug_allocator(), len + 1);
             memcpy(debug_info, buffer, len + 1);
             c_tok->_debug_info = debug_info;

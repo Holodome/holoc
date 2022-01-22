@@ -183,6 +183,9 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
     bool result         = false;
     tok->at_line_start  = pp_tok->at_line_start;
     tok->has_whitespace = pp_tok->has_whitespace;
+    tok->line           = pp_tok->line;
+    tok->col            = pp_tok->col;
+    tok->filename       = pp_tok->filename;
     switch (pp_tok->kind) {
     case PP_TOK_EOF: {
         tok->kind = TOK_EOF;
@@ -402,65 +405,76 @@ fmt_c_str(fmt_c_str_args args, char *buf, uint32_t buf_size) {
     return w.cursor - buf;
 }
 
-uint32_t
-fmt_token(token *tok, char *buf, uint32_t buf_size) {
-    buffer_writer w = {buf, buf + buf_size};
+void
+fmt_tokenw(buffer_writer *w, token *tok) {
     switch (tok->kind) {
     case TOK_EOF:
         break;
     case TOK_ID:
-        buf_write(&w, "%.*s", tok->str.len, tok->str.data);
+        buf_write(w, "%.*s", tok->str.len, tok->str.data);
         break;
     case TOK_NUM:
         fmt_c_numw((fmt_c_num_args){.uint_value  = tok->uint_value,
                                     .float_value = tok->float_value,
                                     .type        = tok->type},
-                   &w);
+                   w);
         break;
     case TOK_STR:
-        fmt_c_strw((fmt_c_str_args){.type = tok->type, .str = tok->str}, &w);
+        fmt_c_strw((fmt_c_str_args){.type = tok->type, .str = tok->str}, w);
         break;
     case TOK_PUNCT:
         if (tok->punct < 0x100) {
-            buf_write(&w, "%c", tok->punct);
+            buf_write(w, "%c", tok->punct);
         } else {
             string punct_str = get_punct_str(tok->punct);
-            buf_write(&w, "%.*s", punct_str.len, punct_str.data);
+            buf_write(w, "%.*s", punct_str.len, punct_str.data);
         }
         break;
     case TOK_KW: {
         string kw_str = get_kw_str(tok->kw);
-        buf_write(&w, "%.*s", kw_str.len, kw_str.data);
+        buf_write(w, "%.*s", kw_str.len, kw_str.data);
     } break;
     }
-    return w.cursor - buf;
 }
 
 uint32_t
-fmt_token_verbose(token *tok, char *buf, uint32_t buf_size) {
-    uint32_t result = 0;
+fmt_token(char *buf, uint32_t buf_len, token *tok) {
+    buffer_writer w = {buf, buf + buf_len};
+    fmt_tokenw(&w, tok);
+    return w.cursor - buf;
+}
+
+void
+fmt_token_verbosew(buffer_writer *w, token *tok) {
+    buf_write(w, "%.*s:%u:%u: ", tok->filename.len, tok->filename.data,
+              tok->line, tok->col);
     switch (tok->kind) {
+        INVALID_DEFAULT_CASE;
     case TOK_EOF:
-        result = snprintf(buf, buf_size, "<EOF>");
+        buf_write(w, "<EOF>");
         break;
     case TOK_ID:
-        result = snprintf(buf, buf_size, "<ID>");
+        buf_write(w, "<ID>");
         break;
     case TOK_NUM:
-        result = snprintf(buf, buf_size, "<Num>");
+        buf_write(w, "<Num>");
         break;
     case TOK_STR:
-        result = snprintf(buf, buf_size, "<Str>");
+        buf_write(w, "<Str>");
         break;
     case TOK_PUNCT:
-        result = snprintf(buf, buf_size, "<Punct>");
+        buf_write(w, "<Punct>");
         break;
     case TOK_KW:
-        result = snprintf(buf, buf_size, "<Kw>");
+        buf_write(w, "<Kw>");
         break;
     }
-    buf += result;
-    buf_size -= result;
-    result += fmt_token(tok, buf, buf_size);
-    return result;
+    fmt_tokenw(w, tok);
+}
+
+uint32_t
+fmt_token_verbose(char *buf, uint32_t buf_len, token *tok) {
+    buffer_writer w = {buf, buf + buf_len};
+    fmt_token_verbosew(&w, tok);
+    return w.cursor - buf;
 }

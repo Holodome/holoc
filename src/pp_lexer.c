@@ -463,7 +463,7 @@ parse_ident(pp_lexer *lex) {
         char *write_cursor = lex->tok_buf;
         char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
         assert(write_cursor != write_eof);
-        *write_cursor++    = *lex->cursor++;
+        *write_cursor++ = *lex->cursor++;
 
         while (isalnum(*lex->cursor) || *lex->cursor == '_') {
             if (write_cursor + 1 >= write_eof) {
@@ -631,4 +631,3 @@ fmt_pp_tok_verbose(char *buf, uint32_t buf_len, pp_token *tok) {
     fmt_pp_tok_verbosew(&w, tok);
     return w.cursor - buf;
 }
-

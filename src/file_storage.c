@@ -237,7 +237,7 @@ get_file(file_storage *fs, string name, file *current_file) {
 
         assert(file_exists(actual_path.data));
 
-        file                = aalloc(fs->a, sizeof(file));
+        file                = aalloc(fs->a, sizeof(*file));
         file->name          = string_dup(fs->a, name);
         string contents     = read_file_data(actual_path, fs->a);
         file->contents_init = contents;
@@ -307,4 +307,3 @@ report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...) {
     va_start(args, fmt);
     report_errorv(f, line, col, fmt, args);
 }
-

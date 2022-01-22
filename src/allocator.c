@@ -31,7 +31,6 @@ get_system_allocator(void) {
 
 #if HOLOC_DEBUG
 
-
 allocator *
 get_debug_allocator(void) {
     static bump_allocator a = {0};
