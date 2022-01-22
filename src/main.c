@@ -234,9 +234,7 @@ mast(string filename) {
 static void
 process_file(string filename) {
     switch (settings.mode) {
-    default:
-        NOT_IMPL;
-        break;
+        INVALID_DEFAULT_CASE;
     case M_PTV:
         mptv(filename);
         break;

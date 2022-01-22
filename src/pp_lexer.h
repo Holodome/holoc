@@ -59,14 +59,14 @@ typedef enum {
     PP_TOK_PUNCT_INC     = 0x10B,  // ++
     PP_TOK_PUNCT_DEC     = 0x10C,  // --
     PP_TOK_PUNCT_RSHIFT  = 0x10D,  // >>
-    PP_TOK_PUNCT_LSHIFT  = 0x10F,  // <<
-    PP_TOK_PUNCT_LAND    = 0x110,  // &&
-    PP_TOK_PUNCT_LOR     = 0x111,  // ||
-    PP_TOK_PUNCT_EQ      = 0x112,  // ==
-    PP_TOK_PUNCT_NEQ     = 0x113,  // !=
-    PP_TOK_PUNCT_LEQ     = 0x114,  // <=
-    PP_TOK_PUNCT_GEQ     = 0x115,  // >=
-    PP_TOK_PUNCT_DHASH   = 0x116,  // ##
+    PP_TOK_PUNCT_LSHIFT  = 0x10E,  // <<
+    PP_TOK_PUNCT_LAND    = 0x10F,  // &&
+    PP_TOK_PUNCT_LOR     = 0x110,  // ||
+    PP_TOK_PUNCT_EQ      = 0x111,  // ==
+    PP_TOK_PUNCT_NEQ     = 0x112,  // !=
+    PP_TOK_PUNCT_LEQ     = 0x113,  // <=
+    PP_TOK_PUNCT_GEQ     = 0x114,  // >=
+    PP_TOK_PUNCT_DHASH   = 0x115,  // ##
 } pp_punct_kind;
 
 // Kind of tokens returned by pp_lexer
