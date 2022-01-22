@@ -33,6 +33,7 @@ typedef enum {
 
 typedef struct {
     string *filenames;  // da
+    string *include_paths; // da
     mode mode;
 } program_settings;
 
@@ -43,22 +44,29 @@ parse_clargs(uint32_t argc, char **argv) {
     allocator *a      = get_system_allocator();
     string *filenames = 0;
     for (uint32_t arg_idx = 1; arg_idx < argc; arg_idx++) {
-        if (strcmp(argv[arg_idx], "--ptv") == 0) {
+        char *option = argv[arg_idx];
+        if (strcmp(option, "--ptv") == 0) {
             settings.mode = M_PTV;
-        } else if (strcmp(argv[arg_idx], "--ptf") == 0) {
+        } else if (strcmp(option, "--ptf") == 0) {
             settings.mode = M_PTF;
-        } else if (strcmp(argv[arg_idx], "--pt") == 0) {
+        } else if (strcmp(option, "--pt") == 0) {
             settings.mode = M_PT;
-        } else if (strcmp(argv[arg_idx], "--tp") == 0) {
+        } else if (strcmp(option, "--tp") == 0) {
             settings.mode = M_TP;
-        } else if (strcmp(argv[arg_idx], "--tpv") == 0) {
+        } else if (strcmp(option, "--tpv") == 0) {
             settings.mode = M_TPV;
-        } else if (strcmp(argv[arg_idx], "--tpf") == 0) {
+        } else if (strcmp(option, "--tpf") == 0) {
             settings.mode = M_TPF;
-        } else if (strcmp(argv[arg_idx], "--ast") == 0) {
+        } else if (strcmp(option, "--ast") == 0) {
             settings.mode = M_AST;
+        } else if (strncmp(option, "-I", 2) == 0) {
+            char *path = option + 2;
+            uint32_t path_len = strlen(path);
+            char *new_path = aalloc(a, path_len + 1);
+            memcpy(new_path, path, path_len + 1);
+            da_push(settings.include_paths, string(new_path, path_len), a);
         } else {
-            da_push(filenames, stringz(argv[arg_idx]), a);
+            da_push(filenames, stringz(option), a);
         }
     }
     settings.filenames = filenames;
@@ -69,7 +77,9 @@ mptv(string filename) {
     allocator *a    = get_system_allocator();
     file_storage fs = {0};
     fs.a            = a;
-    add_default_include_paths(&fs);
+    add_default_include_paths(&settings.include_paths);
+    fs.include_paths = settings.include_paths;
+    fs.include_path_count = da_size(settings.include_paths);
 
     file *f = get_file(&fs, filename, 0);
 
@@ -91,7 +101,9 @@ mptf(string filename) {
     allocator *a    = get_system_allocator();
     file_storage fs = {0};
     fs.a            = a;
-    add_default_include_paths(&fs);
+    add_default_include_paths(&settings.include_paths);
+    fs.include_paths = settings.include_paths;
+    fs.include_path_count = da_size(settings.include_paths);
 
     file *f = get_file(&fs, filename, 0);
 
@@ -118,7 +130,9 @@ mpt(string filename) {
     allocator *a    = get_system_allocator();
     file_storage fs = {0};
     fs.a            = a;
-    add_default_include_paths(&fs);
+    add_default_include_paths(&settings.include_paths);
+    fs.include_paths = settings.include_paths;
+    fs.include_path_count = da_size(settings.include_paths);
 
     file *f = get_file(&fs, filename, 0);
 
@@ -141,7 +155,9 @@ mtp(string filename) {
 
     file_storage fs = {0};
     fs.a            = a;
-    add_default_include_paths(&fs);
+    add_default_include_paths(&settings.include_paths);
+    fs.include_paths = settings.include_paths;
+    fs.include_path_count = da_size(settings.include_paths);
 
     bump_allocator ba = {0};
     preprocessor *pp  = aalloc(a, sizeof(*pp));
@@ -163,7 +179,9 @@ mtpv(string filename) {
 
     file_storage fs = {0};
     fs.a            = a;
-    add_default_include_paths(&fs);
+    add_default_include_paths(&settings.include_paths);
+    fs.include_paths = settings.include_paths;
+    fs.include_path_count = da_size(settings.include_paths);
 
     bump_allocator ba = {0};
     preprocessor *pp  = aalloc(a, sizeof(*pp));
@@ -185,7 +203,9 @@ mtpf(string filename) {
 
     file_storage fs = {0};
     fs.a            = a;
-    add_default_include_paths(&fs);
+    add_default_include_paths(&settings.include_paths);
+    fs.include_paths = settings.include_paths;
+    fs.include_path_count = da_size(settings.include_paths);
 
     bump_allocator ba = {0};
     preprocessor *pp  = aalloc(a, sizeof(*pp));

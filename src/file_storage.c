@@ -10,9 +10,9 @@
 #include "str.h"
 
 void
-add_default_include_paths(file_storage *fs) {
+add_default_include_paths(string **pathsp) {
     allocator *a  = get_system_allocator();
-    string *paths = 0;
+    string *paths = *pathsp;
     // Linux folders
     da_push(paths, WRAP_Z("/usr/local/include"), a);
     da_push(paths, WRAP_Z("/usr/include/x86_64-linux-gnu"), a);
@@ -35,9 +35,7 @@ add_default_include_paths(file_storage *fs) {
                    "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
                    "Frameworks"),
             a);
-
-    fs->include_paths      = paths;
-    fs->include_path_count = da_size(paths);
+    *pathsp = paths;
 }
 
 char *

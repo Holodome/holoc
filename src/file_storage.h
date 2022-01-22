@@ -28,7 +28,8 @@ typedef struct file_storage {
 } file_storage;
 
 file *get_file(file_storage *fs, string name, file *current_file);
-void add_default_include_paths(file_storage *fs);
+
+void add_default_include_paths(string **pathsp);
 
 void report_error_internalv(char *filename, char *file_contents, uint32_t line,
                             uint32_t col, char *fmt, va_list args);
