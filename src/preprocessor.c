@@ -352,7 +352,7 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     uint32_t macro_name_hash = hash_string(macro_name);
     pp_macro **macrop        = get_macro(pp, macro_name_hash);
     if (*macrop) {
-        /* NOT_IMPL; */
+        NOT_IMPL;
     } else {
         pp_macro *macro = get_new_macro(pp);
         LLIST_ADD(*macrop, macro);
@@ -409,7 +409,7 @@ undef_macro(preprocessor *pp, pp_token **tokp) {
         *macrop = macro->next;
         LLIST_ADD(pp->macro_freelist, macro);
     } else {
-        /* NOT_IMPL; */
+        NOT_IMPL;
     }
     *tokp = tok;
 }
@@ -474,6 +474,7 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     pp_lexer *lex = bump_alloc(pp->a, sizeof(pp_lexer));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents),
                   pp->lexer_buffer, sizeof(pp->lexer_buffer));
+
     for (;;) {
         pp_token *tok = get_new_token(pp);
         pp_lexer_parse(lex, tok);
@@ -502,6 +503,88 @@ include_file(preprocessor *pp, pp_token **tokp, string filename) {
 static int64_t
 eval_pp_expr(preprocessor *pp, pp_token **tokp) {
     int64_t result = 0;
+
+    // Copy all tokens from current line so we can process them independently
+    linked_list_constructor copied = {0};
+    pp_token *tok                  = *tokp;
+    while (!tok->at_line_start) {
+        pp_token *new_tok = copy_pp_token(pp, tok);
+        tok               = tok->next;
+        LLISTC_ADD_LAST(&copied, new_tok);
+    }
+    *tokp = tok;
+
+    // Replace 'defined(_id)' and 'defined _id' sequences.
+    tok                              = copied.first;
+    linked_list_constructor modified = {0};
+    while (tok) {
+        if (tok->kind == PP_TOK_ID && string_eq(tok->str, WRAP_Z("defined"))) {
+            bool has_paren = false;
+            tok            = tok->next;
+            if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == '(') {
+                tok       = tok->next;
+                has_paren = true;
+            }
+
+            if (tok->kind != PP_TOK_ID) {
+                NOT_IMPL;
+            }
+
+            // TODO: Clean this mess
+
+            uint32_t macro_name_hash = hash_string(tok->str);
+            pp_macro *macro          = *get_macro(pp, macro_name_hash);
+            uint32_t token_value     = (macro != 0);
+            char value_buf[2]        = {0};
+            value_buf[0]             = token_value ? '1' : '0';
+
+            allocator a         = bump_get_allocator(pp->a);
+            pp_token *new_token = get_new_token(pp);
+            new_token->kind     = PP_TOK_NUM;
+            new_token->str      = string_memdup(&a, value_buf);
+
+            LLISTC_ADD_LAST(&modified, new_token);
+
+            tok = tok->next;
+            if (has_paren) {
+                if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
+                    NOT_IMPL;
+                }
+                tok = tok->next;
+            }
+        } else {
+            LLISTC_ADD_LAST(&modified, tok);
+        }
+    }
+
+    // Now we can preprocess the expression
+    tok = modified.first;
+    while (tok) {
+        if (expand_macro(pp, &tok)) {
+            continue;
+        }
+        tok = tok->next;
+    }
+
+    // Now we have to replace all nonexistent identifiers with 0.
+    tok = modified.first;
+    while (tok) {
+        if (tok->kind == PP_TOK_ID && !*get_macro(pp, hash_string(tok->str))) {
+            allocator a      = bump_get_allocator(pp->a);
+            char value_buf[] = "0";
+
+            pp_token *new_token = get_new_token(pp);
+            new_token->kind     = PP_TOK_NUM;
+            new_token->str      = string_memdup(&a, value_buf);
+            new_token->next     = tok->next;
+            *tok = *new_token;
+        }
+        tok = tok->next;
+    }
+
+    // So now in tok we have a list of tokens that form constant expression
+    tok = modified.first;
+
 
     return result;
 }
@@ -565,7 +648,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                 tok                          = tok->next;
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
-                    /* NOT_IMPL; */
+                    NOT_IMPL;
                 } else {
                     LLIST_POP(pp->cond_incl_stack);
                     LLIST_ADD(pp->cond_incl_freelist, incl);
@@ -597,7 +680,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
             } else if (string_eq(tok->str, WRAP_Z("pragma"))) {
                 NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("error"))) {
-                /* NOT_IMPL; */
+                NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("include"))) {
                 tok = tok->next;
                 if (tok->at_line_start) {
@@ -627,7 +710,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                     include_file(pp, &tok, filename);
                 } else if (tok->kind == PP_TOK_STR) {
                     string filename = tok->str;
-                    tok = tok->next;
+                    tok             = tok->next;
                     include_file(pp, &tok, filename);
                 } else {
                     NOT_IMPL;
@@ -663,7 +746,7 @@ do_pp(preprocessor *pp, string filename) {
 
         token *c_tok = aalloc(pp->ea, sizeof(token));
         if (!convert_pp_token(tok, c_tok, pp->ea)) {
-            /* NOT_IMPL; */
+            NOT_IMPL;
         }
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = tok->next;
