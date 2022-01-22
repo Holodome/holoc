@@ -24,6 +24,12 @@ typedef struct string {
     uint32_t len;
 } string;
 
+typedef struct source_loc {
+    string filename;
+    uint32_t line;
+    uint32_t col;
+} source_loc;
+
 // Not implemented macro, useful when need to put assert(false) but
 // want to distinguish it from assert(false) that guard unreachable paths
 #define NOT_IMPL assert(false && "NOT IMPLEMENTED")
