@@ -80,6 +80,7 @@ get_new_cond_incl(preprocessor *pp) {
     return incl;
 }
 
+#if 0
 static pp_parse_stack *
 get_new_parse_stack_entry(preprocessor *pp) {
     pp_parse_stack *entry = pp->parse_stack_freelist;
@@ -91,6 +92,7 @@ get_new_parse_stack_entry(preprocessor *pp) {
     }
     return entry;
 }
+#endif
 
 static pp_token *
 copy_pp_token(preprocessor *pp, pp_token *tok) {
@@ -103,6 +105,105 @@ copy_pp_token(preprocessor *pp, pp_token *tok) {
 static void
 copy_pp_token_loc(pp_token *dst, pp_token *src) {
     dst->loc = src->loc;
+}
+
+static void
+get_function_like_macro_arguments(preprocessor *pp, pp_token **tokp,
+                                  pp_macro *macro) {
+    pp_token *tok = *tokp;
+    if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
+        uint32_t arg_idx  = 0;
+        pp_macro_arg *arg = macro->args;
+
+        for (;;) {
+            pp_token *first_arg_token = tok;
+            uint32_t tok_count        = 0;
+            uint32_t parens_depth     = 0;
+            for (;;) {
+                if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')' &&
+                    parens_depth == 0) {
+                    break;
+                } else if (tok->kind == PP_TOK_PUNCT &&
+                           tok->punct_kind == ',' && parens_depth == 0) {
+                    tok = tok->next;
+                    break;
+                } else if (tok->kind == PP_TOK_PUNCT &&
+                           tok->punct_kind == '(') {
+                    ++parens_depth;
+                } else if (tok->kind == PP_TOK_PUNCT &&
+                           tok->punct_kind == ')') {
+                    assert(parens_depth);
+                    --parens_depth;
+                }
+                ++tok_count;
+                tok = tok->next;
+            }
+
+            // TODO: Variadic
+            ++arg_idx;
+            arg->toks      = first_arg_token;
+            arg->tok_count = tok_count;
+            arg            = arg->next;
+
+            if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
+                if (arg_idx != macro->arg_count) {
+                    NOT_IMPL;
+                }
+                break;
+            }
+        }
+    }
+    *tokp = tok;
+}
+
+static void
+expand_function_like_macro(preprocessor *pp, pp_token **tokp, pp_macro *macro,
+                           pp_token *initial) {
+    pp_token *tok = *tokp;
+
+    get_function_like_macro_arguments(pp, &tok, macro);
+    if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
+        tok = tok->next;
+    } else {
+        NOT_IMPL;
+    }
+
+    uint32_t idx                = 0;
+    linked_list_constructor def = {0};
+    for (pp_token *temp = macro->definition; idx < macro->definition_len;
+         temp           = temp->next, ++idx) {
+        bool is_arg = false;
+        // Check if given token is a macro
+        if (temp->kind == PP_TOK_ID) {
+            for (pp_macro_arg *arg = macro->args; arg && !is_arg;
+                 arg               = arg->next) {
+                if (string_eq(arg->name, temp->str)) {
+                    uint32_t arg_tok_idx = 0;
+                    for (pp_token *arg_tok = arg->toks;
+                         arg_tok_idx < arg->tok_count;
+                         arg_tok = arg_tok->next, ++arg_tok_idx) {
+                        pp_token *new_token = copy_pp_token(pp, arg_tok);
+                        copy_pp_token_loc(new_token, initial);
+                        LLISTC_ADD_LAST(&def, new_token);
+                    }
+                    is_arg = true;
+                }
+            }
+        }
+
+        if (is_arg) {
+            continue;
+        }
+        // If given token is not arg, continue as usual
+        pp_token *new_token = copy_pp_token(pp, temp);
+        copy_pp_token_loc(new_token, initial);
+        LLISTC_ADD_LAST(&def, new_token);
+    }
+    if (def.first) {
+        ((pp_token *)def.last)->next = tok;
+        tok                          = def.first;
+    }
+    *tokp = tok;
 }
 
 static bool
@@ -145,96 +246,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
             if (!tok->has_whitespace && tok->kind == PP_TOK_PUNCT &&
                 tok->punct_kind == '(') {
                 tok = tok->next;
-
-                // so we have differ between argument consisting of 0 tokens and
-                // no arguments
-                if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
-                    uint32_t arg_idx  = 0;
-                    pp_macro_arg *arg = macro->args;
-
-                    for (;;) {
-                        pp_token *first_arg_token = tok;
-                        uint32_t tok_count        = 0;
-                        uint32_t parens_depth     = 0;
-                        for (;;) {
-                            if (tok->kind == PP_TOK_PUNCT &&
-                                tok->punct_kind == ')' && parens_depth == 0) {
-                                break;
-                            } else if (tok->kind == PP_TOK_PUNCT &&
-                                       tok->punct_kind == ',' &&
-                                       parens_depth == 0) {
-                                tok = tok->next;
-                                break;
-                            } else if (tok->kind == PP_TOK_PUNCT &&
-                                       tok->punct_kind == '(') {
-                                ++parens_depth;
-                            } else if (tok->kind == PP_TOK_PUNCT &&
-                                       tok->punct_kind == ')') {
-                                assert(parens_depth);
-                                --parens_depth;
-                            }
-                            ++tok_count;
-                            tok = tok->next;
-                        }
-
-                        // TODO: Variadic
-                        ++arg_idx;
-                        arg->toks      = first_arg_token;
-                        arg->tok_count = tok_count;
-                        arg            = arg->next;
-
-                        if (tok->kind == PP_TOK_PUNCT &&
-                            tok->punct_kind == ')') {
-                            if (arg_idx != macro->arg_count) {
-                                NOT_IMPL;
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
-                    tok = tok->next;
-                } else {
-                    NOT_IMPL;
-                }
-
-                uint32_t idx                = 0;
-                linked_list_constructor def = {0};
-                for (pp_token *temp                    = macro->definition;
-                     idx < macro->definition_len; temp = temp->next, ++idx) {
-                    bool is_arg = false;
-                    if (temp->kind == PP_TOK_ID) {
-                        for (pp_macro_arg *arg = macro->args; arg;
-                             arg               = arg->next) {
-                            if (string_eq(arg->name, temp->str)) {
-                                uint32_t arg_tok_idx = 0;
-                                for (pp_token *arg_tok = arg->toks;
-                                     arg_tok_idx < arg->tok_count;
-                                     arg_tok = arg_tok->next, ++arg_tok_idx) {
-                                    pp_token *new_token =
-                                        copy_pp_token(pp, arg_tok);
-                                    copy_pp_token_loc(new_token, initial);
-                                    LLISTC_ADD_LAST(&def, new_token);
-                                }
-                                is_arg = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (is_arg) {
-                        continue;
-                    }
-
-                    pp_token *new_token = copy_pp_token(pp, temp);
-                    copy_pp_token_loc(new_token, initial);
-                    LLISTC_ADD_LAST(&def, new_token);
-                }
-                if (def.first) {
-                    ((pp_token *)def.last)->next = tok;
-                    tok                          = def.first;
-                }
+                expand_function_like_macro(pp, &tok, macro, initial);
                 tok->has_whitespace = initial->has_whitespace;
                 tok->at_line_start  = initial->at_line_start;
                 result              = true;
@@ -270,6 +282,65 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
 }
 
 static void
+define_macro_function_like_args(preprocessor *pp, pp_token **tokp,
+                                pp_macro *macro) {
+    pp_token *tok = *tokp;
+
+    linked_list_constructor args = {0};
+    for (;;) {
+        if (tok->at_line_start) {
+            break;
+        }
+
+        // Eat argument
+        if (tok->kind == PP_TOK_PUNCT &&
+            tok->punct_kind == PP_TOK_PUNCT_VARARGS) {
+            if (macro->is_variadic) {
+                NOT_IMPL;
+            }
+
+            macro->is_variadic = true;
+            pp_macro_arg *arg  = get_new_macro_arg(pp);
+            arg->name          = WRAP_Z("__VA_ARGS__");
+            LLISTC_ADD_LAST(&args, arg);
+
+            tok = tok->next;
+        } else if (tok->kind != PP_TOK_ID) {
+            NOT_IMPL;
+            break;
+        } else {
+            if (macro->is_variadic) {
+                NOT_IMPL;
+            }
+
+            pp_macro_arg *arg = get_new_macro_arg(pp);
+            arg->name         = tok->str;
+            LLISTC_ADD_LAST(&args, arg);
+            ++macro->arg_count;
+
+            tok = tok->next;
+        }
+
+        // Parse post-argument
+        if (!tok->at_line_start && tok->kind == PP_TOK_PUNCT &&
+            tok->punct_kind == ',') {
+            tok = tok->next;
+        } else {
+            break;
+        }
+    }
+
+    if (tok->at_line_start || tok->kind != PP_TOK_PUNCT ||
+        tok->punct_kind != ')') {
+        NOT_IMPL;
+    } else {
+        macro->args = args.first;
+    }
+
+    *tokp = tok;
+}
+
+static void
 define_macro(preprocessor *pp, pp_token **tokp) {
     pp_token *tok = *tokp;
     if (tok->kind != PP_TOK_ID) {
@@ -298,60 +369,14 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == '(' &&
         !tok->has_whitespace) {
         tok = tok->next;
-
         if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
-            linked_list_constructor args = {0};
-            for (;;) {
-                if (tok->at_line_start) {
-                    break;
-                }
-
-                // Eat argument
-                if (tok->kind == PP_TOK_PUNCT &&
-                    tok->punct_kind == PP_TOK_PUNCT_VARARGS) {
-                    if (macro->is_variadic) {
-                        NOT_IMPL;
-                    }
-
-                    macro->is_variadic = true;
-                    pp_macro_arg *arg  = get_new_macro_arg(pp);
-                    arg->name          = WRAP_Z("__VA_ARGS__");
-                    LLISTC_ADD_LAST(&args, arg);
-
-                    tok = tok->next;
-                } else if (tok->kind != PP_TOK_ID) {
-                    NOT_IMPL;
-                    break;
-                } else {
-                    if (macro->is_variadic) {
-                        NOT_IMPL;
-                    }
-
-                    pp_macro_arg *arg = get_new_macro_arg(pp);
-                    arg->name         = tok->str;
-                    LLISTC_ADD_LAST(&args, arg);
-                    ++macro->arg_count;
-
-                    tok = tok->next;
-                }
-
-                // Parse post-argument
-                if (!tok->at_line_start && tok->kind == PP_TOK_PUNCT &&
-                    tok->punct_kind == ',') {
-                    tok = tok->next;
-                } else {
-                    break;
-                }
-            }
-
-            if (tok->at_line_start || tok->kind != PP_TOK_PUNCT ||
-                tok->punct_kind != ')') {
+            define_macro_function_like_args(pp, &tok, macro);
+            if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
                 NOT_IMPL;
-            } else {
-                tok         = tok->next;
-                macro->args = args.first;
             }
-        } else {
+        }
+
+        if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
             tok = tok->next;
         }
         macro->kind = PP_MACRO_FUNC;
@@ -385,7 +410,7 @@ undef_macro(preprocessor *pp, pp_token **tokp) {
         *macrop = macro->next;
         LLIST_ADD(pp->macro_freelist, macro);
     } else {
-        NOT_IMPL;
+        /* NOT_IMPL; */
     }
     *tokp = tok;
 }
