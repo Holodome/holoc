@@ -8,6 +8,7 @@
 #include "darray.h"
 #include "filepath.h"
 #include "str.h"
+#include "llist.h"
 
 void
 add_default_include_paths(string **pathsp) {
@@ -251,6 +252,8 @@ get_file(file_storage *fs, string name, file *current_file) {
         // Phase 2
         char *send     = remove_backslash_newline(s);
         file->contents = string(s, send - s);
+
+        LLIST_ADD(fs->files, file);
     }
     return file;
 }
