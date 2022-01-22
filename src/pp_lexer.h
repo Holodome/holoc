@@ -101,7 +101,7 @@ typedef struct pp_token {
 // preprocessing stage may or may not correspond to actual tokens. This is
 // actual for numbers. However, all tokens that are not produced from
 // preprocessing context in source (not part of macro invocation) _shold_ be
-// correct c tokens.
+// correct c tokens. For converting see c_lang and preprocessor.
 typedef struct pp_lexer {
     // Start of data that we parse
     char *data;
@@ -127,6 +127,7 @@ typedef struct pp_lexer {
     uint32_t tok_buf_len;
 } pp_lexer;
 
+// Initializes all members of lex to parse given data.
 void init_pp_lexer(pp_lexer *lex, char *data, char *eof, char *tok_buf,
                    uint32_t tok_buf_size);
 
@@ -134,10 +135,10 @@ void init_pp_lexer(pp_lexer *lex, char *data, char *eof, char *tok_buf,
 bool pp_lexer_parse(pp_lexer *lexer);
 // Formats token like it is seen in code
 void fmt_pp_tokw(struct buffer_writer *w, pp_token *tok);
-uint32_t fmt_pp_tok(pp_token *tok, char *buf, uint32_t buf_len);
+uint32_t fmt_pp_tok(char *buf, uint32_t buf_len, pp_token *tok);
 // Formats token like it is seen in code, while also providing token kind
 // information
 void fmt_pp_tok_verbosew(struct buffer_writer *w, pp_token *tok);
-uint32_t fmt_pp_tok_verbose(pp_token *tok, char *buf, uint32_t buf_len);
+uint32_t fmt_pp_tok_verbose(char *buf, uint32_t buf_len, pp_token *tok);
 
 #endif

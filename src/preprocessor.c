@@ -441,16 +441,9 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     }
     file *f = get_file(pp->fs, filename, current_file);
 
-    pp_lexer *lex          = bump_alloc(pp->a, sizeof(pp_lexer));
-    lex->tok_buf           = pp->lexer_buffer;
-    lex->tok_buf_capacity  = sizeof(pp->lexer_buffer);
-    lex->data              = f->contents.data;
-    lex->eof               = STRING_END(f->contents);
-    lex->cursor            = lex->data;
-    lex->tok.at_line_start = true;
-    lex->line              = 1;
-    lex->last_line_start   = lex->data;
-
+    pp_lexer *lex = bump_alloc(pp->a, sizeof(pp_lexer));
+    init_pp_lexer(lex, f->contents.data, STRING_END(f->contents),
+                  pp->lexer_buffer, sizeof(pp->lexer_buffer));
     pp_token *tok;
     for (;;) {
         pp_lexer_parse(lex);
@@ -590,7 +583,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                     while (
                         (tok->kind != PP_TOK_PUNCT || tok->punct_kind != '>') &&
                         !tok->at_line_start) {
-                        cursor += fmt_pp_tok(tok, cursor, buf_eof - cursor);
+                        cursor += fmt_pp_tok(cursor, buf_eof - cursor, tok);
                         tok = tok->next;
                     }
 

@@ -64,13 +64,12 @@ static string KEYWORD_STRINGS[] = {
 };
 
 static string PUNCTUATOR_STRINGS[] = {
-    WRAP_Z("(unknown)"), WRAP_Z(">>="), WRAP_Z("<<="), 
-    WRAP_Z("+="),        WRAP_Z("-="),  WRAP_Z("*="),  WRAP_Z("/="),
-    WRAP_Z("%="),        WRAP_Z("&="),  WRAP_Z("|="),  WRAP_Z("^="),
-    WRAP_Z("++"),        WRAP_Z("--"),  WRAP_Z(">"),   WRAP_Z("<<"),
-    WRAP_Z("&&"),        WRAP_Z("||"),  WRAP_Z("=="),  WRAP_Z("!="),
-    WRAP_Z("<="),        WRAP_Z(">="),WRAP_Z("...")
-};
+    WRAP_Z("(unknown)"), WRAP_Z(">>="), WRAP_Z("<<="), WRAP_Z("+="),
+    WRAP_Z("-="),        WRAP_Z("*="),  WRAP_Z("/="),  WRAP_Z("%="),
+    WRAP_Z("&="),        WRAP_Z("|="),  WRAP_Z("^="),  WRAP_Z("++"),
+    WRAP_Z("--"),        WRAP_Z(">"),   WRAP_Z("<<"),  WRAP_Z("&&"),
+    WRAP_Z("||"),        WRAP_Z("=="),  WRAP_Z("!="),  WRAP_Z("<="),
+    WRAP_Z(">="),        WRAP_Z("...")};
 
 static string
 get_kw_str(c_keyword_kind kind) {
@@ -78,7 +77,7 @@ get_kw_str(c_keyword_kind kind) {
     return KEYWORD_STRINGS[kind];
 }
 
-// NOTE: Only called for multisymbol punctuators (ot ASCII ones)
+// NOTE: Only called for multisymbol punctuators (not ASCII ones)
 static string
 get_punct_str(c_punct_kind kind) {
     assert(kind > 0x100);
@@ -181,8 +180,8 @@ get_kw_kind(string test) {
 
 bool
 convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
-    bool result = false;
-    tok->at_line_start = pp_tok->at_line_start;
+    bool result         = false;
+    tok->at_line_start  = pp_tok->at_line_start;
     tok->has_whitespace = pp_tok->has_whitespace;
     switch (pp_tok->kind) {
     case PP_TOK_EOF: {

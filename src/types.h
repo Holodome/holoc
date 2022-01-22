@@ -26,8 +26,9 @@ typedef struct string {
 
 // Not implemented macro, useful when need to put assert(false) but
 // want to distinguish it from assert(false) that guard unreachable paths
-// TODO: make real unreachable macro so that assert(false) is nonexistent
 #define NOT_IMPL assert(false && "NOT IMPLEMENTED")
+#define UNREACHABLE assert(false && "UNREACHABLE")
+#define INVALID_DEFAULT_CASE default: UNREACHABLE; break
 // This is a flag used to attach debug information to structs
 // so that viewing them in debugger is more informative
 #ifndef HOLOC_DEBUG

@@ -14,9 +14,6 @@
 #include "preprocessor.h"
 #include "str.h"
 
-#define STB_SPRINTF_IMPLEMENTATION
-#include "stb_sprintf.h"
-
 typedef struct {
     // print preprocessing tokens verbose, its on its own line
     bool ptv;
@@ -64,6 +61,26 @@ process_file(string filename) {
     }
 }
 
+static void
+ptv(string filename) {
+    allocator *a    = get_system_allocator();
+    file_storage fs = {0};
+    fs.a            = a;
+    add_default_include_paths(&fs);
+
+    file *f = get_file(&fs, filename, 0);
+
+    char token_buffer[4096];
+    pp_lexer *lex = aalloc(a, sizeof(*lex));
+    init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
+                  sizeof(token_buffer));
+    while (pp_lexer_parse(lex)) {
+        char buffer[4096];
+        fmt_pp_tok_verbose(buffer, sizeof(buffer), &lex->tok);
+        printf("%s\n", buffer);
+    }
+}
+
 #if 0
 
 static void
@@ -76,7 +93,7 @@ process_file(string filename) {
         lexer.tok_buf          = lexer_buffer;
         lexer.tok_buf_capacity = sizeof(lexer_buffer);
         lexer.data             = file_contents;
-        lexer.eof              = file_contents + strlen(file_contents);
+        l,exer.eof              = file_contents + strlen(file_contents);
         lexer.cursor           = lexer.data;
         while (pp_lexer_parse(&lexer)) {
             char token_buf[4096];
@@ -231,7 +248,8 @@ main(int argc, char **argv) {
         printf("Filename %u: %.*s\n", filename_idx, filename.len,
                filename.data);
 
-        process_file(filename);
+        /* process_file(filename); */
+        ptv(filename);
     }
 
     return 0;
