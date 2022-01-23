@@ -113,7 +113,10 @@ static void
 get_function_like_macro_arguments(preprocessor *pp, pp_token **tokp,
                                   pp_macro *macro) {
     pp_token *tok = *tokp;
-    if (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')') {
+    if (macro->arg_count == 0 && !macro->is_variadic &&
+        (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')')) {
+        NOT_IMPL;
+    } else {
         uint32_t arg_idx  = 0;
         pp_macro_arg *arg = macro->args;
 
@@ -128,7 +131,9 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token **tokp,
                 } else if (tok->kind == PP_TOK_PUNCT &&
                            tok->punct_kind == ',' && parens_depth == 0) {
                     tok = tok->next;
-                    break;
+                    if (!macro->is_variadic) {
+                        break;
+                    }
                 } else if (tok->kind == PP_TOK_PUNCT &&
                            tok->punct_kind == '(') {
                     ++parens_depth;
@@ -148,7 +153,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token **tokp,
             arg            = arg->next;
 
             if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
-                if (arg_idx != macro->arg_count) {
+                if (arg_idx != macro->arg_count && !macro->is_variadic) {
                     NOT_IMPL;
                 }
                 break;
@@ -524,6 +529,7 @@ expr_primary(allocator *a, token **tokp) {
     ast *node  = 0;
     token *tok = *tokp;
     if (IS_PUNCT(tok, '(')) {
+        tok  = tok->next;
         node = expr(a, &tok);
         if (!IS_PUNCT(tok, ')')) {
             NOT_IMPL;
@@ -576,7 +582,7 @@ expr_unary(allocator *a, token **tokp) {
         un->expr      = expr_primary(a, &tok);
         node          = (ast *)un;
     } else {
-        node = expr_primary(a, tokp);
+        node = expr_primary(a, &tok);
     }
     *tokp = tok;
     return node;
@@ -774,7 +780,7 @@ expr_and(allocator *a, token **tokp) {
 
 static ast *
 expr_xor(allocator *a, token **tokp) {
-    ast *node  = expr_eq(a, tokp);
+    ast *node  = expr_and(a, tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, '^')) {
@@ -782,7 +788,7 @@ expr_xor(allocator *a, token **tokp) {
             ast_binary *bin = make_ast(a, AST_BIN);
             bin->bin_kind   = AST_BIN_XOR;
             bin->left       = node;
-            bin->right      = expr_eq(a, &tok);
+            bin->right      = expr_and(a, &tok);
             node            = (ast *)bin;
             continue;
         }
@@ -864,7 +870,7 @@ expr_ternary(allocator *a, token **tokp) {
         ast_ternary *ter = make_ast(a, AST_TER);
         ter->cond        = node;
         ter->cond_true   = expr(a, &tok);
-        if (IS_PUNCT(tok, ';')) {
+        if (IS_PUNCT(tok, ':')) {
             tok             = tok->next;
             ter->cond_false = expr_ternary(a, &tok);
             node            = (ast *)ter;
@@ -985,8 +991,6 @@ evaluate_constant_expression(ast *node) {
 
 static int64_t
 eval_pp_expr(preprocessor *pp, pp_token **tokp) {
-    int64_t result = 0;
-
     // Copy all tokens from current line so we can process them independently
     linked_list_constructor copied = {0};
     pp_token *tok                  = *tokp;
@@ -1037,32 +1041,8 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
             }
         } else {
             LLISTC_ADD_LAST(&modified, tok);
+            tok = tok->next;
         }
-    }
-
-    // Now we can preprocess the expression
-    tok = modified.first;
-    while (tok) {
-        if (expand_macro(pp, &tok)) {
-            continue;
-        }
-        tok = tok->next;
-    }
-
-    // Now we have to replace all nonexistent identifiers with 0.
-    tok = modified.first;
-    while (tok) {
-        if (tok->kind == PP_TOK_ID && !*get_macro(pp, hash_string(tok->str))) {
-            allocator a      = bump_get_allocator(pp->a);
-            char value_buf[] = "0";
-
-            pp_token *new_token = get_new_token(pp);
-            new_token->kind     = PP_TOK_NUM;
-            new_token->str      = string_memdup(&a, value_buf);
-            new_token->next     = tok->next;
-            *tok                = *new_token;
-        }
-        tok = tok->next;
     }
 
     // So now in tok we have a list of tokens that form constant expression.
@@ -1070,6 +1050,21 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
     tok                               = modified.first;
     linked_list_constructor converted = {0};
     while (tok) {
+        if (expand_macro(pp, &tok)) {
+            continue;
+        }
+
+        if (tok->kind == PP_TOK_ID) {
+            pp_macro *macro = *get_macro(pp, hash_string(tok->str));
+            if (!macro) {
+                allocator a      = bump_get_allocator(pp->a);
+                char value_buf[] = "0";
+
+                tok->kind = PP_TOK_NUM;
+                tok->str  = string_memdup(&a, value_buf);
+            }
+        }
+
         allocator a  = bump_get_allocator(pp->a);
         token *c_tok = aalloc(&a, sizeof(token));
         if (!convert_pp_token(tok, c_tok, &a)) {
@@ -1077,7 +1072,18 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
         }
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = tok->next;
+
+        if (!tok) {
+            c_tok       = aalloc(&a, sizeof(token));
+            c_tok->kind = TOK_EOF;
+            LLISTC_ADD_LAST(&converted, c_tok);
+        }
     }
+
+    allocator a        = bump_get_allocator(pp->a);
+    token *expr_tokens = converted.first;
+    ast *expr_ast  = expr_ternary(&a, &expr_tokens);
+    int64_t result = evaluate_constant_expression(expr_ast);
 
     return result;
 }
@@ -1169,11 +1175,14 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                     skip_cond_incl(pp, &tok);
                 }
             } else if (string_eq(tok->str, WRAP_Z("line"))) {
-                NOT_IMPL;
+                // TODO:
             } else if (string_eq(tok->str, WRAP_Z("pragma"))) {
                 NOT_IMPL;
             } else if (string_eq(tok->str, WRAP_Z("error"))) {
-                NOT_IMPL;
+                // TODO:
+                /* NOT_IMPL; */
+            } else if (string_eq(tok->str, WRAP_Z("warning"))) {
+                // TODO:
             } else if (string_eq(tok->str, WRAP_Z("include"))) {
                 tok = tok->next;
                 if (tok->at_line_start) {

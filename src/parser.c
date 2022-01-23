@@ -1,3 +1,4 @@
+#if 0
 #include "parser.h"
 
 #include <assert.h>
@@ -31,3 +32,4 @@ whatever(parser *p) {
         break;
     }
 }
+#endif 

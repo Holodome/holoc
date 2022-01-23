@@ -1,3 +1,4 @@
+#if 0
 #include "ast_builder.h"
 
 #include <assert.h>
@@ -189,3 +190,4 @@ build_toplevel_ast(ast_builder *b) {
 
     return node;
 }
+#endif 

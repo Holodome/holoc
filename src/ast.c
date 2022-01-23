@@ -6,6 +6,22 @@
 #include "c_lang.h"
 #include "c_types.h"
 #include "str.h"
+#include "allocator.h"
+
+static uint64_t AST_STRUCT_SIZES[] = {
+    sizeof(ast),           sizeof(ast_identifier),
+    sizeof(ast_string),    sizeof(ast_number),
+    sizeof(ast_unary),     sizeof(ast_binary),
+    sizeof(ast_ternary),   sizeof(ast_if),
+    sizeof(ast_for),       sizeof(ast_do),
+    sizeof(ast_switch),    sizeof(ast_case),
+    sizeof(ast_block),     sizeof(ast_goto),
+    sizeof(ast_label),     sizeof(ast_func_call),
+    sizeof(ast_cast),      sizeof(ast_member),
+    sizeof(ast_return),    sizeof(ast_struct_decl),
+    sizeof(ast_enum_decl), sizeof(ast_enum_field),
+    sizeof(ast_decl),      sizeof(ast_func),
+    sizeof(ast_typedef),   sizeof(ast_type)};
 
 static string AST_BINARY_STRS[] = {
     WRAP_Z("(unknown)"), WRAP_Z("+"),   WRAP_Z("-"),   WRAP_Z("*"),
@@ -99,9 +115,9 @@ fmt_astw(void *node, buffer_writer *w) {
         ast_ternary *ter = node;
         fmt_astw(ter->cond, w);
         buf_write(w, " ? ");
-        fmt_astw(ter->left, w);
+        fmt_astw(ter->cond_true, w);
         buf_write(w, " : ");
-        fmt_astw(ter->right, w);
+        fmt_astw(ter->cond_false, w);
     } break;
     case AST_FUNC_CALL: {
         ast_func_call *call = node;
@@ -189,9 +205,9 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         buf_write(w, "Ternary expr:\n");
         fmt_ast_verbosew_internal(ter->cond, w, depth + 1);
         buf_write(w, "%*c?\n", depth + 1, ' ');
-        fmt_ast_verbosew_internal(ter->left, w, depth + 1);
+        fmt_ast_verbosew_internal(ter->cond_true, w, depth + 1);
         buf_write(w, "%*c:\n", depth + 1, ' ');
-        fmt_ast_verbosew_internal(ter->right, w, depth + 1);
+        fmt_ast_verbosew_internal(ter->cond_false, w, depth + 1);
     } break;
     case AST_IF: {
         ast_if *if_ = node;
@@ -340,4 +356,12 @@ fmt_ast_verbose(void *node, char *buf, uint32_t buf_size) {
     buffer_writer w = {buf, buf + buf_size};
     fmt_ast_verbosew(node, &w);
     return w.cursor - buf;
+}
+
+void *
+make_ast(struct allocator *a, ast_kind kind) {
+    assert(kind < (sizeof(AST_STRUCT_SIZES) / sizeof(*AST_STRUCT_SIZES)));
+    ast *node  = aalloc(a, AST_STRUCT_SIZES[kind]);
+    node->kind = kind;
+    return node;
 }

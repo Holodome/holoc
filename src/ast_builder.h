@@ -20,6 +20,5 @@ typedef struct ast_builder {
 } ast_builder;
 
 struct ast *build_toplevel_ast(ast_builder *b);
-void *make_ast(struct allocator *a, ast_kind kind);
 
 #endif
