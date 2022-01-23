@@ -415,8 +415,6 @@ undef_macro(preprocessor *pp, pp_token **tokp) {
         free_macro_data(pp, macro);
         *macrop = macro->next;
         LLIST_ADD(pp->macro_freelist, macro);
-    } else {
-        NOT_IMPL;
     }
     *tokp = tok;
 }
