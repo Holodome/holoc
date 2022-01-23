@@ -272,11 +272,11 @@ static void
 convert_c_int(c_number_convert_result *result, char *p) {
     uint32_t base = 10;
     if (*p == '0' && (p[1] == 'x' || p[1] == 'X') && isxdigit(p[2])) {
-        p += 3;
+        p += 2;
         base = 16;
     } else if (*p == '0' && (p[1] == 'b' || p[1] == 'B') &&
                (p[2] == '0' || p[2] == '1')) {
-        p += 3;
+        p += 2;
         base = 2;
     } else if (*p == '0') {
         ++p;
