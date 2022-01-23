@@ -5,6 +5,7 @@
 
 struct c_type;
 struct buffer_writer;
+struct allocator;
 
 typedef enum {
     AST_NONE      = 0x0,   // Do nothing
@@ -128,8 +129,8 @@ typedef struct ast_binary {
 typedef struct ast_ternary {
     _AST_FIELDS;
     ast *cond;
-    ast *left;
-    ast *right;
+    ast *cond_true;
+    ast *cond_false;
 } ast_ternary;
 
 typedef struct ast_if {
@@ -239,5 +240,7 @@ void fmt_astw(void *ast, struct buffer_writer *w);
 uint32_t fmt_ast(void *ast, char *buf, uint32_t buf_size);
 void fmt_ast_verbosew(void *ast, struct buffer_writer *w);
 uint32_t fmt_ast_verbose(void *ast, char *buf, uint32_t buf_size);
+
+void *make_ast(struct allocator *a, ast_kind kind);
 
 #endif
