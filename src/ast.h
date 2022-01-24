@@ -6,6 +6,7 @@
 struct c_type;
 struct buffer_writer;
 struct allocator;
+struct token;
 
 typedef enum {
     AST_NONE      = 0x0,   // Do nothing
@@ -241,6 +242,55 @@ uint32_t fmt_ast(void *ast, char *buf, uint32_t buf_size);
 void fmt_ast_verbosew(void *ast, struct buffer_writer *w);
 uint32_t fmt_ast_verbose(void *ast, char *buf, uint32_t buf_size);
 
+// Creates ast of given kind. Allocates memory needed for structure of that kind
+// and sets kind.
 void *make_ast(struct allocator *a, ast_kind kind);
+//
+// Generally, exprsession inside the #if are named constant, but in reality they
+// implement only a subset of them (like there is no operator sizeof in #if's).
+// So it has been decided to put all of these expression ast builders into
+// separate functions.
+//
+// primary = '(' expr ')'
+//         | num
+ast *ast_cond_incl_expr_primary(struct allocator *a, struct token **tokp);
+// unary = '+' primary
+//       | '-' primary
+//       | '!' primary
+//       | '~' primary
+//       | primary
+ast *ast_cond_incl_expr_unary(struct allocator *a, struct token **tokp);
+// mul = unary ('*' unary |
+//              '/' unary |
+//              '%' unary)*
+ast *ast_cond_incl_expr_mul(struct allocator *a, struct token **tokp);
+// add = mul ('+' mul |
+//            '-' mul)*
+ast *ast_cond_incl_expr_add(struct allocator *a, struct token **tokp);
+// shift = add ('<<' add |
+//              '>>' add)*
+ast *ast_cond_incl_expr_shift(struct allocator *a, struct token **tokp);
+// rel = shift ('<=' shift |
+//              '<'  shift | 
+//              '>'  shift | 
+//              '>=' shift)*
+ast *ast_cond_incl_expr_rel(struct allocator *a, struct token **tokp);
+// eq = rel ('!=' rel |
+//           '==' rel)*
+ast *ast_cond_incl_expr_eq(struct allocator *a, struct token **tokp);
+// and = eq ('&' eq)*
+ast *ast_cond_incl_expr_and(struct allocator *a, struct token **tokp);
+// xor = and ('^' and)*
+ast *ast_cond_incl_expr_xor(struct allocator *a, struct token **tokp);
+// or = xor ('|' xor)*
+ast *ast_cond_incl_expr_or(struct allocator *a, struct token **tokp);
+// land = or ('&&' or)*
+ast *ast_cond_incl_expr_land(struct allocator *a, struct token **tokp);
+// lor = land ('||' land)*
+ast *ast_cond_incl_expr_lor(struct allocator *a, struct token **tokp);
+// ternary = lor ('?' expr ':' ternary)?
+ast *ast_cond_incl_expr_ternary(struct allocator *a, struct token **tokp);
+// expr = ternary (',' expr)?
+ast *ast_cond_incl_expr(struct allocator *a, struct token **tokp);
 
 #endif

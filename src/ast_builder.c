@@ -9,21 +9,6 @@
 #include "c_types.h"
 #include "llist.h"
 
-static uint64_t AST_STRUCT_SIZES[] = {
-    sizeof(ast),           sizeof(ast_identifier),
-    sizeof(ast_string),    sizeof(ast_number),
-    sizeof(ast_unary),     sizeof(ast_binary),
-    sizeof(ast_ternary),   sizeof(ast_if),
-    sizeof(ast_for),       sizeof(ast_do),
-    sizeof(ast_switch),    sizeof(ast_case),
-    sizeof(ast_block),     sizeof(ast_goto),
-    sizeof(ast_label),     sizeof(ast_func_call),
-    sizeof(ast_cast),      sizeof(ast_member),
-    sizeof(ast_return),    sizeof(ast_struct_decl),
-    sizeof(ast_enum_decl), sizeof(ast_enum_field),
-    sizeof(ast_decl),      sizeof(ast_func),
-    sizeof(ast_typedef),   sizeof(ast_type)};
-
 static void *
 make_ast(ast_builder *b, ast_kind kind) {
     assert(kind < (sizeof(AST_STRUCT_SIZES) / sizeof(*AST_STRUCT_SIZES)));
