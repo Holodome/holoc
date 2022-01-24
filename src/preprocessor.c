@@ -58,18 +58,6 @@ get_new_macro_arg(preprocessor *pp) {
     return arg;
 }
 
-static pp_token *
-get_new_token(preprocessor *pp) {
-    pp_token *tok = pp->tok_freelist;
-    if (tok) {
-        pp->tok_freelist = tok->next;
-        memset(tok, 0, sizeof(*tok));
-    } else {
-        tok = bump_alloc(pp->a, sizeof(*tok));
-    }
-    return tok;
-}
-
 static pp_conditional_include *
 get_new_cond_incl(preprocessor *pp) {
     pp_conditional_include *incl = pp->cond_incl_freelist;
@@ -82,23 +70,9 @@ get_new_cond_incl(preprocessor *pp) {
     return incl;
 }
 
-#if 0
-static pp_parse_stack *
-get_new_parse_stack_entry(preprocessor *pp) {
-    pp_parse_stack *entry = pp->parse_stack_freelist;
-    if (entry) {
-        LLIST_POP(pp->parse_stack_freelist);
-        memset(entry, 0, sizeof(*entry));
-    } else {
-        entry = bump_alloc(pp->a, sizeof(*entry));
-    }
-    return entry;
-}
-#endif
-
 static pp_token *
 copy_pp_token(preprocessor *pp, pp_token *tok) {
-    pp_token *new = get_new_token(pp);
+    pp_token *new = bump_alloc(pp->a, sizeof(tok));
     *new          = *tok;
     new->next     = 0;
     return new;
@@ -471,17 +445,16 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     linked_list_constructor tokens = {0};
 
     file *current_file = 0;
-    if (pp->parse_stack) {
-        current_file = pp->parse_stack->file;
-    }
     file *f = get_file(pp->fs, filename, current_file);
+
+    char lexer_buffer[4096];
 
     pp_lexer *lex = bump_alloc(pp->a, sizeof(pp_lexer));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents),
-                  pp->lexer_buffer, sizeof(pp->lexer_buffer));
+                  lexer_buffer, sizeof(lexer_buffer));
 
     for (;;) {
-        pp_token *tok = get_new_token(pp);
+        pp_token *tok = bump_alloc(pp->a, sizeof(pp_token));
         pp_lexer_parse(lex, tok);
         tok->loc.filename = f->name;
         if (tok->str.data) {
@@ -503,381 +476,6 @@ include_file(preprocessor *pp, pp_token **tokp, string filename) {
     pp_token *new_after             = *tokp;
     *tokp                           = tokens.first;
     ((pp_token *)tokens.last)->next = new_after;
-}
-
-static ast *expr_ternary(allocator *a, token **tokp);
-
-static ast *
-expr(allocator *a, token **tokp) {
-    ast *node  = expr_ternary(a, tokp);
-    token *tok = *tokp;
-    if (IS_PUNCT(tok, ',')) {
-        tok             = tok->next;
-        ast_binary *bin = make_ast(a, AST_BIN);
-        bin->bin_kind   = AST_BIN_COMMA;
-        bin->left       = node;
-        bin->right      = expr(a, &tok);
-        *tokp           = tok;
-    }
-    return node;
-}
-
-static ast *
-expr_primary(allocator *a, token **tokp) {
-    ast *node  = 0;
-    token *tok = *tokp;
-    if (IS_PUNCT(tok, '(')) {
-        tok  = tok->next;
-        node = expr(a, &tok);
-        if (!IS_PUNCT(tok, ')')) {
-            NOT_IMPL;
-        } else {
-            tok = tok->next;
-        }
-    } else if (tok->kind == TOK_NUM) {
-        if (!c_type_is_int(tok->type->kind)) {
-            NOT_IMPL;
-        } else {
-            ast_number *num = make_ast(a, AST_NUM);
-            num->uint_value = tok->uint_value;
-            num->type       = tok->type;
-            node            = (ast *)num;
-        }
-        tok = tok->next;
-    } else {
-        NOT_IMPL;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_unary(allocator *a, token **tokp) {
-    ast *node  = 0;
-    token *tok = *tokp;
-    if (IS_PUNCT(tok, '+')) {
-        tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN);
-        un->un_kind   = AST_UN_PLUS;
-        un->expr      = expr_primary(a, &tok);
-        node          = (ast *)un;
-    } else if (IS_PUNCT(tok, '-')) {
-        tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN);
-        un->un_kind   = AST_UN_MINUS;
-        un->expr      = expr_primary(a, &tok);
-        node          = (ast *)un;
-    } else if (IS_PUNCT(tok, '!')) {
-        tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN);
-        un->un_kind   = AST_UN_LNOT;
-        un->expr      = expr_primary(a, &tok);
-        node          = (ast *)un;
-    } else if (IS_PUNCT(tok, '~')) {
-        tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN);
-        un->un_kind   = AST_UN_NOT;
-        un->expr      = expr_primary(a, &tok);
-        node          = (ast *)un;
-    } else {
-        node = expr_primary(a, &tok);
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_mul(allocator *a, token **tokp) {
-    ast *node  = expr_unary(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, '*')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_MUL;
-            bin->left       = node;
-            bin->right      = expr_unary(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, '/')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_DIV;
-            bin->left       = node;
-            bin->right      = expr_unary(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, '%')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_MOD;
-            bin->left       = node;
-            bin->right      = expr_unary(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_add(allocator *a, token **tokp) {
-    ast *node  = expr_mul(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, '+')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_ADD;
-            bin->left       = node;
-            bin->right      = expr_mul(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, '-')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_SUB;
-            bin->left       = node;
-            bin->right      = expr_mul(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_shift(allocator *a, token **tokp) {
-    ast *node  = expr_add(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, C_PUNCT_LSHIFT)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_LSHIFT;
-            bin->left       = node;
-            bin->right      = expr_add(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, C_PUNCT_RSHIFT)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_RSHIFT;
-            bin->left       = node;
-            bin->right      = expr_add(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_rel(allocator *a, token **tokp) {
-    ast *node  = expr_shift(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, '<')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_L;
-            bin->left       = node;
-            bin->right      = expr_shift(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, '>')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_G;
-            bin->left       = node;
-            bin->right      = expr_shift(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, C_PUNCT_LEQ)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_LE;
-            bin->left       = node;
-            bin->right      = expr_shift(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, C_PUNCT_GEQ)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_GE;
-            bin->left       = node;
-            bin->right      = expr_shift(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_eq(allocator *a, token **tokp) {
-    ast *node  = expr_rel(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, C_PUNCT_EQ)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_EQ;
-            bin->left       = node;
-            bin->right      = expr_rel(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        } else if (IS_PUNCT(tok, C_PUNCT_NEQ)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_NEQ;
-            bin->left       = node;
-            bin->right      = expr_rel(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_and(allocator *a, token **tokp) {
-    ast *node  = expr_eq(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, '&')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_AND;
-            bin->left       = node;
-            bin->right      = expr_eq(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_xor(allocator *a, token **tokp) {
-    ast *node  = expr_and(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, '^')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_XOR;
-            bin->left       = node;
-            bin->right      = expr_and(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_or(allocator *a, token **tokp) {
-    ast *node  = expr_xor(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, '|')) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_OR;
-            bin->left       = node;
-            bin->right      = expr_xor(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_land(allocator *a, token **tokp) {
-    ast *node  = expr_or(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, C_PUNCT_LAND)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_LAND;
-            bin->left       = node;
-            bin->right      = expr_or(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_lor(allocator *a, token **tokp) {
-    ast *node  = expr_land(a, tokp);
-    token *tok = *tokp;
-    for (;;) {
-        if (IS_PUNCT(tok, C_PUNCT_LOR)) {
-            tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN);
-            bin->bin_kind   = AST_BIN_LOR;
-            bin->left       = node;
-            bin->right      = expr_land(a, &tok);
-            node            = (ast *)bin;
-            continue;
-        }
-
-        break;
-    }
-    *tokp = tok;
-    return node;
-}
-
-static ast *
-expr_ternary(allocator *a, token **tokp) {
-    token *tok = *tokp;
-    ast *node  = expr_lor(a, &tok);
-    if (IS_PUNCT(tok, '?')) {
-        ast_ternary *ter = make_ast(a, AST_TER);
-        ter->cond        = node;
-        ter->cond_true   = expr(a, &tok);
-        if (IS_PUNCT(tok, ':')) {
-            tok             = tok->next;
-            ter->cond_false = expr_ternary(a, &tok);
-            node            = (ast *)ter;
-        } else {
-            NOT_IMPL;
-        }
-    }
-    *tokp = tok;
-    return node;
 }
 
 static int64_t
@@ -1024,7 +622,7 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
             value_buf[0]             = token_value ? '1' : '0';
 
             allocator a         = bump_get_allocator(pp->a);
-            pp_token *new_token = get_new_token(pp);
+            pp_token *new_token = bump_alloc(pp->a, sizeof(pp_token));
             new_token->kind     = PP_TOK_NUM;
             new_token->str      = string_memdup(&a, value_buf);
 
@@ -1080,8 +678,8 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
 
     allocator a        = bump_get_allocator(pp->a);
     token *expr_tokens = converted.first;
-    ast *expr_ast  = expr_ternary(&a, &expr_tokens);
-    int64_t result = evaluate_constant_expression(expr_ast);
+    ast *expr_ast      = ast_cond_incl_expr_ternary(&a, &expr_tokens);
+    int64_t result     = evaluate_constant_expression(expr_ast);
 
     return result;
 }
@@ -1231,34 +829,43 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
     return result;
 }
 
-token *
-do_pp(preprocessor *pp, string filename) {
-    pp_token *tok = get_pp_tokens_for_file(pp, filename).first;
-    linked_list_constructor converted = {0};
-    while (tok) {
-        if (expand_macro(pp, &tok)) {
+void
+init_pp(preprocessor *pp, string filename) {
+    pp->toks = get_pp_tokens_for_file(pp, filename).first;
+}
+
+bool
+pp_parse(preprocessor *pp, struct token *tok) {
+    bool result = false;
+    while (pp->toks) {
+        if (expand_macro(pp, &pp->toks)) {
             continue;
         }
 
-        if (process_pp_directive(pp, &tok)) {
+        if (process_pp_directive(pp, &pp->toks)) {
             continue;
         }
 
-        token *c_tok = aalloc(pp->ea, sizeof(token));
-        if (!convert_pp_token(tok, c_tok, pp->ea)) {
+        if (!convert_pp_token(pp->toks, tok, pp->ea)) {
             NOT_IMPL;
         }
-        LLISTC_ADD_LAST(&converted, c_tok);
-        tok = tok->next;
 #if HOLOC_DEBUG
         {
             char buffer[4096];
-            uint32_t len     = fmt_token_verbose(buffer, sizeof(buffer), c_tok);
+            uint32_t len     = fmt_token_verbose(buffer, sizeof(buffer), tok);
             char *debug_info = aalloc(get_debug_allocator(), len + 1);
             memcpy(debug_info, buffer, len + 1);
-            c_tok->_debug_info = debug_info;
+            tok->_debug_info = debug_info;
         }
 #endif
+        result = tok->kind != TOK_EOF;
+        break;
     }
-    return (token *)converted.first;
+
+    // Make sure to always return EOF after stream end
+    if (!pp->toks && !result) {
+        tok->kind = TOK_EOF;
+    }
+    return result;
 }
+
