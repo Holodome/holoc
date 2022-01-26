@@ -72,7 +72,7 @@ get_new_cond_incl(preprocessor *pp) {
 
 static pp_token *
 copy_pp_token(preprocessor *pp, pp_token *tok) {
-    pp_token *new = bump_alloc(pp->a, sizeof(tok));
+    pp_token *new = bump_alloc(pp->a, sizeof(*tok));
     *new          = *tok;
     new->next     = 0;
     return new;
@@ -858,14 +858,11 @@ pp_parse(preprocessor *pp, struct token *tok) {
             tok->_debug_info = debug_info;
         }
 #endif
-        result = tok->kind != TOK_EOF;
+        pp->toks = pp->toks->next;
+        result = pp->toks != 0;
         break;
     }
 
-    // Make sure to always return EOF after stream end
-    if (!pp->toks && !result) {
-        tok->kind = TOK_EOF;
-    }
     return result;
 }
 

@@ -50,6 +50,7 @@ typedef struct {
 void bump_init(bump_allocator *allocator, uint64_t align,
                uint64_t minimal_block_size);
 // Allocate size bytes on allocator
+__attribute__((malloc))
 void *bump_alloc(bump_allocator *allocator, uint64_t size);
 
 #define bump_bootstrap_(_offset, _size) bump_bootstrap__(_offset, _size)

@@ -164,11 +164,12 @@ mtp(string filename) {
     pp->a             = &ba;
     pp->ea            = a;
     pp->fs            = &fs;
+    init_pp(pp, filename);
 
-    token *toks = do_pp(pp, filename);
-    for (token *tok = toks; tok; tok = tok->next) {
+    token tok = {0};
+    while (pp_parse(pp, &tok)) {
         char buffer[4096];
-        fmt_token(buffer, sizeof(buffer), tok);
+        fmt_token(buffer, sizeof(buffer), &tok);
         printf("%s\n", buffer);
     }
 }
@@ -188,11 +189,12 @@ mtpv(string filename) {
     pp->a             = &ba;
     pp->ea            = a;
     pp->fs            = &fs;
+    init_pp(pp, filename);
 
-    token *toks = do_pp(pp, filename);
-    for (token *tok = toks; tok; tok = tok->next) {
+    token tok = {0};
+    while (pp_parse(pp, &tok)) {
         char buffer[4096];
-        fmt_token_verbose(buffer, sizeof(buffer), tok);
+        fmt_token_verbose(buffer, sizeof(buffer), &tok);
         printf("%s\n", buffer);
     }
 }
@@ -212,14 +214,15 @@ mtpf(string filename) {
     pp->a             = &ba;
     pp->ea            = a;
     pp->fs            = &fs;
+    init_pp(pp, filename);
 
-    token *toks = do_pp(pp, filename);
-    for (token *tok = toks; tok; tok = tok->next) {
+    token tok = {0};
+    while (pp_parse(pp, &tok)) {
         char buffer[4096];
-        fmt_token(buffer, sizeof(buffer), tok);
-        if (tok->at_line_start) {
+        fmt_token(buffer, sizeof(buffer), &tok);
+        if (tok.at_line_start) {
             printf("\n");
-        } else if (tok->has_whitespace) {
+        } else if (tok.has_whitespace) {
             printf(" ");
         }
         printf("%s", buffer);
