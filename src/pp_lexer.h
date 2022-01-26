@@ -124,6 +124,9 @@ typedef struct pp_lexer {
     uint32_t tok_buf_len;
 } pp_lexer;
 
+void pp_tok_init_eof(pp_token *tok);
+void pp_tok_init_num(pp_token *tok, char *num_str, struct allocator *a);
+
 // Initializes all members of lex to parse given data.
 void init_pp_lexer(pp_lexer *lex, char *data, char *eof, char *tok_buf,
                    uint32_t tok_buf_size);
@@ -137,5 +140,7 @@ uint32_t fmt_pp_tok(char *buf, uint32_t buf_len, pp_token *tok);
 // information
 void fmt_pp_tok_verbosew(struct buffer_writer *w, pp_token *tok);
 uint32_t fmt_pp_tok_verbose(char *buf, uint32_t buf_len, pp_token *tok);
+#define PP_TOK_IS_PUNCT(_tok, _punct) \
+    (((_tok)->kind == PP_TOK_PUNCT) && ((_tok)->punct_kind == (_punct)))
 
 #endif

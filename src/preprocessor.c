@@ -4,18 +4,28 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "allocator.h"
 #include "ast.h"
+#include "buffer_writer.h"
 #include "bump_allocator.h"
 #include "c_lang.h"
 #include "c_types.h"
 #include "file_storage.h"
+#include "filepath.h"
 #include "hashing.h"
 #include "llist.h"
 #include "pp_lexer.h"
 #include "str.h"
 
+#define NEW_PP_TOKEN(_pp) bump_alloc((_pp)->a, sizeof(pp_token))
+
+// Function used to get macro from hash table. It returns pointer to storage
+// place. Returned pointer can be treated as linked list head and new macros can
+// be appended to it. This complication is due to the fact that hash table is
+// not growable and has external chaining.
+// TODO: This can be abstracted
 static pp_macro **
 get_macro(preprocessor *pp, uint32_t hash) {
     pp_macro **macrop = hash_table_sc_get_u32(
@@ -24,18 +34,8 @@ get_macro(preprocessor *pp, uint32_t hash) {
     return macrop;
 }
 
-static pp_macro *
-get_new_macro(preprocessor *pp) {
-    pp_macro *macro = pp->macro_freelist;
-    if (macro) {
-        pp->macro_freelist = macro->next;
-        memset(macro, 0, sizeof(*macro));
-    } else {
-        macro = bump_alloc(pp->a, sizeof(*macro));
-    }
-    return macro;
-}
-
+// Frees macro arguments and adds them to freelist.
+// TODO: Free tokens too.
 static void
 free_macro_data(preprocessor *pp, pp_macro *macro) {
     while (macro->args) {
@@ -46,35 +46,39 @@ free_macro_data(preprocessor *pp, pp_macro *macro) {
     }
 }
 
+// Returns new macro argument. If freelist is not empty, uses memory from it.
 static pp_macro_arg *
 get_new_macro_arg(preprocessor *pp) {
     pp_macro_arg *arg = pp->macro_arg_freelist;
     if (arg) {
         pp->macro_arg_freelist = arg->next;
-        memset(arg, 0, sizeof(*arg));
+        memset(arg, 0, sizeof(pp_macro_arg));
     } else {
-        arg = bump_alloc(pp->a, sizeof(*arg));
+        arg = bump_alloc(pp->a, sizeof(pp_macro_arg));
     }
     return arg;
 }
 
+// Returns new conditional include stack entry. If freelist is not empty, uses
+// memory from it.
 static pp_conditional_include *
 get_new_cond_incl(preprocessor *pp) {
     pp_conditional_include *incl = pp->cond_incl_freelist;
     if (incl) {
         LLIST_POP(pp->cond_incl_freelist);
-        memset(incl, 0, sizeof(*incl));
+        memset(incl, 0, sizeof(pp_conditional_include));
     } else {
-        incl = bump_alloc(pp->a, sizeof(*incl));
+        incl = bump_alloc(pp->a, sizeof(pp_conditional_include));
     }
     return incl;
 }
 
+// Returns new token and writes memory contained in given to it, effectively
+// making a copy.
 static pp_token *
 copy_pp_token(preprocessor *pp, pp_token *tok) {
-    pp_token *new = bump_alloc(pp->a, sizeof(*tok));
-    *new          = *tok;
-    new->next     = 0;
+    pp_token *new = NEW_PP_TOKEN(pp);
+    memcpy(new, tok, sizeof(pp_token));
     return new;
 }
 
@@ -83,50 +87,61 @@ copy_pp_token_loc(pp_token *dst, pp_token *src) {
     dst->loc = src->loc;
 }
 
+// Function used when #define'ing a function-like macro. Parses given token list
+// and forms arguments, that are written to the given macro.
+// Doesn't eat closing paren.
 static void
 get_function_like_macro_arguments(preprocessor *pp, pp_token **tokp,
                                   pp_macro *macro) {
     pp_token *tok = *tokp;
+    // If next token is closing parens, don't collect arguments.
     if (macro->arg_count == 0 && !macro->is_variadic &&
-        (tok->kind != PP_TOK_PUNCT || tok->punct_kind != ')')) {
+        !PP_TOK_IS_PUNCT(tok, ')')) {
         NOT_IMPL;
     } else {
+        // Collect arguments.
+        // arg_idx needed for variadic argument checking and validating number
+        // of arguments.
         uint32_t arg_idx  = 0;
         pp_macro_arg *arg = macro->args;
 
         for (;;) {
-            pp_token *first_arg_token = tok;
-            uint32_t tok_count        = 0;
-            uint32_t parens_depth     = 0;
+            // Commans inclosed in parens are not treated as argument
+            // separators.
+            uint32_t parens_depth = 0;
+            // Construct list of copied tokens that form tokens of argument.
+            // Varidic arguments are formed in a hacky way - they all are
+            // threated as single argument
+            linked_list_constructor macro_tokens = {0};
             for (;;) {
-                if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')' &&
-                    parens_depth == 0) {
+                if (PP_TOK_IS_PUNCT(tok, '(') && parens_depth == 0) {
                     break;
-                } else if (tok->kind == PP_TOK_PUNCT &&
-                           tok->punct_kind == ',' && parens_depth == 0) {
+                } else if (PP_TOK_IS_PUNCT(tok, ',') && parens_depth == 0) {
                     tok = tok->next;
                     if (!macro->is_variadic) {
                         break;
                     }
-                } else if (tok->kind == PP_TOK_PUNCT &&
-                           tok->punct_kind == '(') {
+                } else if (PP_TOK_IS_PUNCT(tok, '(')) {
                     ++parens_depth;
-                } else if (tok->kind == PP_TOK_PUNCT &&
-                           tok->punct_kind == ')') {
+                } else if (PP_TOK_IS_PUNCT(tok, ')')) {
                     assert(parens_depth);
                     --parens_depth;
                 }
-                ++tok_count;
+                pp_token *new_token = copy_pp_token(pp, tok);
+                LLISTC_ADD_LAST(&macro_tokens, new_token);
                 tok = tok->next;
             }
+            // Add eof to the end
+            pp_token *eof = NEW_PP_TOKEN(pp);
+            pp_tok_init_eof(eof);
+            LLISTC_ADD_LAST(&macro_tokens, eof);
 
-            // TODO: Variadic
+            arg->toks = macro_tokens.first;
+
             ++arg_idx;
-            arg->toks      = first_arg_token;
-            arg->tok_count = tok_count;
-            arg            = arg->next;
-
-            if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
+            arg = arg->next;
+            // Check if we are finished
+            if (PP_TOK_IS_PUNCT(tok, ')')) {
                 if (arg_idx != macro->arg_count && !macro->is_variadic) {
                     NOT_IMPL;
                 }
@@ -134,52 +149,90 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token **tokp,
             }
         }
     }
+
     *tokp = tok;
 }
 
+// Used internally in expand_function_like_macro.
+// Finds argument by name in macro argument list.
+static pp_macro_arg *
+get_argument(pp_macro *macro, string name) {
+    pp_macro_arg *arg = 0;
+    for (pp_macro_arg *test = macro->args; test; test = test->next) {
+        if (string_eq(test->name, name)) {
+            arg = test;
+            break;
+        }
+    }
+    return arg;
+}
+
+// Parses given function-like macro invocation. Arguments are stored in
+// macro->args, with their values of invocation. This is possible because
+// recursive macro invocation is not supported, and tokens of given macro
+// invocation won't be changed doring it.
+// Sets locations of new tokens to be the same as 'initial' param.
 static void
 expand_function_like_macro(preprocessor *pp, pp_token **tokp, pp_macro *macro,
                            pp_token *initial) {
     pp_token *tok = *tokp;
 
+    // Collect macro arguments.
     get_function_like_macro_arguments(pp, &tok, macro);
-    if (tok->kind == PP_TOK_PUNCT && tok->punct_kind == ')') {
-        tok = tok->next;
-    } else {
+    if (!PP_TOK_IS_PUNCT(tok, ')')) {
         NOT_IMPL;
+    } else {
+        tok = tok->next;
     }
 
     uint32_t idx                = 0;
     linked_list_constructor def = {0};
     for (pp_token *temp = macro->definition; idx < macro->definition_len;
          temp           = temp->next, ++idx) {
-        bool is_arg = false;
-        // Check if given token is a macro
+        // Check if given token is a macro argument
         if (temp->kind == PP_TOK_ID) {
-            for (pp_macro_arg *arg = macro->args; arg && !is_arg;
-                 arg               = arg->next) {
-                if (string_eq(arg->name, temp->str)) {
-                    uint32_t arg_tok_idx = 0;
-                    for (pp_token *arg_tok = arg->toks;
-                         arg_tok_idx < arg->tok_count;
-                         arg_tok = arg_tok->next, ++arg_tok_idx) {
-                        pp_token *new_token = copy_pp_token(pp, arg_tok);
-                        copy_pp_token_loc(new_token, initial);
-                        LLISTC_ADD_LAST(&def, new_token);
-                    }
-                    is_arg = true;
+            pp_macro_arg *arg = get_argument(macro, temp->str);
+            if (arg) {
+                uint32_t arg_tok_idx = 0;
+                for (pp_token *arg_tok = arg->toks;
+                     arg_tok_idx < arg->tok_count;
+                     arg_tok = arg_tok->next, ++arg_tok_idx) {
+                    pp_token *new_token = copy_pp_token(pp, arg_tok);
+                    copy_pp_token_loc(new_token, initial);
+                    LLISTC_ADD_LAST(&def, new_token);
                 }
+                continue;
             }
-        }
+        } else if (PP_TOK_IS_PUNCT(temp, '#')) {
+            temp              = temp->next;
+            pp_macro_arg *arg = get_argument(macro, temp->str);
+            if (!arg) {
+                NOT_IMPL;
+                continue;
+            }
 
-        if (is_arg) {
+            char buffer[4096];
+            buffer_writer w      = {buffer, buffer + sizeof(buffer)};
+            uint32_t arg_tok_idx = 0;
+            for (pp_token *arg_tok = arg->toks; arg_tok_idx < arg->tok_count;
+                 arg_tok           = arg_tok->next, ++arg_tok_idx) {
+                fmt_pp_tokw(&w, arg_tok);
+            }
+            allocator a         = bump_get_allocator(pp->a);
+            pp_token *new_token = bump_alloc(pp->a, sizeof(pp_token));
+            new_token->kind     = PP_TOK_STR;
+            new_token->str      = string_memdup(&a, buffer);
+            new_token->str_kind = PP_TOK_STR_SCHAR;
+            LLISTC_ADD_LAST(&def, new_token);
             continue;
         }
+
         // If given token is not arg, continue as usual
         pp_token *new_token = copy_pp_token(pp, temp);
         copy_pp_token_loc(new_token, initial);
         LLISTC_ADD_LAST(&def, new_token);
     }
+
     if (def.first) {
         ((pp_token *)def.last)->next = tok;
         tok                          = def.first;
@@ -445,13 +498,13 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     linked_list_constructor tokens = {0};
 
     file *current_file = 0;
-    file *f = get_file(pp->fs, filename, current_file);
+    file *f            = get_file(pp->fs, filename, current_file);
 
     char lexer_buffer[4096];
 
     pp_lexer *lex = bump_alloc(pp->a, sizeof(pp_lexer));
-    init_pp_lexer(lex, f->contents.data, STRING_END(f->contents),
-                  lexer_buffer, sizeof(lexer_buffer));
+    init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), lexer_buffer,
+                  sizeof(lexer_buffer));
 
     for (;;) {
         pp_token *tok = bump_alloc(pp->a, sizeof(pp_token));
@@ -587,7 +640,8 @@ evaluate_constant_expression(ast *node) {
 
 static int64_t
 eval_pp_expr(preprocessor *pp, pp_token **tokp) {
-    // Copy all tokens from current line so we can process them independently
+    // Copy all tokens from current line so we can process them
+    // independently
     linked_list_constructor copied = {0};
     pp_token *tok                  = *tokp;
     while (!tok->at_line_start) {
@@ -829,9 +883,195 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
     return result;
 }
 
+static void
+predifined_macro(preprocessor *pp, string name, string value) {
+}
+
+static void
+define_common_predifined_macros(preprocessor *pp, string filename) {
+    allocator a = bump_get_allocator(pp->a);
+
+    string file_onlyname = path_filename(filename);
+    string file_name =
+        string_memprintf(&a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
+    predifined_macro(pp, WRAP_Z("__FILE_NAME__"), file_name);
+
+    string base_file =
+        string_memprintf(&a, "\"%.*s\"", filename.len, filename.data);
+    predifined_macro(pp, WRAP_Z("__BASE_FILE__"), base_file);
+
+    time_t now    = time(0);
+    struct tm *tm = localtime(&now);
+
+    static char *months[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    };
+    assert((unsigned)tm->tm_mon < sizeof(months) / sizeof(*months));
+    string date = string_memprintf(&a, "\"%s %2d %d\"", months[tm->tm_mon],
+                                   tm->tm_mday, tm->tm_year + 1900);
+    predifined_macro(pp, WRAP_Z("__DATE__"), date);
+
+    string time = string_memprintf(&a, "\"%02d:%02d:%02d\"", tm->tm_hour,
+                                   tm->tm_min, tm->tm_sec);
+    predifined_macro(pp, WRAP_Z("__TIME__"), time);
+
+    predifined_macro(pp, WRAP_Z("__SIZE_TYPE__"), WRAP_Z("unsigned long"));
+    predifined_macro(pp, WRAP_Z("__PTRDIFF_TYPE__"), WRAP_Z("long long"));
+    predifined_macro(pp, WRAP_Z("__WCHAR_TYPE__"), WRAP_Z("unsigned int"));
+    predifined_macro(pp, WRAP_Z("__WINT_TYPE__"), WRAP_Z("unsigned int"));
+    predifined_macro(pp, WRAP_Z("__INTMAX_TYPE__"), WRAP_Z("long long"));
+    predifined_macro(pp, WRAP_Z("__UINTMAX_TYPE__"), WRAP_Z("unsigned long long"));
+    /* predifined_macro(pp, WRAP_Z("__SIG_ATOMIC_TYPE__"), WRAP_Z("sig_atomic_t")); */
+    predifined_macro(pp, WRAP_Z("__INT8_TYPE__"), WRAP_Z("signed char"));
+    predifined_macro(pp, WRAP_Z("__INT16_TYPE__"), WRAP_Z("short"));
+    predifined_macro(pp, WRAP_Z("__INT32_TYPE__"), WRAP_Z("int"));
+    predifined_macro(pp, WRAP_Z("__INT64_TYPE__"), WRAP_Z("long long"));
+    predifined_macro(pp, WRAP_Z("__UINT8_TYPE__"), WRAP_Z("unsigned char"));
+    predifined_macro(pp, WRAP_Z("__UINT16_TYPE__"), WRAP_Z("unsigned short"));
+    predifined_macro(pp, WRAP_Z("__UINT32_TYPE__"), WRAP_Z("unsigned"));
+    predifined_macro(pp, WRAP_Z("__UINT64_TYPE__"), WRAP_Z("unsigned long long"));
+    predifined_macro(pp, WRAP_Z("__INT_LEAST8_TYPE__"), WRAP_Z("signed char"));
+    predifined_macro(pp, WRAP_Z("__INT_LEAST16_TYPE__"), WRAP_Z("short"));
+    predifined_macro(pp, WRAP_Z("__INT_LEAST32_TYPE__"), WRAP_Z("int"));
+    predifined_macro(pp, WRAP_Z("__INT_LEAST64_TYPE__"), WRAP_Z("long long"));
+    predifined_macro(pp, WRAP_Z("__UINT_LEAST8_TYPE__"), WRAP_Z("unsigned char"));
+    predifined_macro(pp, WRAP_Z("__UINT_LEAST16_TYPE__"), WRAP_Z("unsigned short"));
+    predifined_macro(pp, WRAP_Z("__UINT_LEAST32_TYPE__"), WRAP_Z("unsigned int"));
+    predifined_macro(pp, WRAP_Z("__UINT_LEAST64_TYPE__"), WRAP_Z("unsigned long long"));
+    predifined_macro(pp, WRAP_Z("__INT_FAST8_TYPE__"), WRAP_Z("signed char"));
+    predifined_macro(pp, WRAP_Z("__INT_FAST16_TYPE__"), WRAP_Z("short"));
+    predifined_macro(pp, WRAP_Z("__INT_FAST32_TYPE__"), WRAP_Z("int"));
+    predifined_macro(pp, WRAP_Z("__INT_FAST64_TYPE__"), WRAP_Z("long long"));
+    predifined_macro(pp, WRAP_Z("__UINT_FAST8_TYPE__"), WRAP_Z("unsigned char"));
+    predifined_macro(pp, WRAP_Z("__UINT_FAST16_TYPE__"), WRAP_Z("unsigned short"));
+    predifined_macro(pp, WRAP_Z("__UINT_FAST32_TYPE__"), WRAP_Z("unsigned int"));
+    predifined_macro(pp, WRAP_Z("__UINT_FAST64_TYPE__"), WRAP_Z("unsigned long long"));
+    predifined_macro(pp, WRAP_Z("__INTPTR_TYPE__"), WRAP_Z("long long"));
+    predifined_macro(pp, WRAP_Z("__UINTPTR_TYPE__"), WRAP_Z("unsigned long long"));
+
+    predifined_macro(pp, WRAP_Z("__CHAR_BIT__"), WRAP_Z("8"));
+
+    /* TODO: 
+     * __SCHAR_MAX__
+__WCHAR_MAX__
+__SHRT_MAX__
+__INT_MAX__
+__LONG_MAX__
+__LONG_LONG_MAX__
+__WINT_MAX__
+__SIZE_MAX__
+__PTRDIFF_MAX__
+__INTMAX_MAX__
+__UINTMAX_MAX__
+__SIG_ATOMIC_MAX__
+__INT8_MAX__
+__INT16_MAX__
+__INT32_MAX__
+__INT64_MAX__
+__UINT8_MAX__
+__UINT16_MAX__
+__UINT32_MAX__
+__UINT64_MAX__
+__INT_LEAST8_MAX__
+__INT_LEAST16_MAX__
+__INT_LEAST32_MAX__
+__INT_LEAST64_MAX__
+__UINT_LEAST8_MAX__
+__UINT_LEAST16_MAX__
+__UINT_LEAST32_MAX__
+__UINT_LEAST64_MAX__
+__INT_FAST8_MAX__
+__INT_FAST16_MAX__
+__INT_FAST32_MAX__
+__INT_FAST64_MAX__
+__UINT_FAST8_MAX__
+__UINT_FAST16_MAX__
+__UINT_FAST32_MAX__
+__UINT_FAST64_MAX__
+__INTPTR_MAX__
+__UINTPTR_MAX__
+__WCHAR_MIN__
+__WINT_MIN__
+__SIG_ATOMIC_MIN__
+
+     
+__INT8_C
+__INT16_C
+__INT32_C
+__INT64_C
+__UINT8_C
+__UINT16_C
+__UINT32_C
+__UINT64_C
+__INTMAX_C
+__UINTMAX_C 
+
+__SCHAR_WIDTH__
+__SHRT_WIDTH__
+__INT_WIDTH__
+__LONG_WIDTH__
+__LONG_LONG_WIDTH__
+__PTRDIFF_WIDTH__
+__SIG_ATOMIC_WIDTH__
+__SIZE_WIDTH__
+__WCHAR_WIDTH__
+__WINT_WIDTH__
+__INT_LEAST8_WIDTH__
+__INT_LEAST16_WIDTH__
+__INT_LEAST32_WIDTH__
+__INT_LEAST64_WIDTH__
+__INT_FAST8_WIDTH__
+__INT_FAST16_WIDTH__
+__INT_FAST32_WIDTH__
+__INT_FAST64_WIDTH__
+__INTPTR_WIDTH__
+__INTMAX_WIDTH__ 
+*/
+    predifined_macro(pp, WRAP_Z("__SIZEOF_INT__"), WRAP_Z("4"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_LONG"), WRAP_Z("8"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_LONG_LONG__"), WRAP_Z("8"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_SHORT__"), WRAP_Z("2"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_POINTER__"), WRAP_Z("8"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_FLOAT__"), WRAP_Z("4"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_DOUBLE__"), WRAP_Z("8"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_LONG_DOUBLE__"), WRAP_Z("8"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_SIZE_T__"), WRAP_Z("8"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_WCHAR_T__"), WRAP_Z("4"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_WINT_T__"), WRAP_Z("4"));
+    predifined_macro(pp, WRAP_Z("__SIZEOF_PTRDIFF_T__"), WRAP_Z("8"));
+
+    predifined_macro(pp, WRAP_Z("__STDC_HOSTED__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__STDC_NO_COMPLEX__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__STDC_UTF_16__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__STDC_UTF_32__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__STDC__"), WRAP_Z("1"));
+
+    predifined_macro(pp, WRAP_Z("__LP64__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("_LP64"), WRAP_Z("1"));
+
+    predifined_macro(pp, WRAP_Z("__x86_64__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__x86_64"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__amd64"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__amd64__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__holoc__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__gnu_linux__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__linux__"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("__linux"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("linux"), WRAP_Z("1"));
+    predifined_macro(pp, WRAP_Z("unix"), WRAP_Z("1"));
+
+    predifined_macro(pp, WRAP_Z("__inline__"), WRAP_Z("inline"));
+    predifined_macro(pp, WRAP_Z("__signed__"), WRAP_Z("signed"));
+    predifined_macro(pp, WRAP_Z("__typeof__"), WRAP_Z("typeof"));
+    predifined_macro(pp, WRAP_Z("__volatile__"), WRAP_Z("volatile"));
+    predifined_macro(pp, WRAP_Z("__alignof__"), WRAP_Z("_Alignof"));
+}
+
 void
 init_pp(preprocessor *pp, string filename) {
     pp->toks = get_pp_tokens_for_file(pp, filename).first;
+    define_common_predifined_macros(pp, filename);
 }
 
 bool
@@ -859,7 +1099,7 @@ pp_parse(preprocessor *pp, struct token *tok) {
         }
 #endif
         pp->toks = pp->toks->next;
-        result = pp->toks != 0;
+        result   = pp->toks != 0;
         break;
     }
 
