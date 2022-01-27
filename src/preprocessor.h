@@ -72,6 +72,7 @@ typedef struct preprocessor {
     pp_conditional_include *cond_incl_stack;
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
 
+    pp_macro *macro_freelist;
     pp_macro_arg *macro_arg_freelist;
     pp_conditional_include *cond_incl_freelist;
     pp_macro_expansion_arg *macro_expansion_arg_freelist;

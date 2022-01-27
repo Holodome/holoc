@@ -358,7 +358,7 @@ parse_string_literal(pp_lexer *lex, pp_token *tok) {
     }
 
     if (*test_cursor == '\'' || *test_cursor == '\"') {
-        bool is_char = *test_cursor == '\'';
+        bool is_char    = *test_cursor == '\'';
         char terminator = *test_cursor++;
         lex->cursor     = test_cursor;
         result          = true;
@@ -634,3 +634,4 @@ fmt_pp_tok_verbose(char *buf, uint32_t buf_len, pp_token *tok) {
     fmt_pp_tok_verbosew(&w, tok);
     return w.cursor - buf;
 }
+

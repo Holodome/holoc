@@ -109,7 +109,7 @@ string_rfind(string str, char symb) {
 
 string
 string_substr(string a, uint32_t start, uint32_t end) {
-    assert(start < a.len && end < a.len);
+    assert(start <= a.len && end <= a.len);
     assert(end >= start);
     return string(a.data + start, end - start);
 }
