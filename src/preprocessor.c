@@ -91,6 +91,7 @@ static pp_token *
 copy_pp_token(preprocessor *pp, pp_token *tok) {
     pp_token *new = NEW_PP_TOKEN(pp);
     memcpy(new, tok, sizeof(pp_token));
+    new->next = 0;
     return new;
 }
 
@@ -126,7 +127,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token **tokp,
             // threated as single argument
             linked_list_constructor macro_tokens = {0};
             for (;;) {
-                if (PP_TOK_IS_PUNCT(tok, '(') && parens_depth == 0) {
+                if (PP_TOK_IS_PUNCT(tok, ')') && parens_depth == 0) {
                     break;
                 } else if (PP_TOK_IS_PUNCT(tok, ',') && parens_depth == 0) {
                     tok = tok->next;
@@ -198,7 +199,7 @@ expand_function_like_macro(preprocessor *pp, pp_token **tokp, pp_macro *macro,
     }
 
     linked_list_constructor def = {0};
-    for (pp_token *temp = macro->definition;; temp = temp->next) {
+    for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF; temp = temp->next) {
         // Check if given token is a macro argument
         if (temp->kind == PP_TOK_ID) {
             pp_macro_arg *arg = get_argument(macro, temp->str);
@@ -643,9 +644,13 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
     pp_token *tok                  = *tokp;
     while (!tok->at_line_start) {
         pp_token *new_tok = copy_pp_token(pp, tok);
-        tok               = tok->next;
         LLISTC_ADD_LAST(&copied, new_tok);
+        char buffer[4096];
+        fmt_pp_tok(buffer, sizeof(buffer), new_tok);
+        printf("%s", buffer);
+        tok = tok->next;
     }
+    printf("\n");
     *tokp = tok;
 
     // Replace 'defined(_id)' and 'defined _id' sequences.
@@ -664,18 +669,14 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
                 NOT_IMPL;
             }
 
-            // TODO: Clean this mess
-
             uint32_t macro_name_hash = hash_string(tok->str);
             pp_macro *macro          = *get_macro(pp, macro_name_hash);
-            uint32_t token_value     = (macro != 0);
-            char value_buf[2]        = {0};
-            value_buf[0]             = token_value ? '1' : '0';
 
-            allocator a         = bump_get_allocator(pp->a);
-            pp_token *new_token = bump_alloc(pp->a, sizeof(pp_token));
+            string value = (macro != 0) ? WRAP_Z("1") : WRAP_Z("0");
+
+            pp_token *new_token = NEW_PP_TOKEN(pp);
             new_token->kind     = PP_TOK_NUM;
-            new_token->str      = string_memdup(&a, value_buf);
+            new_token->str      = value;
 
             LLISTC_ADD_LAST(&modified, new_token);
 
@@ -704,11 +705,8 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
         if (tok->kind == PP_TOK_ID) {
             pp_macro *macro = *get_macro(pp, hash_string(tok->str));
             if (!macro) {
-                allocator a      = bump_get_allocator(pp->a);
-                char value_buf[] = "0";
-
                 tok->kind = PP_TOK_NUM;
-                tok->str  = string_memdup(&a, value_buf);
+                tok->str  = WRAP_Z("0");
             }
         }
 
