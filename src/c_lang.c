@@ -201,8 +201,8 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
     } break;
     case PP_TOK_NUM: {
         c_number_convert_result convert = convert_c_number(pp_tok->str.data);
-        result                          = convert.is_valid;
-        if (result) {
+
+        if (convert.is_valid) {
             tok->kind = TOK_NUM;
             if (convert.is_float) {
                 tok->float_value = convert.float_value;
@@ -210,8 +210,10 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
                 tok->uint_value = convert.uint_value;
             }
             tok->type = get_standard_type(convert.type_kind);
-            result    = true;
             assert(tok->type);
+            result    = true;
+        } else {
+            DEBUG_BREAKPOINT;
         }
     } break;
     case PP_TOK_STR: {

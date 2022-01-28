@@ -50,4 +50,10 @@ typedef struct source_loc {
 #define HOLOC_DEBUG 1
 #endif
 
+#if HOLOC_DEBUG
+#define DEBUG_BREAKPOINT assert(false && "Debug breakpoint")
+#else 
+#define DEBUG_BREAKPOINT (void)0
+#endif 
+
 #endif

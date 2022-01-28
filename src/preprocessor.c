@@ -199,7 +199,8 @@ expand_function_like_macro(preprocessor *pp, pp_token **tokp, pp_macro *macro,
     }
 
     linked_list_constructor def = {0};
-    for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF; temp = temp->next) {
+    for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF;
+         temp           = temp->next) {
         // Check if given token is a macro argument
         if (temp->kind == PP_TOK_ID) {
             pp_macro_arg *arg = get_argument(macro, temp->str);
@@ -511,6 +512,15 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
         pp_token *entry = NEW_PP_TOKEN(pp);
         memcpy(entry, &tok, sizeof(pp_token));
         entry->loc.filename = f->name;
+#if HOLOC_DEBUG
+    {
+        char buffer[4096];
+        uint32_t len      = fmt_pp_tok_verbose(buffer, sizeof(buffer), entry);
+        char *debug_info  = aalloc(get_debug_allocator(), len + 1);
+        memcpy(debug_info, buffer, len + 1);
+        entry->_debug_info = debug_info;
+    }
+#endif
         if (entry->str.data) {
             allocator a = bump_get_allocator(pp->a);
             entry->str  = string_dup(&a, entry->str);
@@ -649,6 +659,11 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
         fmt_pp_tok(buffer, sizeof(buffer), new_tok);
         printf("%s", buffer);
         tok = tok->next;
+
+        if (string_eq(new_tok->str, WRAP_Z("__LP64__"))) {
+            printf("here\n");
+            (void)0;
+        }
     }
     printf("\n");
     *tokp = tok;
@@ -884,10 +899,15 @@ predifined_macro(preprocessor *pp, string name, string value) {
 
     linked_list_constructor tokens = {0};
     for (;;) {
-        pp_token *tok = NEW_PP_TOKEN(pp);
-        bool is_eof   = pp_lexer_parse(&lex, tok);
+        pp_token *tok        = NEW_PP_TOKEN(pp);
+        bool should_continue = pp_lexer_parse(&lex, tok);
+        tok->loc.filename = WRAP_Z("BUILTIN");
+        if (tok->str.data) {
+            allocator a = bump_get_allocator(pp->a);
+            tok->str  = string_dup(&a, tok->str);
+        }
         LLISTC_ADD_LAST(&tokens, tok);
-        if (is_eof) {
+        if (!should_continue) {
             break;
         }
     }

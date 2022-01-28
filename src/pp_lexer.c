@@ -536,6 +536,8 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
 
         assert(false);
     }
+    tok->loc.line = lex->line;
+    tok->loc.col  = lex->tok_start - lex->last_line_start + 1;
 #if HOLOC_DEBUG
     {
         char buffer[4096] = {0};
@@ -545,9 +547,8 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
         tok->_debug_info = debug_info;
     }
 #endif
-    tok->loc.line = lex->line;
-    tok->loc.col  = lex->tok_start - lex->last_line_start + 1;
-    return tok->kind != PP_TOK_EOF;
+    bool is_eof = tok->kind == PP_TOK_EOF;
+    return !is_eof;
 }
 
 void
