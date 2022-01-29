@@ -15,6 +15,7 @@ typedef struct pp_macro_arg {
     struct pp_macro_arg *next;
     // Name of the argument (__VA_ARGS__ for variadic arguments)
     string name;
+    // Linked list of expansion. Terminated with EOF
     struct pp_token *toks;
 } pp_macro_arg;
 

@@ -18,20 +18,38 @@
 #include "pp_lexer.h"
 #include "str.h"
 
-#define NEW_PP_TOKEN(_pp)aalloc((_pp)->a, sizeof(pp_token))
+// NOTE: These can be separate functions, but since they are really wrappers for
+// another function let's not make them that way and keep as macros.
+#define GET_MACROP(_pp, _hash)                                        \
+    (pp_macro **)hash_table_sc_get_u32((_pp)->macro_hash,             \
+                                       ARRAY_SIZE((_pp)->macro_hash), \
+                                       pp_macro, next, name_hash, (_hash))
+#define GET_MACRO(_pp, _hash) (*GET_MACROP(_pp, _hash))
 
-// Function used to get macro from hash table. It returns pointer to storage
-// place. Returned pointer can be treated as linked list head and new macros can
-// be appended to it. This complication is due to the fact that hash table is
-// not growable and has external chaining.
-// TODO: This can be abstracted
-static pp_macro **
-get_macro(preprocessor *pp, uint32_t hash) {
-    pp_macro **macrop = hash_table_sc_get_u32(
-        pp->macro_hash, ARRAY_SIZE(pp->macro_hash),
-        pp_macro, next, name_hash, hash);
-    return macrop;
+#define FREELIST_ALLOC_(_fl, _a)                                \
+    freelist_alloc_impl((void **)&(_fl),                        \
+                        ((char *)&(_fl)->next - (char *)(_fl)), \
+                        sizeof(*(_fl)), (_a))
+#define FREELIST_ALLOC(_pp, _fl_name) FREELIST_ALLOC_((_pp)->_fl_name, (_pp)->a)
+
+static void *
+freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
+                    allocator *a) {
+    void *result = *flp;
+    if (!result) {
+        result = aalloc(a, size);
+    } else {
+        *flp = *(void **)((char *)result + next_offset);
+        memset(result, 0, size);
+    }
+    return result;
 }
+
+#define NEW_MACRO_ARG(_pp) FREELIST_ALLOC(_pp, macro_arg_freelist)
+#define NEW_MACRO(_pp) FREELIST_ALLOC(_pp, macro_freelist)
+#define NEW_COND_INCL(_pp) FREELIST_ALLOC(_pp, cond_incl_freelist)
+
+#define NEW_PP_TOKEN(_pp) aalloc((_pp)->a, sizeof(pp_token))
 
 // Frees macro arguments and adds them to freelist.
 // TODO: Free tokens too.
@@ -43,45 +61,6 @@ free_macro_data(preprocessor *pp, pp_macro *macro) {
         arg->next              = pp->macro_arg_freelist;
         pp->macro_arg_freelist = arg;
     }
-}
-
-// Returns new macro argument. If freelist is not empty, uses memory from it.
-static pp_macro_arg *
-get_new_macro_arg(preprocessor *pp) {
-    pp_macro_arg *arg = pp->macro_arg_freelist;
-    if (arg) {
-        pp->macro_arg_freelist = arg->next;
-        memset(arg, 0, sizeof(pp_macro_arg));
-    } else {
-        arg = aalloc(pp->a, sizeof(pp_macro_arg));
-    }
-    return arg;
-}
-
-static pp_macro *
-get_new_macro(preprocessor *pp) {
-    pp_macro *macro = pp->macro_freelist;
-    if (macro) {
-        pp->macro_freelist = macro->next;
-        memset(macro, 0, sizeof(pp_macro));
-    } else {
-        macro = aalloc(pp->a, sizeof(pp_macro));
-    }
-    return macro;
-}
-
-// Returns new conditional include stack entry. If freelist is not empty, uses
-// memory from it.
-static pp_conditional_include *
-get_new_cond_incl(preprocessor *pp) {
-    pp_conditional_include *incl = pp->cond_incl_freelist;
-    if (incl) {
-        LLIST_POP(pp->cond_incl_freelist);
-        memset(incl, 0, sizeof(pp_conditional_include));
-    } else {
-        incl = aalloc(pp->a, sizeof(pp_conditional_include));
-    }
-    return incl;
 }
 
 // Returns new token and writes memory contained in given to it, effectively
@@ -254,7 +233,7 @@ expand_macro(preprocessor *pp, pp_token **tokp) {
     pp_macro *macro = 0;
     if (tok->kind == PP_TOK_ID) {
         uint32_t name_hash = hash_string(tok->str);
-        macro              = *get_macro(pp, name_hash);
+        macro              = GET_MACRO(pp, name_hash);
     }
 
     if (macro) {
@@ -329,7 +308,7 @@ define_macro_function_like_args(preprocessor *pp, pp_token **tokp,
             }
 
             macro->is_variadic = true;
-            pp_macro_arg *arg  = get_new_macro_arg(pp);
+            pp_macro_arg *arg  = NEW_MACRO_ARG(pp);
             arg->name          = WRAPZ("__VA_ARGS__");
             LLISTC_ADD_LAST(&args, arg);
 
@@ -342,7 +321,7 @@ define_macro_function_like_args(preprocessor *pp, pp_token **tokp,
                 NOT_IMPL;
             }
 
-            pp_macro_arg *arg = get_new_macro_arg(pp);
+            pp_macro_arg *arg = NEW_MACRO_ARG(pp);
             arg->name         = tok->str;
             LLISTC_ADD_LAST(&args, arg);
             ++macro->arg_count;
@@ -377,11 +356,11 @@ define_macro(preprocessor *pp, pp_token **tokp) {
     // Get macro
     string macro_name        = tok->str;
     uint32_t macro_name_hash = hash_string(macro_name);
-    pp_macro **macrop        = get_macro(pp, macro_name_hash);
+    pp_macro **macrop        = GET_MACROP(pp, macro_name_hash);
     if (*macrop) {
         NOT_IMPL;
     } else {
-        pp_macro *macro = get_new_macro(pp);
+        pp_macro *macro = NEW_MACRO(pp);
         LLIST_ADD(*macrop, macro);
     }
 
@@ -433,7 +412,7 @@ undef_macro(preprocessor *pp, pp_token **tokp) {
 
     string macro_name        = tok->str;
     uint32_t macro_name_hash = hash_string(macro_name);
-    pp_macro **macrop        = get_macro(pp, macro_name_hash);
+    pp_macro **macrop        = GET_MACROP(pp, macro_name_hash);
     if (*macrop) {
         pp_macro *macro = *macrop;
         free_macro_data(pp, macro);
@@ -445,7 +424,7 @@ undef_macro(preprocessor *pp, pp_token **tokp) {
 
 static void
 push_cond_incl(preprocessor *pp, bool is_included) {
-    pp_conditional_include *incl = get_new_cond_incl(pp);
+    pp_conditional_include *incl = NEW_COND_INCL(pp);
     incl->is_included            = is_included;
     LLIST_ADD(pp->cond_incl_stack, incl);
 }
@@ -511,16 +490,16 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
         memcpy(entry, &tok, sizeof(pp_token));
         entry->loc.filename = f->name;
 #if HOLOC_DEBUG
-    {
-        char buffer[4096];
-        uint32_t len      = fmt_pp_tok_verbose(buffer, sizeof(buffer), entry);
-        char *debug_info  = aalloc(get_debug_allocator(), len + 1);
-        memcpy(debug_info, buffer, len + 1);
-        entry->_debug_info = debug_info;
-    }
+        {
+            char buffer[4096];
+            uint32_t len = fmt_pp_tok_verbose(buffer, sizeof(buffer), entry);
+            char *debug_info = aalloc(get_debug_allocator(), len + 1);
+            memcpy(debug_info, buffer, len + 1);
+            entry->_debug_info = debug_info;
+        }
 #endif
         if (entry->str.data) {
-            entry->str  = string_dup(pp->a, entry->str);
+            entry->str = string_dup(pp->a, entry->str);
         }
 
         LLISTC_ADD_LAST(&tokens, entry);
@@ -682,7 +661,7 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
             }
 
             uint32_t macro_name_hash = hash_string(tok->str);
-            pp_macro *macro          = *get_macro(pp, macro_name_hash);
+            pp_macro *macro          = GET_MACRO(pp, macro_name_hash);
 
             string value = (macro != 0) ? WRAPZ("1") : WRAPZ("0");
 
@@ -715,7 +694,7 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
         }
 
         if (tok->kind == PP_TOK_ID) {
-            pp_macro *macro = *get_macro(pp, hash_string(tok->str));
+            pp_macro *macro = GET_MACRO(pp, hash_string(tok->str));
             if (!macro) {
                 tok->kind = PP_TOK_NUM;
                 tok->str  = WRAPZ("0");
@@ -812,7 +791,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                     NOT_IMPL;
                 }
                 uint32_t macro_name_hash = hash_string(tok->str);
-                bool is_defined          = *get_macro(pp, macro_name_hash) != 0;
+                bool is_defined          = GET_MACRO(pp, macro_name_hash) != 0;
                 push_cond_incl(pp, is_defined);
                 if (!is_defined) {
                     skip_cond_incl(pp, &tok);
@@ -823,7 +802,7 @@ process_pp_directive(preprocessor *pp, pp_token **tokp) {
                     NOT_IMPL;
                 }
                 uint32_t macro_name_hash = hash_string(tok->str);
-                bool is_defined          = *get_macro(pp, macro_name_hash) != 0;
+                bool is_defined          = GET_MACRO(pp, macro_name_hash) != 0;
                 push_cond_incl(pp, !is_defined);
                 if (is_defined) {
                     skip_cond_incl(pp, &tok);
@@ -896,9 +875,9 @@ predifined_macro(preprocessor *pp, string name, string value) {
     for (;;) {
         pp_token *tok        = NEW_PP_TOKEN(pp);
         bool should_continue = pp_lexer_parse(&lex, tok);
-        tok->loc.filename = WRAPZ("BUILTIN");
+        tok->loc.filename    = WRAPZ("BUILTIN");
         if (tok->str.data) {
-            tok->str  = string_dup(pp->a, tok->str);
+            tok->str = string_dup(pp->a, tok->str);
         }
         LLISTC_ADD_LAST(&tokens, tok);
         if (!should_continue) {
@@ -907,9 +886,9 @@ predifined_macro(preprocessor *pp, string name, string value) {
     }
 
     uint32_t name_hash = hash_string(name);
-    pp_macro **macrop  = get_macro(pp, name_hash);
+    pp_macro **macrop  = GET_MACROP(pp, name_hash);
     assert(!*macrop);
-    pp_macro *macro = get_new_macro(pp);
+    pp_macro *macro = NEW_MACRO(pp);
     *macrop         = macro;
 
     macro->name       = name;
@@ -921,8 +900,8 @@ predifined_macro(preprocessor *pp, string name, string value) {
 static void
 define_common_predifined_macros(preprocessor *pp, string filename) {
     string file_onlyname = path_filename(filename);
-    string file_name =
-        string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
+    string file_name = string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len,
+                                        file_onlyname.data);
     predifined_macro(pp, WRAPZ("__FILE_NAME__"), file_name);
 
     string base_file =
@@ -961,30 +940,25 @@ define_common_predifined_macros(preprocessor *pp, string filename) {
     predifined_macro(pp, WRAPZ("__UINT8_TYPE__"), WRAPZ("unsigned char"));
     predifined_macro(pp, WRAPZ("__UINT16_TYPE__"), WRAPZ("unsigned short"));
     predifined_macro(pp, WRAPZ("__UINT32_TYPE__"), WRAPZ("unsigned"));
-    predifined_macro(pp, WRAPZ("__UINT64_TYPE__"),
-                     WRAPZ("unsigned long long"));
+    predifined_macro(pp, WRAPZ("__UINT64_TYPE__"), WRAPZ("unsigned long long"));
     predifined_macro(pp, WRAPZ("__INT_LEAST8_TYPE__"), WRAPZ("signed char"));
     predifined_macro(pp, WRAPZ("__INT_LEAST16_TYPE__"), WRAPZ("short"));
     predifined_macro(pp, WRAPZ("__INT_LEAST32_TYPE__"), WRAPZ("int"));
     predifined_macro(pp, WRAPZ("__INT_LEAST64_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__UINT_LEAST8_TYPE__"),
-                     WRAPZ("unsigned char"));
+    predifined_macro(pp, WRAPZ("__UINT_LEAST8_TYPE__"), WRAPZ("unsigned char"));
     predifined_macro(pp, WRAPZ("__UINT_LEAST16_TYPE__"),
                      WRAPZ("unsigned short"));
-    predifined_macro(pp, WRAPZ("__UINT_LEAST32_TYPE__"),
-                     WRAPZ("unsigned int"));
+    predifined_macro(pp, WRAPZ("__UINT_LEAST32_TYPE__"), WRAPZ("unsigned int"));
     predifined_macro(pp, WRAPZ("__UINT_LEAST64_TYPE__"),
                      WRAPZ("unsigned long long"));
     predifined_macro(pp, WRAPZ("__INT_FAST8_TYPE__"), WRAPZ("signed char"));
     predifined_macro(pp, WRAPZ("__INT_FAST16_TYPE__"), WRAPZ("short"));
     predifined_macro(pp, WRAPZ("__INT_FAST32_TYPE__"), WRAPZ("int"));
     predifined_macro(pp, WRAPZ("__INT_FAST64_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__UINT_FAST8_TYPE__"),
-                     WRAPZ("unsigned char"));
+    predifined_macro(pp, WRAPZ("__UINT_FAST8_TYPE__"), WRAPZ("unsigned char"));
     predifined_macro(pp, WRAPZ("__UINT_FAST16_TYPE__"),
                      WRAPZ("unsigned short"));
-    predifined_macro(pp, WRAPZ("__UINT_FAST32_TYPE__"),
-                     WRAPZ("unsigned int"));
+    predifined_macro(pp, WRAPZ("__UINT_FAST32_TYPE__"), WRAPZ("unsigned int"));
     predifined_macro(pp, WRAPZ("__UINT_FAST64_TYPE__"),
                      WRAPZ("unsigned long long"));
     predifined_macro(pp, WRAPZ("__INTPTR_TYPE__"), WRAPZ("long long"));
@@ -1110,8 +1084,9 @@ __INTMAX_WIDTH__
 }
 
 void
-init_pp(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size) {
-    pp->tok_buf = tok_buf;
+init_pp(preprocessor *pp, string filename, char *tok_buf,
+        uint32_t tok_buf_size) {
+    pp->tok_buf          = tok_buf;
     pp->tok_buf_capacity = tok_buf_size;
 
     linked_list_constructor base_file = get_pp_tokens_for_file(pp, filename);
