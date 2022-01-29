@@ -64,11 +64,10 @@ static string KEYWORD_STRINGS[] = {
 };
 
 static string PUNCTUATOR_STRINGS[] = {
-    WRAPZ("(unknown)"), WRAPZ(">>="), WRAPZ("<<="), WRAPZ("+="),
-    WRAPZ("-="),        WRAPZ("*="),  WRAPZ("/="),  WRAPZ("%="),
-    WRAPZ("&="),        WRAPZ("|="),  WRAPZ("^="),  WRAPZ("++"),
-    WRAPZ("--"),        WRAPZ(">>"),  WRAPZ("<<"),  WRAPZ("&&"),
-    WRAPZ("||"),        WRAPZ("=="),  WRAPZ("!="),  WRAPZ("<="),
+    WRAPZ("(unknown)"), WRAPZ(">>="), WRAPZ("<<="), WRAPZ("+="), WRAPZ("-="),
+    WRAPZ("*="),        WRAPZ("/="),  WRAPZ("%="),  WRAPZ("&="), WRAPZ("|="),
+    WRAPZ("^="),        WRAPZ("++"),  WRAPZ("--"),  WRAPZ(">>"), WRAPZ("<<"),
+    WRAPZ("&&"),        WRAPZ("||"),  WRAPZ("=="),  WRAPZ("!="), WRAPZ("<="),
     WRAPZ(">="),        WRAPZ("...")};
 
 static string
@@ -166,8 +165,7 @@ get_c_punct_kind_from_pp(pp_punct_kind kind) {
 static c_keyword_kind
 get_kw_kind(string test) {
     c_keyword_kind kind = 0;
-    for (uint32_t i = 0;
-         i < ARRAY_SIZE(KEYWORD_STRINGS); ++i) {
+    for (uint32_t i = 0; i < ARRAY_SIZE(KEYWORD_STRINGS); ++i) {
         if (string_eq(test, KEYWORD_STRINGS[i])) {
             kind = i;
             break;
@@ -177,7 +175,8 @@ get_kw_kind(string test) {
 }
 
 bool
-convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
+convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
+                 uint32_t *buf_writtenp, struct allocator *a) {
     bool result         = false;
     tok->at_line_start  = pp_tok->at_line_start;
     tok->has_whitespace = pp_tok->has_whitespace;
@@ -194,7 +193,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             tok->kw   = kw;
         } else {
             tok->kind = TOK_ID;
-            tok->str  = string_dup(a, pp_tok->str);
+            *buf_writtenp = snprintf(buf, buf_size, "%.*s", pp_tok->str.len, pp_tok->str.data);
         }
         result = true;
     } break;
@@ -247,8 +246,9 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
                 cursor = utf8_decode(cursor, &cp);
                 ++len;
             }
-            void *buffer       = aalloc(a, byte_stride * (len + 1));
-            void *write_cursor = buffer;
+            uintptr_t memory_size = byte_stride * (len + 1);
+            assert(memory_size <= buf_size);
+            void *write_cursor = buf;
             cursor             = pp_tok->str.data;
             while (*cursor) {
                 uint32_t cp;
@@ -268,9 +268,10 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             }
             uint32_t zero = 0;
             memcpy(write_cursor, &zero, byte_stride);
+            *buf_writtenp = byte_stride * len;
 
             tok->kind = TOK_STR;
-            tok->str  = string(buffer, byte_stride * len);
+            tok->str  = string(buf, byte_stride * len);
             tok->type = make_array_type(base_type, len + 1, a);
             result    = true;
         } break;
