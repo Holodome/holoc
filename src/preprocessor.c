@@ -633,15 +633,8 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
         LLISTC_ADD_LAST(&copied, new_tok);
         char buffer[4096];
         fmt_pp_tok(buffer, sizeof(buffer), new_tok);
-        printf("%s", buffer);
         tok = tok->next;
-
-        if (string_eq(new_tok->str, WRAPZ("__LP64__"))) {
-            printf("here\n");
-            (void)0;
-        }
     }
-    printf("\n");
     *tokp = tok;
 
     // Replace 'defined(_id)' and 'defined _id' sequences.
