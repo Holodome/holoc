@@ -36,49 +36,61 @@ typedef enum {
     PP_MACRO_INCLUDE_LEVEL = 0x6,
 } pp_macro_kind;
 
+// Container for macros
 typedef struct pp_macro {
     struct pp_macro *next;
-
-    pp_macro_kind kind;
+    // Name (like _NDBEBUG)
     string name;
+    // Used in hash table
     uint32_t name_hash;
 
+    pp_macro_kind kind;
+    // If function-like
     bool is_variadic;
     uint32_t arg_count;
     pp_macro_arg *args;
+    // Linked list of definition. Terminated with EOF
     struct pp_token *definition;
 } pp_macro;
 
+// Stores inofromation about conditional include stack (#if's)
 typedef struct pp_conditional_include {
-    bool is_included;
-    bool is_after_else;
     struct pp_conditional_include *next;
+    // If some part of code was parsed. Means that others shouldn't
+    bool is_included;
+    // Used to check if #else was met, which means that #elif's are no longer
+    // accepted
+    bool is_after_else;
 } pp_conditional_include;
 
-typedef struct pp_macro_expansion_arg {
-    struct p_token *tokens;
-    struct pp_macro_expansion_arg *next;
-} pp_macro_expansion_arg;
-
 typedef struct preprocessor {
-    struct bump_allocator *a;
-    struct allocator *ea;
-
+    // Allocator used for allocating objects needed for parsing.
+    // Preprocessor is designed in a way that thries to minimize number of
+    // deallocations.
+    struct allocator *a;
+    //
     struct file_storage *fs;
     struct pp_token *toks;
-
+    // Buffer where strings and other normally heap-allocated string-like data
+    // is written. Because we want to simplify preprocessor structure a bit, we
+    // don't request for a specific allocator. Instead, strings are written to
+    // this buffer and user may decide how to use it.
+    char *tok_buf;
+    uint32_t tok_buf_capacity;
+    uint32_t tok_buf_len;
     // Value for __COUNTER__
     uint32_t counter_value;
     pp_conditional_include *cond_incl_stack;
+    // Macro hash table
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
 
     pp_macro *macro_freelist;
     pp_macro_arg *macro_arg_freelist;
     pp_conditional_include *cond_incl_freelist;
-    pp_macro_expansion_arg *macro_expansion_arg_freelist;
 } preprocessor;
 
-void init_pp(preprocessor *pp, string filename);
+void init_pp(preprocessor *pp, string filename, char *tok_buf,
+             uint32_t tok_buf_size);
 bool pp_parse(preprocessor *pp, struct token *tok);
 
 #endif

@@ -538,15 +538,6 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
     }
     tok->loc.line = lex->line;
     tok->loc.col  = lex->tok_start - lex->last_line_start + 1;
-#if HOLOC_DEBUG
-    {
-        char buffer[4096] = {0};
-        uint32_t len      = fmt_pp_tok_verbose(buffer, sizeof(buffer), tok);
-        char *debug_info  = aalloc(get_debug_allocator(), len + 1);
-        memcpy(debug_info, buffer, len + 1);
-        tok->_debug_info = debug_info;
-    }
-#endif
     bool is_eof = tok->kind == PP_TOK_EOF;
     return !is_eof;
 }

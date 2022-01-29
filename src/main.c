@@ -159,12 +159,11 @@ mtp(string filename) {
     fs.include_paths = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
-    bump_allocator ba = {0};
+    char pp_buf[4096];
     preprocessor *pp  = aalloc(a, sizeof(*pp));
-    pp->a             = &ba;
-    pp->ea            = a;
+    pp->a             = a;
     pp->fs            = &fs;
-    init_pp(pp, filename);
+    init_pp(pp, filename, pp_buf, sizeof(pp_buf));
 
     token tok = {0};
     while (pp_parse(pp, &tok)) {
@@ -184,12 +183,11 @@ mtpv(string filename) {
     fs.include_paths = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
-    bump_allocator ba = {0};
+    char pp_buf[4096];
     preprocessor *pp  = aalloc(a, sizeof(*pp));
-    pp->a             = &ba;
-    pp->ea            = a;
+    pp->a             = a;
     pp->fs            = &fs;
-    init_pp(pp, filename);
+    init_pp(pp, filename, pp_buf, sizeof(pp_buf));
 
     token tok = {0};
     while (pp_parse(pp, &tok)) {
@@ -209,12 +207,11 @@ mtpf(string filename) {
     fs.include_paths = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
-    bump_allocator ba = {0};
+    char pp_buf[4096];
     preprocessor *pp  = aalloc(a, sizeof(*pp));
-    pp->a             = &ba;
-    pp->ea            = a;
+    pp->a             = a;
     pp->fs            = &fs;
-    init_pp(pp, filename);
+    init_pp(pp, filename, pp_buf, sizeof(pp_buf));
 
     token tok = {0};
     while (pp_parse(pp, &tok)) {

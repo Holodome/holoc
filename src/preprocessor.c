@@ -9,7 +9,6 @@
 #include "allocator.h"
 #include "ast.h"
 #include "buffer_writer.h"
-#include "bump_allocator.h"
 #include "c_lang.h"
 #include "c_types.h"
 #include "file_storage.h"
@@ -19,7 +18,7 @@
 #include "pp_lexer.h"
 #include "str.h"
 
-#define NEW_PP_TOKEN(_pp) bump_alloc((_pp)->a, sizeof(pp_token))
+#define NEW_PP_TOKEN(_pp)aalloc((_pp)->a, sizeof(pp_token))
 
 // Function used to get macro from hash table. It returns pointer to storage
 // place. Returned pointer can be treated as linked list head and new macros can
@@ -54,7 +53,7 @@ get_new_macro_arg(preprocessor *pp) {
         pp->macro_arg_freelist = arg->next;
         memset(arg, 0, sizeof(pp_macro_arg));
     } else {
-        arg = bump_alloc(pp->a, sizeof(pp_macro_arg));
+        arg = aalloc(pp->a, sizeof(pp_macro_arg));
     }
     return arg;
 }
@@ -66,7 +65,7 @@ get_new_macro(preprocessor *pp) {
         pp->macro_freelist = macro->next;
         memset(macro, 0, sizeof(pp_macro));
     } else {
-        macro = bump_alloc(pp->a, sizeof(pp_macro));
+        macro = aalloc(pp->a, sizeof(pp_macro));
     }
     return macro;
 }
@@ -80,7 +79,7 @@ get_new_cond_incl(preprocessor *pp) {
         LLIST_POP(pp->cond_incl_freelist);
         memset(incl, 0, sizeof(pp_conditional_include));
     } else {
-        incl = bump_alloc(pp->a, sizeof(pp_conditional_include));
+        incl = aalloc(pp->a, sizeof(pp_conditional_include));
     }
     return incl;
 }
@@ -227,10 +226,9 @@ expand_function_like_macro(preprocessor *pp, pp_token **tokp, pp_macro *macro,
                  arg_tok           = arg_tok->next) {
                 fmt_pp_tokw(&w, arg_tok);
             }
-            allocator a         = bump_get_allocator(pp->a);
-            pp_token *new_token = bump_alloc(pp->a, sizeof(pp_token));
+            pp_token *new_token = aalloc(pp->a, sizeof(pp_token));
             new_token->kind     = PP_TOK_STR;
-            new_token->str      = string_memdup(&a, buffer);
+            new_token->str      = string_memdup(pp->a, buffer);
             new_token->str_kind = PP_TOK_STR_SCHAR;
             LLISTC_ADD_LAST(&def, new_token);
             continue;
@@ -522,8 +520,7 @@ get_pp_tokens_for_file(preprocessor *pp, string filename) {
     }
 #endif
         if (entry->str.data) {
-            allocator a = bump_get_allocator(pp->a);
-            entry->str  = string_dup(&a, entry->str);
+            entry->str  = string_dup(pp->a, entry->str);
         }
 
         LLISTC_ADD_LAST(&tokens, entry);
@@ -725,24 +722,22 @@ eval_pp_expr(preprocessor *pp, pp_token **tokp) {
             }
         }
 
-        allocator a  = bump_get_allocator(pp->a);
-        token *c_tok = aalloc(&a, sizeof(token));
-        if (!convert_pp_token(tok, c_tok, &a)) {
+        token *c_tok = aalloc(pp->a, sizeof(token));
+        if (!convert_pp_token(tok, c_tok, pp->a)) {
             NOT_IMPL;
         }
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = tok->next;
 
         if (!tok) {
-            c_tok       = aalloc(&a, sizeof(token));
+            c_tok       = aalloc(pp->a, sizeof(token));
             c_tok->kind = TOK_EOF;
             LLISTC_ADD_LAST(&converted, c_tok);
         }
     }
 
-    allocator a        = bump_get_allocator(pp->a);
     token *expr_tokens = converted.first;
-    ast *expr_ast      = ast_cond_incl_expr_ternary(&a, &expr_tokens);
+    ast *expr_ast      = ast_cond_incl_expr_ternary(pp->a, &expr_tokens);
     int64_t result     = evaluate_constant_expression(expr_ast);
 
     return result;
@@ -903,8 +898,7 @@ predifined_macro(preprocessor *pp, string name, string value) {
         bool should_continue = pp_lexer_parse(&lex, tok);
         tok->loc.filename = WRAP_Z("BUILTIN");
         if (tok->str.data) {
-            allocator a = bump_get_allocator(pp->a);
-            tok->str  = string_dup(&a, tok->str);
+            tok->str  = string_dup(pp->a, tok->str);
         }
         LLISTC_ADD_LAST(&tokens, tok);
         if (!should_continue) {
@@ -926,15 +920,13 @@ predifined_macro(preprocessor *pp, string name, string value) {
 
 static void
 define_common_predifined_macros(preprocessor *pp, string filename) {
-    allocator a = bump_get_allocator(pp->a);
-
     string file_onlyname = path_filename(filename);
     string file_name =
-        string_memprintf(&a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
+        string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
     predifined_macro(pp, WRAP_Z("__FILE_NAME__"), file_name);
 
     string base_file =
-        string_memprintf(&a, "\"%.*s\"", filename.len, filename.data);
+        string_memprintf(pp->a, "\"%.*s\"", filename.len, filename.data);
     predifined_macro(pp, WRAP_Z("__BASE_FILE__"), base_file);
 
     time_t now    = time(0);
@@ -945,11 +937,11 @@ define_common_predifined_macros(preprocessor *pp, string filename) {
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     };
     assert((unsigned)tm->tm_mon < sizeof(months) / sizeof(*months));
-    string date = string_memprintf(&a, "\"%s %2d %d\"", months[tm->tm_mon],
+    string date = string_memprintf(pp->a, "\"%s %2d %d\"", months[tm->tm_mon],
                                    tm->tm_mday, tm->tm_year + 1900);
     predifined_macro(pp, WRAP_Z("__DATE__"), date);
 
-    string time = string_memprintf(&a, "\"%02d:%02d:%02d\"", tm->tm_hour,
+    string time = string_memprintf(pp->a, "\"%02d:%02d:%02d\"", tm->tm_hour,
                                    tm->tm_min, tm->tm_sec);
     predifined_macro(pp, WRAP_Z("__TIME__"), time);
 
@@ -1118,7 +1110,10 @@ __INTMAX_WIDTH__
 }
 
 void
-init_pp(preprocessor *pp, string filename) {
+init_pp(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size) {
+    pp->tok_buf = tok_buf;
+    pp->tok_buf_capacity = tok_buf_size;
+
     linked_list_constructor base_file = get_pp_tokens_for_file(pp, filename);
 
     pp_token *eof = NEW_PP_TOKEN(pp);
@@ -1141,7 +1136,7 @@ pp_parse(preprocessor *pp, struct token *tok) {
             continue;
         }
 
-        if (!convert_pp_token(pp->toks, tok, pp->ea)) {
+        if (!convert_pp_token(pp->toks, tok, pp->a)) {
             NOT_IMPL;
         }
 #if HOLOC_DEBUG
