@@ -24,19 +24,19 @@ static uint64_t AST_STRUCT_SIZES[] = {
     sizeof(ast_typedef),   sizeof(ast_type)};
 
 static string AST_BINARY_STRS[] = {
-    WRAP_Z("(unknown)"), WRAP_Z("+"),   WRAP_Z("-"),   WRAP_Z("*"),
-    WRAP_Z("/"),         WRAP_Z("%"),   WRAP_Z("<="),  WRAP_Z("<"),
-    WRAP_Z(">="),        WRAP_Z(">"),   WRAP_Z("=="),  WRAP_Z("!="),
-    WRAP_Z("&"),         WRAP_Z("|"),   WRAP_Z("^"),   WRAP_Z("<<"),
-    WRAP_Z(">>"),        WRAP_Z("&&"),  WRAP_Z("||"),  WRAP_Z("="),
-    WRAP_Z("+="),        WRAP_Z("-="),  WRAP_Z("*="),  WRAP_Z("/="),
-    WRAP_Z("%="),        WRAP_Z("<<="), WRAP_Z(">>="), WRAP_Z("&="),
-    WRAP_Z("|="),        WRAP_Z("^="),  WRAP_Z(","),
+    WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),   WRAPZ("*"),
+    WRAPZ("/"),         WRAPZ("%"),   WRAPZ("<="),  WRAPZ("<"),
+    WRAPZ(">="),        WRAPZ(">"),   WRAPZ("=="),  WRAPZ("!="),
+    WRAPZ("&"),         WRAPZ("|"),   WRAPZ("^"),   WRAPZ("<<"),
+    WRAPZ(">>"),        WRAPZ("&&"),  WRAPZ("||"),  WRAPZ("="),
+    WRAPZ("+="),        WRAPZ("-="),  WRAPZ("*="),  WRAPZ("/="),
+    WRAPZ("%="),        WRAPZ("<<="), WRAPZ(">>="), WRAPZ("&="),
+    WRAPZ("|="),        WRAPZ("^="),  WRAPZ(","),
 };
 
 static string AST_UN_STRS[] = {
-    WRAP_Z("-"),  WRAP_Z("+"),  WRAP_Z("!"),  WRAP_Z("~"), WRAP_Z("++"),
-    WRAP_Z("++"), WRAP_Z("--"), WRAP_Z("--"), WRAP_Z("*"), WRAP_Z("&"),
+    WRAPZ("-"),  WRAPZ("+"),  WRAPZ("!"),  WRAPZ("~"), WRAPZ("++"),
+    WRAPZ("++"), WRAPZ("--"), WRAPZ("--"), WRAPZ("*"), WRAPZ("&"),
 };
 
 void

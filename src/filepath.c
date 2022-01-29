@@ -27,7 +27,7 @@ path_dirname(string path) {
     string result;
     string_find_result find_result = string_rfind(path, '/');
     if (!find_result.is_found) {
-        result = WRAP_Z(".");
+        result = WRAPZ(".");
     }
     result = string_substr(path, 0, find_result.idx);
     return result;
@@ -35,9 +35,9 @@ path_dirname(string path) {
 
 string
 path_filename(string path) {
-    string result = WRAP_Z(".");
+    string result = WRAPZ(".");
 
-    while (string_endswith(path, WRAP_Z("/"))) {
+    while (string_endswith(path, WRAPZ("/"))) {
         path = string_substr(path, 0, path.len - 1);
     }
 
@@ -68,7 +68,7 @@ path_basename(string path) {
 string
 path_to_absolute(string path, struct allocator *a) {
     string result;
-    if (string_startswith(path, WRAP_Z("/"))) {
+    if (string_startswith(path, WRAPZ("/"))) {
         result = path;
     } else {
         char dir[4096] = "";
@@ -80,7 +80,7 @@ path_to_absolute(string path, struct allocator *a) {
 
 string
 path_clean(string path, struct allocator *a) {
-    bool is_rooted = string_startswith(path, WRAP_Z("/"));
+    bool is_rooted = string_startswith(path, WRAPZ("/"));
     string *its    = 0;  // da
 
     while (path.len) {
@@ -95,21 +95,21 @@ path_clean(string path, struct allocator *a) {
             path = string_substr(path, slash.idx + 1, path.len);
         }
 
-        if (!elem.len || string_eq(elem, WRAP_Z("."))) {
+        if (!elem.len || string_eq(elem, WRAPZ("."))) {
             continue;
         }
 
-        if (string_eq(elem, WRAP_Z(".."))) {
+        if (string_eq(elem, WRAPZ(".."))) {
             if (!da_size(its)) {
                 if (is_rooted) {
                     continue;
                 }
-                da_push(its, WRAP_Z(".."), a);
+                da_push(its, WRAPZ(".."), a);
                 continue;
             }
 
-            if (string_eq(*da_last(its), WRAP_Z(".."))) {
-                da_push(its, WRAP_Z(".."), a);
+            if (string_eq(*da_last(its), WRAPZ(".."))) {
+                da_push(its, WRAPZ(".."), a);
             } else {
                 da_pop(its);
             }

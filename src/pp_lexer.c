@@ -14,11 +14,11 @@
 #define PP_TOK_PUNCT_ADVANCE 0x100
 
 static string PUNCT_STRS[] = {
-    WRAP_Z(">>="), WRAP_Z("<<="), WRAP_Z("..."), WRAP_Z("+="), WRAP_Z("-="),
-    WRAP_Z("*="),  WRAP_Z("/="),  WRAP_Z("%="),  WRAP_Z("&="), WRAP_Z("|="),
-    WRAP_Z("^="),  WRAP_Z("++"),  WRAP_Z("--"),  WRAP_Z(">>"), WRAP_Z("<<"),
-    WRAP_Z("&&"),  WRAP_Z("||"),  WRAP_Z("=="),  WRAP_Z("!="), WRAP_Z("<="),
-    WRAP_Z(">="),  WRAP_Z("##"),
+    WRAPZ(">>="), WRAPZ("<<="), WRAPZ("..."), WRAPZ("+="), WRAPZ("-="),
+    WRAPZ("*="),  WRAPZ("/="),  WRAPZ("%="),  WRAPZ("&="), WRAPZ("|="),
+    WRAPZ("^="),  WRAPZ("++"),  WRAPZ("--"),  WRAPZ(">>"), WRAPZ("<<"),
+    WRAPZ("&&"),  WRAPZ("||"),  WRAPZ("=="),  WRAPZ("!="), WRAPZ("<="),
+    WRAPZ(">="),  WRAPZ("##"),
 };
 
 static string
@@ -27,34 +27,34 @@ get_str_opener(pp_string_kind kind) {
     switch (kind) {
         INVALID_DEFAULT_CASE;
     case PP_TOK_STR_SCHAR:
-        result = WRAP_Z("\"");
+        result = WRAPZ("\"");
         break;
     case PP_TOK_STR_SUTF8:
-        result = WRAP_Z("u8\"");
+        result = WRAPZ("u8\"");
         break;
     case PP_TOK_STR_SUTF16:
-        result = WRAP_Z("u\"");
+        result = WRAPZ("u\"");
         break;
     case PP_TOK_STR_SUTF32:
-        result = WRAP_Z("U\"");
+        result = WRAPZ("U\"");
         break;
     case PP_TOK_STR_SWIDE:
-        result = WRAP_Z("L\"");
+        result = WRAPZ("L\"");
         break;
     case PP_TOK_STR_CCHAR:
-        result = WRAP_Z("\'");
+        result = WRAPZ("\'");
         break;
     case PP_TOK_STR_CUTF8:
-        result = WRAP_Z("u8\'");
+        result = WRAPZ("u8\'");
         break;
     case PP_TOK_STR_CUTF16:
-        result = WRAP_Z("u\'");
+        result = WRAPZ("u\'");
         break;
     case PP_TOK_STR_CUTF32:
-        result = WRAP_Z("U\'");
+        result = WRAPZ("U\'");
         break;
     case PP_TOK_STR_CWIDE:
-        result = WRAP_Z("L\'");
+        result = WRAPZ("L\'");
         break;
     }
 
@@ -91,7 +91,7 @@ parse_whitespaces(pp_lexer *lex, pp_token *tok) {
     }
 
     // Skip single-line comments
-    if (next_eq(lex, WRAP_Z("//"))) {
+    if (next_eq(lex, WRAPZ("//"))) {
         result = true;
         while (*lex->cursor != '\n' && *lex->cursor) {
             ++lex->cursor;
@@ -106,9 +106,9 @@ parse_whitespaces(pp_lexer *lex, pp_token *tok) {
     }
 
     // Skip multi-line comments
-    if (next_eq(lex, WRAP_Z("/*"))) {
+    if (next_eq(lex, WRAPZ("/*"))) {
         result = true;
-        while (*lex->cursor && !next_eq(lex, WRAP_Z("*/"))) {
+        while (*lex->cursor && !next_eq(lex, WRAPZ("*/"))) {
             if (*lex->cursor == '\n') {
                 lex->last_line_start = lex->cursor;
                 ++lex->line;

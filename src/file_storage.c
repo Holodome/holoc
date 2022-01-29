@@ -15,24 +15,24 @@ add_default_include_paths(string **pathsp) {
     allocator *a  = get_system_allocator();
     string *paths = *pathsp;
     // Linux folders
-    da_push(paths, WRAP_Z("/usr/local/include"), a);
-    da_push(paths, WRAP_Z("/usr/include/x86_64-linux-gnu"), a);
-    da_push(paths, WRAP_Z("/usr/include"), a);
+    da_push(paths, WRAPZ("/usr/local/include"), a);
+    da_push(paths, WRAPZ("/usr/include/x86_64-linux-gnu"), a);
+    da_push(paths, WRAPZ("/usr/include"), a);
     // HL: This is copy from my mac clang paths
     da_push(paths,
-            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Toolchains/"
+            WRAPZ("/Applications/Xcode.app/Contents/Developer/Toolchains/"
                    "XcodeDefault.xctoolchain/usr/lib/clang/13.0.0/include"),
             a);
     da_push(paths,
-            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Platforms/"
+            WRAPZ("/Applications/Xcode.app/Contents/Developer/Platforms/"
                    "MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"),
             a);
     da_push(paths,
-            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Toolchains/"
+            WRAPZ("/Applications/Xcode.app/Contents/Developer/Toolchains/"
                    "XcodeDefault.xctoolchain/usr/include"),
             a);
     da_push(paths,
-            WRAP_Z("/Applications/Xcode.app/Contents/Developer/Platforms/"
+            WRAPZ("/Applications/Xcode.app/Contents/Developer/Platforms/"
                    "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
                    "Frameworks"),
             a);
