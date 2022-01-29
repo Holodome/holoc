@@ -42,9 +42,15 @@ string string_rstrip(string str, string symbs);
 // python-like strip for string
 string string_strip(string str, string symbs);
 
+// Does printf and allocates that string.
 string string_memprintf(struct allocator *a, char *format, ...);
-string string_memdup(struct allocator *a, char *data);
+// Works similar to strdup function, but returns string. 
+string string_strdup(struct allocator *a, char *data);
+// Duplicates string.
 string string_dup(struct allocator *a, string str);
+// Evaluates to pointer to string end. Useful while parsing, where pointer
+// arithmetic is used, since this value can be used for direct comparison,
+// without fallback to length.
 #define STRING_END(_str) ((_str).data + (_str).len)
 
 #endif

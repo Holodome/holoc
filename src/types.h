@@ -12,6 +12,10 @@ Version: 0
 #include <stdbool.h>
 #include <stdint.h>
 
+// Macro used to get size of statically allocated array.
+// It becomes tedious to write this construct all the time, so let's just use a macro.
+#define ARRAY_SIZE(_a) (sizeof(_a) / sizeof(*(_a)))
+
 // We want to make string a first-class citizen of program
 // Where possible, strings should be used instead of c-strings
 // in order to minimize conversions (and strlen count)
@@ -44,6 +48,7 @@ typedef struct source_loc {
 #define UNREACHABLE (void)0
 #define INVALID_DEFAULT_CASE default: break
 #endif 
+
 // This is a flag used to attach debug information to structs
 // so that viewing them in debugger is more informative
 #ifndef HOLOC_DEBUG

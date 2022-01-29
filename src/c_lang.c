@@ -73,7 +73,7 @@ static string PUNCTUATOR_STRINGS[] = {
 
 static string
 get_kw_str(c_keyword_kind kind) {
-    assert(kind < (sizeof(KEYWORD_STRINGS) / sizeof(*KEYWORD_STRINGS)));
+    assert(kind < ARRAY_SIZE(KEYWORD_STRINGS));
     return KEYWORD_STRINGS[kind];
 }
 
@@ -81,8 +81,7 @@ get_kw_str(c_keyword_kind kind) {
 static string
 get_punct_str(c_punct_kind kind) {
     assert(kind > 0x100);
-    assert((kind - 0x100) <
-           (sizeof(PUNCTUATOR_STRINGS) / sizeof(*PUNCTUATOR_STRINGS)));
+    assert((kind - 0x100) < ARRAY_SIZE(PUNCTUATOR_STRINGS));
     return PUNCTUATOR_STRINGS[kind - 0x100];
 }
 
@@ -168,7 +167,7 @@ static c_keyword_kind
 get_kw_kind(string test) {
     c_keyword_kind kind = 0;
     for (uint32_t i = 0;
-         i < (sizeof(KEYWORD_STRINGS) / sizeof(*KEYWORD_STRINGS)); ++i) {
+         i < ARRAY_SIZE(KEYWORD_STRINGS); ++i) {
         if (string_eq(test, KEYWORD_STRINGS[i])) {
             kind = i;
             break;
@@ -211,7 +210,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, struct allocator *a) {
             }
             tok->type = get_standard_type(convert.type_kind);
             assert(tok->type);
-            result    = true;
+            result = true;
         } else {
             DEBUG_BREAKPOINT;
         }

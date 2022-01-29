@@ -28,7 +28,7 @@
 static pp_macro **
 get_macro(preprocessor *pp, uint32_t hash) {
     pp_macro **macrop = hash_table_sc_get_u32(
-        pp->macro_hash, sizeof(pp->macro_hash) / sizeof(*pp->macro_hash),
+        pp->macro_hash, ARRAY_SIZE(pp->macro_hash),
         pp_macro, next, name_hash, hash);
     return macrop;
 }
@@ -228,7 +228,7 @@ expand_function_like_macro(preprocessor *pp, pp_token **tokp, pp_macro *macro,
             }
             pp_token *new_token = aalloc(pp->a, sizeof(pp_token));
             new_token->kind     = PP_TOK_STR;
-            new_token->str      = string_memdup(pp->a, buffer);
+            new_token->str      = string_strdup(pp->a, buffer);
             new_token->str_kind = PP_TOK_STR_SCHAR;
             LLISTC_ADD_LAST(&def, new_token);
             continue;
@@ -936,7 +936,7 @@ define_common_predifined_macros(preprocessor *pp, string filename) {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     };
-    assert((unsigned)tm->tm_mon < sizeof(months) / sizeof(*months));
+    assert((unsigned)tm->tm_mon < ARRAY_SIZE(months));
     string date = string_memprintf(pp->a, "\"%s %2d %d\"", months[tm->tm_mon],
                                    tm->tm_mday, tm->tm_year + 1900);
     predifined_macro(pp, WRAP_Z("__DATE__"), date);

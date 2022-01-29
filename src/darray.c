@@ -8,8 +8,8 @@ da_grow(void *da, uintptr_t stride, allocator *a) {
     if (da) {
         darray_header *header = da_header(da);
         uint32_t new_capacity = header->capacity * 2;
-        uintptr_t old_size    = sizeof(*header) + header->capacity * stride;
-        uintptr_t new_size    = sizeof(*header) + new_capacity * stride;
+        uintptr_t old_size    = sizeof(darray_header) + header->capacity * stride;
+        uintptr_t new_size    = sizeof(darray_header) + new_capacity * stride;
 
         header           = arealloc(a, header, old_size, new_size);
         header->capacity = new_capacity;

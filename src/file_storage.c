@@ -176,7 +176,7 @@ get_filepath_in_same_dir(file_storage *fs, string name, string current_path) {
     snprintf(buffer, sizeof(buffer), "%.*s/%s", current_dir.len,
              current_dir.data, name.data);
     if (file_exists(buffer)) {
-        result = string_memdup(fs->a, buffer);
+        result = string_strdup(fs->a, buffer);
     }
     return result;
 }
@@ -189,7 +189,7 @@ get_filepath_from_include_paths(file_storage *fs, string name) {
         char buffer[4096];
         snprintf(buffer, sizeof(buffer), "%s/%s", dir.data, name.data);
         if (file_exists(buffer)) {
-            result = string_memdup(fs->a, buffer);
+            result = string_strdup(fs->a, buffer);
         }
     }
     return result;
@@ -203,21 +203,21 @@ get_filepath_relative(file_storage *fs, string name) {
     uint32_t dir_len = strlen(buffer);
     snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "/%s", name.data);
     if (file_exists(buffer)) {
-        result = string_memdup(fs->a, buffer);
+        result = string_strdup(fs->a, buffer);
     }
     return result;
 }
 
 file *
 get_file(file_storage *fs, string name, file *current_file) {
-    file *file = 0;
-    for (file = fs->files; file; file = file->next) {
-        if (string_eq(file->name, name)) {
+    file *f = 0;
+    for (f = fs->files; f; f = f->next) {
+        if (string_eq(f->name, name)) {
             break;
         }
     }
 
-    if (!file) {
+    if (!f) {
         string actual_path = {0};
         if (current_file) {
             actual_path =
@@ -236,10 +236,10 @@ get_file(file_storage *fs, string name, file *current_file) {
 
         assert(file_exists(actual_path.data));
 
-        file                = aalloc(fs->a, sizeof(*file));
-        file->name          = string_dup(fs->a, name);
+        f                = aalloc(fs->a, sizeof(file));
+        f->name          = string_dup(fs->a, name);
         string contents     = read_file_data(actual_path, fs->a);
-        file->contents_init = contents;
+        f->contents_init = contents;
 
         char *s = contents.data;
         // BOM
@@ -251,11 +251,11 @@ get_file(file_storage *fs, string name, file *current_file) {
         replace_trigraphs(s);
         // Phase 2
         char *send     = remove_backslash_newline(s);
-        file->contents = string(s, send - s);
+        f->contents = string(s, send - s);
 
-        LLIST_ADD(fs->files, file);
+        LLIST_ADD(fs->files, f);
     }
-    return file;
+    return f;
 }
 
 void

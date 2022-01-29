@@ -16,7 +16,7 @@ bool
 test_appending_front(void) {
     int array[] = {1, 2, 3, 4, 5};
     node *nodes = 0;
-    for (int i = sizeof(array) / sizeof(*array) - 1; i >= 0; --i) {
+    for (int i = ARRAY_SIZE(array) - 1; i >= 0; --i) {
         node *n = malloc(sizeof(node));
         n->value = array[i];
         LLIST_ADD(nodes, n);
@@ -37,14 +37,14 @@ bool
 test_appending_back(void) {
     int array[] = {1, 2, 3, 4, 5};
     node *nodes = 0;
-    for (int i = 0; (unsigned)i < sizeof(array) / sizeof(*array); ++i) {
+    for (int i = 0; (unsigned)i < ARRAY_SIZE(array); ++i) {
         node *n = calloc(sizeof(node), 1);
         n->value = array[i];
         LLIST_ADD_LAST(nodes, n);
     }
 
     bool result = true;
-    for (int i = 0; (unsigned)i < sizeof(array) / sizeof(*array); ++i) {
+    for (int i = 0; (unsigned)i < ARRAY_SIZE(array); ++i) {
         if (!nodes || nodes->value != array[i]) {
             result = false;
             break;
@@ -58,7 +58,7 @@ bool
 test_constructor(void) {
     int array[] = {1, 2, 3, 4, 5};
     linked_list_constructor c = {0};
-    for (int i = 0; (unsigned)i < sizeof(array) / sizeof(*array); ++i) {
+    for (int i = 0; (unsigned)i < ARRAY_SIZE(array); ++i) {
         node *n = calloc(sizeof(node), 1);
         n->value = array[i];
         LLISTC_ADD_LAST(&c, n);
@@ -66,7 +66,7 @@ test_constructor(void) {
 
     node *nodes = c.first;
     bool result = true;
-    for (int i = 0; (unsigned)i < sizeof(array) / sizeof(*array); ++i) {
+    for (int i = 0; (unsigned)i < ARRAY_SIZE(array); ++i) {
         if (!nodes || nodes->value != array[i]) {
             result = false;
             break;

@@ -128,7 +128,7 @@ string_memprintf(allocator *a, char *format, ...) {
 }
 
 string
-string_memdup(allocator *a, char *data) {
+string_strdup(allocator *a, char *data) {
     uint32_t len  = strlen(data);
     char *str_mem = aalloc(a, len + 1);
     memcpy(str_mem, data, len);

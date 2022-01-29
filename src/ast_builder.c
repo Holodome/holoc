@@ -11,7 +11,7 @@
 
 static void *
 make_ast(ast_builder *b, ast_kind kind) {
-    assert(kind < (sizeof(AST_STRUCT_SIZES) / sizeof(*AST_STRUCT_SIZES)));
+    assert(kind < ARRAY_SIZE(AST_STRUCT_SIZES));
     ast *node  = bump_alloc(b->a, AST_STRUCT_SIZES[kind]);
     node->kind = kind;
     return node;

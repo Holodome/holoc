@@ -84,7 +84,7 @@ mptv(string filename) {
     file *f = get_file(&fs, filename, 0);
 
     char token_buffer[4096];
-    pp_lexer *lex = aalloc(a, sizeof(*lex));
+    pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
     pp_token tok = {0};
@@ -108,7 +108,7 @@ mptf(string filename) {
     file *f = get_file(&fs, filename, 0);
 
     char token_buffer[4096];
-    pp_lexer *lex = aalloc(a, sizeof(*lex));
+    pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
     pp_token tok = {0};
@@ -137,7 +137,7 @@ mpt(string filename) {
     file *f = get_file(&fs, filename, 0);
 
     char token_buffer[4096];
-    pp_lexer *lex = aalloc(a, sizeof(*lex));
+    pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
     init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
     pp_token tok = {0};
@@ -160,7 +160,7 @@ mtp(string filename) {
     fs.include_path_count = da_size(settings.include_paths);
 
     char pp_buf[4096];
-    preprocessor *pp  = aalloc(a, sizeof(*pp));
+    preprocessor *pp  = aalloc(a, sizeof(preprocessor));
     pp->a             = a;
     pp->fs            = &fs;
     init_pp(pp, filename, pp_buf, sizeof(pp_buf));
@@ -184,7 +184,7 @@ mtpv(string filename) {
     fs.include_path_count = da_size(settings.include_paths);
 
     char pp_buf[4096];
-    preprocessor *pp  = aalloc(a, sizeof(*pp));
+    preprocessor *pp  = aalloc(a, sizeof(preprocessor));
     pp->a             = a;
     pp->fs            = &fs;
     init_pp(pp, filename, pp_buf, sizeof(pp_buf));
@@ -208,7 +208,7 @@ mtpf(string filename) {
     fs.include_path_count = da_size(settings.include_paths);
 
     char pp_buf[4096];
-    preprocessor *pp  = aalloc(a, sizeof(*pp));
+    preprocessor *pp  = aalloc(a, sizeof(preprocessor));
     pp->a             = a;
     pp->fs            = &fs;
     init_pp(pp, filename, pp_buf, sizeof(pp_buf));

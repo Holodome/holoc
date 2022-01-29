@@ -360,7 +360,7 @@ fmt_ast_verbose(void *node, char *buf, uint32_t buf_size) {
 
 void *
 make_ast(struct allocator *a, ast_kind kind) {
-    assert(kind < (sizeof(AST_STRUCT_SIZES) / sizeof(*AST_STRUCT_SIZES)));
+    assert(kind < ARRAY_SIZE(AST_STRUCT_SIZES));
     ast *node  = aalloc(a, AST_STRUCT_SIZES[kind]);
     node->kind = kind;
     return node;

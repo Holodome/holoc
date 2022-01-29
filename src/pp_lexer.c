@@ -431,7 +431,7 @@ parse_number(pp_lexer *lex, pp_token *tok) {
 static bool
 parse_punctuator(pp_lexer *lex, pp_token *tok) {
     bool result = false;
-    for (uint32_t idx = 0; idx < sizeof(PUNCT_STRS) / sizeof(*PUNCT_STRS);
+    for (uint32_t idx = 0; idx < ARRAY_SIZE(PUNCT_STRS);
          ++idx) {
         string punct = PUNCT_STRS[idx];
         if (next_eq(lex, punct)) {
