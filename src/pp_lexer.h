@@ -102,6 +102,7 @@ typedef struct pp_token {
 // preprocessing context in source (not part of macro invocation) _shold_ be
 // correct c tokens. For converting see c_lang and preprocessor.
 typedef struct pp_lexer {
+    struct pp_lexer *next;
     // Start of data that we parse
     char *data;
     // End of data, so range checking is always done in pointers and not with
