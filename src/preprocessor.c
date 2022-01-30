@@ -56,17 +56,34 @@ freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
 // Peeks next token from parse stack.
 static pp_token *
 ps_peek(preprocessor *pp, pp_parse_stack **psp) {
-    pp_token *tok = (*psp)->token_list;
-    if (!tok) {
-        tok = NEW_PP_TOKEN(pp);
-        if (!(*psp)->lexer || !pp_lexer_parse((*psp)->lexer, tok)) {
+    pp_token *tok = 0;
+    while (!tok) {
+        tok = (*psp)->token_list;
+        if (tok) {
+            break;
+        }
+
+        pp_token local_tok = {0};
+        if (!(*psp)->lexer || !pp_lexer_parse((*psp)->lexer, &local_tok)) {
             if ((*psp)->lexer) {
                 LLIST_ADD(pp->lex_freelist, (*psp)->lexer);
             }
             pp_parse_stack *entry = *psp;
             LLIST_POP(*psp);
             LLIST_ADD(pp->parse_stack_freelist, entry);
+            if (!*psp) {
+                break;
+            }
+            continue;
+        } else {
+            tok = NEW_PP_TOKEN(pp);
+            memcpy(tok, &local_tok, sizeof(pp_token));
+            tok->loc.filename = (*psp)->f->name;
+            if (tok->str.data) {
+                tok->str = string_dup(pp->a, tok->str);
+            }
         }
+
 #if HOLOC_DEBUG
         {
             char buffer[4096];
@@ -87,6 +104,11 @@ ps_peek(preprocessor *pp, pp_parse_stack **psp) {
 static void
 ps_eat(preprocessor *pp, pp_parse_stack *ps) {
     pp_token *tok = ps->token_list;
+#if 1
+    char buffer[4096];
+    fmt_pp_tok_verbose(buffer, sizeof(buffer), tok);
+    printf("%s\n", buffer);
+#endif
     assert(tok);
     LLIST_POP(ps->token_list);
     LLIST_ADD(pp->tok_freelist, tok);
@@ -104,24 +126,21 @@ ps_eat_peek(preprocessor *pp, pp_parse_stack **psp) {
 static void
 ps_set_next_toks(preprocessor *pp, pp_parse_stack *ps, pp_token *toks) {
     pp_token *last_tok = 0;
-    for (last_tok = ps->token_list; last_tok; last_tok = last_tok->next) {
+    for (last_tok = toks; last_tok; last_tok = last_tok->next) {
         if (!last_tok->next) {
             break;
         }
     }
 
     if (last_tok) {
-        last_tok->next = toks;
-    } else {
-        ps->token_list = toks;
-    }
+        last_tok->next = ps->token_list;
+    } 
+    ps->token_list = toks;
 }
 
 // Peeks next n'th token.
 static pp_token *
 ps_peek_forward(preprocessor *pp, pp_parse_stack *ps, uint32_t n) {
-    assert(ps->lexer);
-
     uint32_t idx    = 0;
     pp_token **tokp = &ps->token_list;
     while (idx != n) {
@@ -133,8 +152,8 @@ ps_peek_forward(preprocessor *pp, pp_parse_stack *ps, uint32_t n) {
 
         pp_token *new_tok    = NEW_PP_TOKEN(pp);
         bool should_continue = pp_lexer_parse(ps->lexer, new_tok);
-        LLIST_ADD(*tokp, new_tok);
-        *tokp = new_tok;
+        (*tokp)->next = new_tok;
+        tokp = &(*tokp)->next;
         ++idx;
         if (!should_continue) {
             break;
@@ -439,7 +458,8 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
     }
 
     // Get macro
-    string macro_name        = tok->str;
+    string macro_name = tok->str;
+    printf("defined %s\n", tok->str.data);
     uint32_t macro_name_hash = hash_string(macro_name);
     pp_macro **macrop        = GET_MACROP(pp, macro_name_hash);
     if (*macrop) {
@@ -463,6 +483,7 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
             define_macro_function_like_args(pp, ps, macro);
         }
 
+        tok = ps_peek(pp, ps);
         if (PP_TOK_IS_PUNCT(tok, ')')) {
             tok = ps_eat_peek(pp, ps);
         } else {
@@ -521,9 +542,11 @@ skip_cond_incl(preprocessor *pp, pp_parse_stack **ps) {
             tok = ps_eat_peek(pp, ps);
             continue;
         }
+        // now the token is hash
+        pp_token *next = ps_peek_forward(pp, *ps, 1);
 
-        pp_token *next = ps_eat_peek(pp, ps);
-        if (tok->kind != PP_TOK_ID) {
+        if (next->kind != PP_TOK_ID) {
+            ps_eat_multiple(pp, *ps, 2);
             continue;
         }
 
@@ -541,6 +564,8 @@ skip_cond_incl(preprocessor *pp, pp_parse_stack **ps) {
                 --depth;
             }
         }
+        ps_eat_multiple(pp, *ps, 2);
+        tok = ps_peek(pp, ps);
     }
 
     if (depth) {
@@ -561,6 +586,7 @@ include_file(preprocessor *pp, pp_parse_stack **ps, string filename) {
 
     pp_parse_stack *parse = NEW_PARSE_STACK(pp);
     parse->lexer          = NEW_LEX(pp);
+    parse->f              = f;
     init_pp_lexer(parse->lexer, f->contents.data, STRING_END(f->contents),
                   pp->tok_buf, pp->tok_buf_capacity);
     LLIST_ADD(*ps, parse);
@@ -735,6 +761,7 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
     tok                        = ps_peek(pp, &converterp);
     while (tok) {
         if (expand_macro(pp, &converterp)) {
+            tok = ps_peek(pp, &converterp);
             continue;
         }
 
@@ -743,6 +770,8 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
             if (!macro) {
                 tok->kind = PP_TOK_NUM;
                 tok->str  = WRAPZ("0");
+            } else {
+                NOT_IMPL;
             }
         }
 
@@ -751,13 +780,24 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
                               &pp->tok_buf_len, pp->a)) {
             NOT_IMPL;
         }
+        if (c_tok->str.data) {
+            c_tok->str = string_dup(pp->a, c_tok->str);
+        }
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = ps_eat_peek(pp, &converterp);
     }
 
     token *expr_tokens = converted.first;
-    ast *expr_ast      = ast_cond_incl_expr_ternary(pp->a, &expr_tokens);
-    int64_t result     = evaluate_constant_expression(expr_ast);
+#if 1
+    for (token *t = expr_tokens; t; t = t->next) {
+        char buffer[4096];
+        fmt_token(buffer, sizeof(buffer), t);
+        printf("%s", buffer);
+    }
+    printf("\n");
+#endif
+    ast *expr_ast  = ast_cond_incl_expr_ternary(pp->a, &expr_tokens);
+    int64_t result = evaluate_constant_expression(expr_ast);
 
     return result;
 }
@@ -806,6 +846,8 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
                     }
                 }
             } else if (string_eq(tok->str, WRAPZ("else"))) {
+                tok = ps_eat_peek(pp, ps);
+
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
                     NOT_IMPL;
@@ -902,6 +944,7 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
             NOT_IMPL;
         }
 
+        tok = ps_peek(pp, ps);
         while (!tok->at_line_start) {
             tok = ps_eat_peek(pp, ps);
         }
@@ -911,7 +954,7 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
 }
 
 static void
-predifined_macro(preprocessor *pp, string name, string value) {
+predefined_macro(preprocessor *pp, string name, string value) {
     char lexer_buffer[4096];
     pp_lexer lex = {0};
     init_pp_lexer(&lex, value.data, STRING_END(value), lexer_buffer,
@@ -944,15 +987,15 @@ predifined_macro(preprocessor *pp, string name, string value) {
 }
 
 static void
-define_common_predifined_macros(preprocessor *pp, string filename) {
+define_common_predefined_macros(preprocessor *pp, string filename) {
     string file_onlyname = path_filename(filename);
     string file_name = string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len,
                                         file_onlyname.data);
-    predifined_macro(pp, WRAPZ("__FILE_NAME__"), file_name);
+    predefined_macro(pp, WRAPZ("__FILE_NAME__"), file_name);
 
     string base_file =
         string_memprintf(pp->a, "\"%.*s\"", filename.len, filename.data);
-    predifined_macro(pp, WRAPZ("__BASE_FILE__"), base_file);
+    predefined_macro(pp, WRAPZ("__BASE_FILE__"), base_file);
 
     time_t now    = time(0);
     struct tm *tm = localtime(&now);
@@ -964,54 +1007,54 @@ define_common_predifined_macros(preprocessor *pp, string filename) {
     assert((unsigned)tm->tm_mon < ARRAY_SIZE(months));
     string date = string_memprintf(pp->a, "\"%s %2d %d\"", months[tm->tm_mon],
                                    tm->tm_mday, tm->tm_year + 1900);
-    predifined_macro(pp, WRAPZ("__DATE__"), date);
+    predefined_macro(pp, WRAPZ("__DATE__"), date);
 
     string time = string_memprintf(pp->a, "\"%02d:%02d:%02d\"", tm->tm_hour,
                                    tm->tm_min, tm->tm_sec);
-    predifined_macro(pp, WRAPZ("__TIME__"), time);
+    predefined_macro(pp, WRAPZ("__TIME__"), time);
 
-    predifined_macro(pp, WRAPZ("__SIZE_TYPE__"), WRAPZ("unsigned long"));
-    predifined_macro(pp, WRAPZ("__PTRDIFF_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__WCHAR_TYPE__"), WRAPZ("unsigned int"));
-    predifined_macro(pp, WRAPZ("__WINT_TYPE__"), WRAPZ("unsigned int"));
-    predifined_macro(pp, WRAPZ("__INTMAX_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__UINTMAX_TYPE__"),
+    predefined_macro(pp, WRAPZ("__SIZE_TYPE__"), WRAPZ("unsigned long"));
+    predefined_macro(pp, WRAPZ("__PTRDIFF_TYPE__"), WRAPZ("long long"));
+    predefined_macro(pp, WRAPZ("__WCHAR_TYPE__"), WRAPZ("unsigned int"));
+    predefined_macro(pp, WRAPZ("__WINT_TYPE__"), WRAPZ("unsigned int"));
+    predefined_macro(pp, WRAPZ("__INTMAX_TYPE__"), WRAPZ("long long"));
+    predefined_macro(pp, WRAPZ("__UINTMAX_TYPE__"),
                      WRAPZ("unsigned long long"));
-    /* predifined_macro(pp, WRAPZ("__SIG_ATOMIC_TYPE__"),
+    /* predefined_macro(pp, WRAPZ("__SIG_ATOMIC_TYPE__"),
      * WRAPZ("sig_atomic_t")); */
-    predifined_macro(pp, WRAPZ("__INT8_TYPE__"), WRAPZ("signed char"));
-    predifined_macro(pp, WRAPZ("__INT16_TYPE__"), WRAPZ("short"));
-    predifined_macro(pp, WRAPZ("__INT32_TYPE__"), WRAPZ("int"));
-    predifined_macro(pp, WRAPZ("__INT64_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__UINT8_TYPE__"), WRAPZ("unsigned char"));
-    predifined_macro(pp, WRAPZ("__UINT16_TYPE__"), WRAPZ("unsigned short"));
-    predifined_macro(pp, WRAPZ("__UINT32_TYPE__"), WRAPZ("unsigned"));
-    predifined_macro(pp, WRAPZ("__UINT64_TYPE__"), WRAPZ("unsigned long long"));
-    predifined_macro(pp, WRAPZ("__INT_LEAST8_TYPE__"), WRAPZ("signed char"));
-    predifined_macro(pp, WRAPZ("__INT_LEAST16_TYPE__"), WRAPZ("short"));
-    predifined_macro(pp, WRAPZ("__INT_LEAST32_TYPE__"), WRAPZ("int"));
-    predifined_macro(pp, WRAPZ("__INT_LEAST64_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__UINT_LEAST8_TYPE__"), WRAPZ("unsigned char"));
-    predifined_macro(pp, WRAPZ("__UINT_LEAST16_TYPE__"),
+    predefined_macro(pp, WRAPZ("__INT8_TYPE__"), WRAPZ("signed char"));
+    predefined_macro(pp, WRAPZ("__INT16_TYPE__"), WRAPZ("short"));
+    predefined_macro(pp, WRAPZ("__INT32_TYPE__"), WRAPZ("int"));
+    predefined_macro(pp, WRAPZ("__INT64_TYPE__"), WRAPZ("long long"));
+    predefined_macro(pp, WRAPZ("__UINT8_TYPE__"), WRAPZ("unsigned char"));
+    predefined_macro(pp, WRAPZ("__UINT16_TYPE__"), WRAPZ("unsigned short"));
+    predefined_macro(pp, WRAPZ("__UINT32_TYPE__"), WRAPZ("unsigned"));
+    predefined_macro(pp, WRAPZ("__UINT64_TYPE__"), WRAPZ("unsigned long long"));
+    predefined_macro(pp, WRAPZ("__INT_LEAST8_TYPE__"), WRAPZ("signed char"));
+    predefined_macro(pp, WRAPZ("__INT_LEAST16_TYPE__"), WRAPZ("short"));
+    predefined_macro(pp, WRAPZ("__INT_LEAST32_TYPE__"), WRAPZ("int"));
+    predefined_macro(pp, WRAPZ("__INT_LEAST64_TYPE__"), WRAPZ("long long"));
+    predefined_macro(pp, WRAPZ("__UINT_LEAST8_TYPE__"), WRAPZ("unsigned char"));
+    predefined_macro(pp, WRAPZ("__UINT_LEAST16_TYPE__"),
                      WRAPZ("unsigned short"));
-    predifined_macro(pp, WRAPZ("__UINT_LEAST32_TYPE__"), WRAPZ("unsigned int"));
-    predifined_macro(pp, WRAPZ("__UINT_LEAST64_TYPE__"),
+    predefined_macro(pp, WRAPZ("__UINT_LEAST32_TYPE__"), WRAPZ("unsigned int"));
+    predefined_macro(pp, WRAPZ("__UINT_LEAST64_TYPE__"),
                      WRAPZ("unsigned long long"));
-    predifined_macro(pp, WRAPZ("__INT_FAST8_TYPE__"), WRAPZ("signed char"));
-    predifined_macro(pp, WRAPZ("__INT_FAST16_TYPE__"), WRAPZ("short"));
-    predifined_macro(pp, WRAPZ("__INT_FAST32_TYPE__"), WRAPZ("int"));
-    predifined_macro(pp, WRAPZ("__INT_FAST64_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__UINT_FAST8_TYPE__"), WRAPZ("unsigned char"));
-    predifined_macro(pp, WRAPZ("__UINT_FAST16_TYPE__"),
+    predefined_macro(pp, WRAPZ("__INT_FAST8_TYPE__"), WRAPZ("signed char"));
+    predefined_macro(pp, WRAPZ("__INT_FAST16_TYPE__"), WRAPZ("short"));
+    predefined_macro(pp, WRAPZ("__INT_FAST32_TYPE__"), WRAPZ("int"));
+    predefined_macro(pp, WRAPZ("__INT_FAST64_TYPE__"), WRAPZ("long long"));
+    predefined_macro(pp, WRAPZ("__UINT_FAST8_TYPE__"), WRAPZ("unsigned char"));
+    predefined_macro(pp, WRAPZ("__UINT_FAST16_TYPE__"),
                      WRAPZ("unsigned short"));
-    predifined_macro(pp, WRAPZ("__UINT_FAST32_TYPE__"), WRAPZ("unsigned int"));
-    predifined_macro(pp, WRAPZ("__UINT_FAST64_TYPE__"),
+    predefined_macro(pp, WRAPZ("__UINT_FAST32_TYPE__"), WRAPZ("unsigned int"));
+    predefined_macro(pp, WRAPZ("__UINT_FAST64_TYPE__"),
                      WRAPZ("unsigned long long"));
-    predifined_macro(pp, WRAPZ("__INTPTR_TYPE__"), WRAPZ("long long"));
-    predifined_macro(pp, WRAPZ("__UINTPTR_TYPE__"),
+    predefined_macro(pp, WRAPZ("__INTPTR_TYPE__"), WRAPZ("long long"));
+    predefined_macro(pp, WRAPZ("__UINTPTR_TYPE__"),
                      WRAPZ("unsigned long long"));
 
-    predifined_macro(pp, WRAPZ("__CHAR_BIT__"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__CHAR_BIT__"), WRAPZ("8"));
 
     /* TODO:
      * __SCHAR_MAX__
@@ -1089,44 +1132,45 @@ __INT_FAST64_WIDTH__
 __INTPTR_WIDTH__
 __INTMAX_WIDTH__
 */
-    predifined_macro(pp, WRAPZ("__SIZEOF_INT__"), WRAPZ("4"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_LONG"), WRAPZ("8"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_LONG_LONG__"), WRAPZ("8"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_SHORT__"), WRAPZ("2"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_POINTER__"), WRAPZ("8"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_FLOAT__"), WRAPZ("4"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_DOUBLE__"), WRAPZ("8"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_LONG_DOUBLE__"), WRAPZ("8"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_SIZE_T__"), WRAPZ("8"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_WCHAR_T__"), WRAPZ("4"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_WINT_T__"), WRAPZ("4"));
-    predifined_macro(pp, WRAPZ("__SIZEOF_PTRDIFF_T__"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_INT__"), WRAPZ("4"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_LONG"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_LONG_LONG__"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_SHORT__"), WRAPZ("2"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_POINTER__"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_FLOAT__"), WRAPZ("4"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_DOUBLE__"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_LONG_DOUBLE__"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_SIZE_T__"), WRAPZ("8"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_WCHAR_T__"), WRAPZ("4"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_WINT_T__"), WRAPZ("4"));
+    predefined_macro(pp, WRAPZ("__SIZEOF_PTRDIFF_T__"), WRAPZ("8"));
 
-    predifined_macro(pp, WRAPZ("__STDC_HOSTED__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__STDC_NO_COMPLEX__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__STDC_UTF_16__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__STDC_UTF_32__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__STDC__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__STDC_HOSTED__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__STDC_NO_COMPLEX__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__STDC_UTF_16__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__STDC_UTF_32__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__STDC__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__STDC_VERSION__"), WRAPZ("201112L"));
 
-    predifined_macro(pp, WRAPZ("__LP64__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("_LP64"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__LP64__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("_LP64"), WRAPZ("1"));
 
-    predifined_macro(pp, WRAPZ("__x86_64__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__x86_64"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__amd64"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__amd64__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__holoc__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__gnu_linux__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__linux__"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("__linux"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("linux"), WRAPZ("1"));
-    predifined_macro(pp, WRAPZ("unix"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__x86_64__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__x86_64"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__amd64"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__amd64__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__holoc__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__gnu_linux__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__linux__"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("__linux"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("linux"), WRAPZ("1"));
+    predefined_macro(pp, WRAPZ("unix"), WRAPZ("1"));
 
-    predifined_macro(pp, WRAPZ("__inline__"), WRAPZ("inline"));
-    predifined_macro(pp, WRAPZ("__signed__"), WRAPZ("signed"));
-    predifined_macro(pp, WRAPZ("__typeof__"), WRAPZ("typeof"));
-    predifined_macro(pp, WRAPZ("__volatile__"), WRAPZ("volatile"));
-    predifined_macro(pp, WRAPZ("__alignof__"), WRAPZ("_Alignof"));
+    predefined_macro(pp, WRAPZ("__inline__"), WRAPZ("inline"));
+    predefined_macro(pp, WRAPZ("__signed__"), WRAPZ("signed"));
+    predefined_macro(pp, WRAPZ("__typeof__"), WRAPZ("typeof"));
+    predefined_macro(pp, WRAPZ("__volatile__"), WRAPZ("volatile"));
+    predefined_macro(pp, WRAPZ("__alignof__"), WRAPZ("_Alignof"));
 }
 
 void
@@ -1135,12 +1179,12 @@ init_pp(preprocessor *pp, string filename, char *tok_buf,
     pp->tok_buf          = tok_buf;
     pp->tok_buf_capacity = tok_buf_size;
 
-    define_common_predifined_macros(pp, filename);
+    define_common_predefined_macros(pp, filename);
 
-    pp_token *eof_tok = NEW_PP_TOKEN(pp);
-    eof_tok->kind = PP_TOK_EOF;
+    pp_token *eof_tok   = NEW_PP_TOKEN(pp);
+    eof_tok->kind       = PP_TOK_EOF;
     pp_parse_stack *eof = NEW_PARSE_STACK(pp);
-    eof->token_list = eof_tok;
+    eof->token_list     = eof_tok;
     LLIST_ADD(pp->parse_stack, eof);
 
     include_file(pp, &pp->parse_stack, filename);
@@ -1172,6 +1216,7 @@ pp_parse(preprocessor *pp, struct token *tok) {
             tok->_debug_info = debug_info;
         }
 #endif
+        result = true;
         break;
     }
 

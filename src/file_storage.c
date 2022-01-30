@@ -238,6 +238,7 @@ get_file(file_storage *fs, string name, file *current_file) {
 
         f                = aalloc(fs->a, sizeof(file));
         f->name          = string_dup(fs->a, name);
+        f->full_path = actual_path;
         string contents     = read_file_data(actual_path, fs->a);
         f->contents_init = contents;
 
