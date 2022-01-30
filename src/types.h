@@ -13,7 +13,8 @@ Version: 0
 #include <stdint.h>
 
 // Macro used to get size of statically allocated array.
-// It becomes tedious to write this construct all the time, so let's just use a macro.
+// It becomes tedious to write this construct all the time, so let's just use a
+// macro.
 #define ARRAY_SIZE(_a) (sizeof(_a) / sizeof(*(_a)))
 
 // We want to make string a first-class citizen of program
@@ -43,11 +44,13 @@ typedef struct source_loc {
     default:                 \
         UNREACHABLE;         \
         break
-#else 
+#else
 #define NOT_IMPL (void)0
 #define UNREACHABLE (void)0
-#define INVALID_DEFAULT_CASE default: break
-#endif 
+#define INVALID_DEFAULT_CASE \
+    default:                 \
+        break
+#endif
 
 // This is a flag used to attach debug information to structs
 // so that viewing them in debugger is more informative
@@ -57,8 +60,8 @@ typedef struct source_loc {
 
 #if HOLOC_DEBUG
 #define DEBUG_BREAKPOINT assert(false && "Debug breakpoint")
-#else 
+#else
 #define DEBUG_BREAKPOINT (void)0
-#endif 
+#endif
 
 #endif

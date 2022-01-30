@@ -271,8 +271,8 @@ ast *ast_cond_incl_expr_add(struct allocator *a, struct token **tokp);
 //              '>>' add)*
 ast *ast_cond_incl_expr_shift(struct allocator *a, struct token **tokp);
 // rel = shift ('<=' shift |
-//              '<'  shift | 
-//              '>'  shift | 
+//              '<'  shift |
+//              '>'  shift |
 //              '>=' shift)*
 ast *ast_cond_incl_expr_rel(struct allocator *a, struct token **tokp);
 // eq = rel ('!=' rel |

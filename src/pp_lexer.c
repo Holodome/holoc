@@ -431,8 +431,7 @@ parse_number(pp_lexer *lex, pp_token *tok) {
 static bool
 parse_punctuator(pp_lexer *lex, pp_token *tok) {
     bool result = false;
-    for (uint32_t idx = 0; idx < ARRAY_SIZE(PUNCT_STRS);
-         ++idx) {
+    for (uint32_t idx = 0; idx < ARRAY_SIZE(PUNCT_STRS); ++idx) {
         string punct = PUNCT_STRS[idx];
         if (next_eq(lex, punct)) {
             lex->cursor += punct.len;
@@ -538,7 +537,7 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
     }
     tok->loc.line = lex->line;
     tok->loc.col  = lex->tok_start - lex->last_line_start + 1;
-    bool is_eof = tok->kind == PP_TOK_EOF;
+    bool is_eof   = tok->kind == PP_TOK_EOF;
     return !is_eof;
 }
 
@@ -626,4 +625,3 @@ fmt_pp_tok_verbose(char *buf, uint32_t buf_len, pp_token *tok) {
     fmt_pp_tok_verbosew(&w, tok);
     return w.cursor - buf;
 }
-

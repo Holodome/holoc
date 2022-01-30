@@ -26,7 +26,7 @@ make_ident(ast_builder *b, string ident) {
 
 static ast *
 build_builtin_type(ast_builder *b) {
-    ast *node = 0;
+    ast *node = NULL;
     NOT_IMPL;
     return node;
 }
@@ -39,7 +39,7 @@ evaluate_constant_expression(ast_builder *b) {
 
 static ast *
 build_enum_decl(ast_builder *b) {
-    ast *node = 0;
+    ast *node = NULL;
     assert(IS_KW(b->tok, C_KW_ENUM));
     b->tok = b->tok->next;
 
@@ -93,14 +93,14 @@ build_enum_decl(ast_builder *b) {
 
 static ast *
 build_struct_decl(ast_builder *b) {
-    ast *node = 0;
+    ast *node = NULL;
     NOT_IMPL;
     return node;
 }
 
 static ast *
 build_typedef(ast_builder *b) {
-    ast *node = 0;
+    ast *node = NULL;
 
     assert(IS_KW(b->tok, C_KW_TYPEDEF));
     b->tok = b->tok->next;
@@ -168,11 +168,11 @@ build_typedef(ast_builder *b) {
 
 ast *
 build_toplevel_ast(ast_builder *b) {
-    ast *node = 0;
+    ast *node = NULL;
     if (IS_KW(b->tok, C_KW_TYPEDEF)) {
         node = build_typedef(b);
     }
 
     return node;
 }
-#endif 
+#endif

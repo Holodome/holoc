@@ -74,7 +74,7 @@ c_types_are_compatible(c_type *a, c_type *b) {
 
 c_type *
 get_standard_type(c_type_kind kind) {
-    c_type *type = 0;
+    c_type *type = NULL;
     switch (kind) {
     default:
         break;

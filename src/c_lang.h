@@ -122,7 +122,8 @@ typedef struct {
 } fmt_c_str_args;
 
 bool convert_pp_token(struct pp_token *pp_tok, token *tok, char *buf,
-                      uint32_t buf_size, uint32_t *buf_writtenp, struct allocator *a);
+                      uint32_t buf_size, uint32_t *buf_writtenp,
+                      struct allocator *a);
 #define IS_KW(_tok, _kw) ((_tok)->kind == TOK_KW && (_tok)->kw == (_kw))
 #define IS_PUNCT(_tok, _punct) \
     ((_tok)->kind == TOK_PUNCT && (_tok)->punct == (_punct))

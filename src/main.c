@@ -32,8 +32,8 @@ typedef enum {
 } mode;
 
 typedef struct {
-    string *filenames;  // da
-    string *include_paths; // da
+    string *filenames;      // da
+    string *include_paths;  // da
     mode mode;
 } program_settings;
 
@@ -42,7 +42,7 @@ static program_settings settings;
 static void
 parse_clargs(uint32_t argc, char **argv) {
     allocator *a      = get_system_allocator();
-    string *filenames = 0;
+    string *filenames = NULL;
     for (uint32_t arg_idx = 1; arg_idx < argc; arg_idx++) {
         char *option = argv[arg_idx];
         if (strcmp(option, "--ptv") == 0) {
@@ -60,9 +60,9 @@ parse_clargs(uint32_t argc, char **argv) {
         } else if (strcmp(option, "--ast") == 0) {
             settings.mode = M_AST;
         } else if (strncmp(option, "-I", 2) == 0) {
-            char *path = option + 2;
+            char *path        = option + 2;
             uint32_t path_len = strlen(path);
-            char *new_path = aalloc(a, path_len + 1);
+            char *new_path    = aalloc(a, path_len + 1);
             memcpy(new_path, path, path_len + 1);
             da_push(settings.include_paths, string(new_path, path_len), a);
         } else {
@@ -78,7 +78,7 @@ mptv(string filename) {
     file_storage fs = {0};
     fs.a            = a;
     add_default_include_paths(&settings.include_paths);
-    fs.include_paths = settings.include_paths;
+    fs.include_paths      = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
     file *f = get_file(&fs, filename, 0);
@@ -102,7 +102,7 @@ mptf(string filename) {
     file_storage fs = {0};
     fs.a            = a;
     add_default_include_paths(&settings.include_paths);
-    fs.include_paths = settings.include_paths;
+    fs.include_paths      = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
     file *f = get_file(&fs, filename, 0);
@@ -131,7 +131,7 @@ mpt(string filename) {
     file_storage fs = {0};
     fs.a            = a;
     add_default_include_paths(&settings.include_paths);
-    fs.include_paths = settings.include_paths;
+    fs.include_paths      = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
     file *f = get_file(&fs, filename, 0);
@@ -156,13 +156,13 @@ mtp(string filename) {
     file_storage fs = {0};
     fs.a            = a;
     add_default_include_paths(&settings.include_paths);
-    fs.include_paths = settings.include_paths;
+    fs.include_paths      = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
     char pp_buf[4096];
-    preprocessor *pp  = aalloc(a, sizeof(preprocessor));
-    pp->a             = a;
-    pp->fs            = &fs;
+    preprocessor *pp = aalloc(a, sizeof(preprocessor));
+    pp->a            = a;
+    pp->fs           = &fs;
     init_pp(pp, filename, pp_buf, sizeof(pp_buf));
 
     token tok = {0};
@@ -180,13 +180,13 @@ mtpv(string filename) {
     file_storage fs = {0};
     fs.a            = a;
     add_default_include_paths(&settings.include_paths);
-    fs.include_paths = settings.include_paths;
+    fs.include_paths      = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
     char pp_buf[4096];
-    preprocessor *pp  = aalloc(a, sizeof(preprocessor));
-    pp->a             = a;
-    pp->fs            = &fs;
+    preprocessor *pp = aalloc(a, sizeof(preprocessor));
+    pp->a            = a;
+    pp->fs           = &fs;
     init_pp(pp, filename, pp_buf, sizeof(pp_buf));
 
     token tok = {0};
@@ -204,13 +204,13 @@ mtpf(string filename) {
     file_storage fs = {0};
     fs.a            = a;
     add_default_include_paths(&settings.include_paths);
-    fs.include_paths = settings.include_paths;
+    fs.include_paths      = settings.include_paths;
     fs.include_path_count = da_size(settings.include_paths);
 
     char pp_buf[4096];
-    preprocessor *pp  = aalloc(a, sizeof(preprocessor));
-    pp->a             = a;
-    pp->fs            = &fs;
+    preprocessor *pp = aalloc(a, sizeof(preprocessor));
+    pp->a            = a;
+    pp->fs           = &fs;
     init_pp(pp, filename, pp_buf, sizeof(pp_buf));
 
     token tok = {0};

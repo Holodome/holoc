@@ -1,5 +1,7 @@
 #include "darray.h"
 
+#include <stddef.h>
+
 #include "allocator.h"
 
 void *
@@ -8,8 +10,8 @@ da_grow(void *da, uintptr_t stride, allocator *a) {
     if (da) {
         darray_header *header = da_header(da);
         uint32_t new_capacity = header->capacity * 2;
-        uintptr_t old_size    = sizeof(darray_header) + header->capacity * stride;
-        uintptr_t new_size    = sizeof(darray_header) + new_capacity * stride;
+        uintptr_t old_size = sizeof(darray_header) + header->capacity * stride;
+        uintptr_t new_size = sizeof(darray_header) + new_capacity * stride;
 
         header           = arealloc(a, header, old_size, new_size);
         header->capacity = new_capacity;
@@ -24,7 +26,7 @@ da_grow(void *da, uintptr_t stride, allocator *a) {
 
 void *
 da_reserve_(uintptr_t stride, uint32_t count, allocator *a) {
-    void *result = 0;
+    void *result = NULL;
     if (count) {
         uintptr_t size = sizeof(darray_header) + stride * count;
 

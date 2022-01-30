@@ -7,8 +7,8 @@
 #include "allocator.h"
 #include "darray.h"
 #include "filepath.h"
-#include "str.h"
 #include "llist.h"
+#include "str.h"
 
 void
 add_default_include_paths(string **pathsp) {
@@ -21,20 +21,20 @@ add_default_include_paths(string **pathsp) {
     // HL: This is copy from my mac clang paths
     da_push(paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Toolchains/"
-                   "XcodeDefault.xctoolchain/usr/lib/clang/13.0.0/include"),
+                  "XcodeDefault.xctoolchain/usr/lib/clang/13.0.0/include"),
             a);
     da_push(paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Platforms/"
-                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"),
+                  "MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"),
             a);
     da_push(paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Toolchains/"
-                   "XcodeDefault.xctoolchain/usr/include"),
+                  "XcodeDefault.xctoolchain/usr/include"),
             a);
     da_push(paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Platforms/"
-                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
-                   "Frameworks"),
+                  "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
+                  "Frameworks"),
             a);
     *pathsp = paths;
 }
@@ -210,7 +210,7 @@ get_filepath_relative(file_storage *fs, string name) {
 
 file *
 get_file(file_storage *fs, string name, file *current_file) {
-    file *f = 0;
+    file *f = NULL;
     for (f = fs->files; f; f = f->next) {
         if (string_eq(f->name, name)) {
             break;
@@ -238,8 +238,8 @@ get_file(file_storage *fs, string name, file *current_file) {
 
         f                = aalloc(fs->a, sizeof(file));
         f->name          = string_dup(fs->a, name);
-        f->full_path = actual_path;
-        string contents     = read_file_data(actual_path, fs->a);
+        f->full_path     = actual_path;
+        string contents  = read_file_data(actual_path, fs->a);
         f->contents_init = contents;
 
         char *s = contents.data;
@@ -251,7 +251,7 @@ get_file(file_storage *fs, string name, file *current_file) {
         canonicalize_newline(s);
         replace_trigraphs(s);
         // Phase 2
-        char *send     = remove_backslash_newline(s);
+        char *send  = remove_backslash_newline(s);
         f->contents = string(s, send - s);
 
         LLIST_ADD(fs->files, f);
@@ -309,4 +309,3 @@ report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...) {
     va_start(args, fmt);
     report_errorv(f, line, col, fmt, args);
 }
-

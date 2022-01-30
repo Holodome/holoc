@@ -44,7 +44,7 @@ string string_strip(string str, string symbs);
 
 // Does printf and allocates that string.
 string string_memprintf(struct allocator *a, char *format, ...);
-// Works similar to strdup function, but returns string. 
+// Works similar to strdup function, but returns string.
 string string_strdup(struct allocator *a, char *data);
 // Duplicates string.
 string string_dup(struct allocator *a, string str);

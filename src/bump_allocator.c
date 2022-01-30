@@ -54,7 +54,7 @@ bump_bootstrap__(uintptr_t offset, uint64_t size) {
 
 void *
 bump_alloc(bump_allocator *allocator, uint64_t size) {
-    void *result = 0;
+    void *result = NULL;
     if (!size) {
         goto end;
     }

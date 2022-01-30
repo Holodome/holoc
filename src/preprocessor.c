@@ -56,7 +56,7 @@ freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
 // Peeks next token from parse stack.
 static pp_token *
 ps_peek(preprocessor *pp, pp_parse_stack **psp) {
-    pp_token *tok = 0;
+    pp_token *tok = NULL;
     while (!tok) {
         tok = (*psp)->token_list;
         if (tok) {
@@ -134,7 +134,7 @@ ps_set_next_toks(preprocessor *pp, pp_parse_stack *ps, pp_token *toks) {
 
     if (last_tok) {
         last_tok->next = ps->token_list;
-    } 
+    }
     ps->token_list = toks;
 }
 
@@ -152,15 +152,15 @@ ps_peek_forward(preprocessor *pp, pp_parse_stack *ps, uint32_t n) {
 
         pp_token *new_tok    = NEW_PP_TOKEN(pp);
         bool should_continue = pp_lexer_parse(ps->lexer, new_tok);
-        (*tokp)->next = new_tok;
-        tokp = &(*tokp)->next;
+        (*tokp)->next        = new_tok;
+        tokp                 = &(*tokp)->next;
         ++idx;
         if (!should_continue) {
             break;
         }
     }
 
-    pp_token *tok = 0;
+    pp_token *tok = NULL;
     if (idx == n) {
         tok = *tokp;
     }
@@ -265,7 +265,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_parse_stack **ps,
 // Finds argument by name in macro argument list.
 static pp_macro_arg *
 get_argument(pp_macro *macro, string name) {
-    pp_macro_arg *arg = 0;
+    pp_macro_arg *arg = NULL;
     for (pp_macro_arg *test = macro->args; test; test = test->next) {
         if (string_eq(test->name, name)) {
             arg = test;
@@ -341,7 +341,7 @@ expand_function_like_macro(preprocessor *pp, pp_parse_stack **ps,
 static bool
 expand_macro(preprocessor *pp, pp_parse_stack **ps) {
     bool result     = false;
-    pp_macro *macro = 0;
+    pp_macro *macro = NULL;
     pp_token *tok   = ps_peek(pp, ps);
     if (tok->kind == PP_TOK_ID) {
         uint32_t name_hash = hash_string(tok->str);

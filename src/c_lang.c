@@ -479,4 +479,3 @@ fmt_token_verbose(char *buf, uint32_t buf_len, token *tok) {
     fmt_token_verbosew(&w, tok);
     return w.cursor - buf;
 }
-

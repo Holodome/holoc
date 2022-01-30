@@ -81,7 +81,7 @@ path_to_absolute(string path, struct allocator *a) {
 string
 path_clean(string path, struct allocator *a) {
     bool is_rooted = string_startswith(path, WRAPZ("/"));
-    string *its    = 0;  // da
+    string *its    = NULL;  // da
 
     while (path.len) {
         string_find_result slash = string_find(path, '/');

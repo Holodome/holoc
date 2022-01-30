@@ -87,9 +87,10 @@ typedef struct preprocessor {
     uint32_t tok_buf_len;
     // Value for __COUNTER__
     uint32_t counter_value;
-    // Stack of conditional includes. Pointer because default level is not an include.
+    // Stack of conditional includes. Pointer because default level is not an
+    // include.
     pp_conditional_include *cond_incl_stack;
-    // Stack of parsing tokens. 
+    // Stack of parsing tokens.
     pp_parse_stack *parse_stack;
     // Macro hash table
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];

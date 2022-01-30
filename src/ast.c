@@ -1,12 +1,13 @@
 #include "ast.h"
 
 #include <assert.h>
+#include <stddef.h>
 
+#include "allocator.h"
 #include "buffer_writer.h"
 #include "c_lang.h"
 #include "c_types.h"
 #include "str.h"
-#include "allocator.h"
 
 static uint64_t AST_STRUCT_SIZES[] = {
     sizeof(ast),           sizeof(ast_identifier),
@@ -24,14 +25,13 @@ static uint64_t AST_STRUCT_SIZES[] = {
     sizeof(ast_typedef),   sizeof(ast_type)};
 
 static string AST_BINARY_STRS[] = {
-    WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),   WRAPZ("*"),
-    WRAPZ("/"),         WRAPZ("%"),   WRAPZ("<="),  WRAPZ("<"),
-    WRAPZ(">="),        WRAPZ(">"),   WRAPZ("=="),  WRAPZ("!="),
-    WRAPZ("&"),         WRAPZ("|"),   WRAPZ("^"),   WRAPZ("<<"),
-    WRAPZ(">>"),        WRAPZ("&&"),  WRAPZ("||"),  WRAPZ("="),
-    WRAPZ("+="),        WRAPZ("-="),  WRAPZ("*="),  WRAPZ("/="),
-    WRAPZ("%="),        WRAPZ("<<="), WRAPZ(">>="), WRAPZ("&="),
-    WRAPZ("|="),        WRAPZ("^="),  WRAPZ(","),
+    WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),  WRAPZ("*"),  WRAPZ("/"),
+    WRAPZ("%"),         WRAPZ("<="),  WRAPZ("<"),  WRAPZ(">="), WRAPZ(">"),
+    WRAPZ("=="),        WRAPZ("!="),  WRAPZ("&"),  WRAPZ("|"),  WRAPZ("^"),
+    WRAPZ("<<"),        WRAPZ(">>"),  WRAPZ("&&"), WRAPZ("||"), WRAPZ("="),
+    WRAPZ("+="),        WRAPZ("-="),  WRAPZ("*="), WRAPZ("/="), WRAPZ("%="),
+    WRAPZ("<<="),       WRAPZ(">>="), WRAPZ("&="), WRAPZ("|="), WRAPZ("^="),
+    WRAPZ(","),
 };
 
 static string AST_UN_STRS[] = {
@@ -368,7 +368,7 @@ make_ast(struct allocator *a, ast_kind kind) {
 
 ast *
 ast_cond_incl_expr_primary(allocator *a, token **tokp) {
-    ast *node  = 0;
+    ast *node  = NULL;
     token *tok = *tokp;
     if (IS_PUNCT(tok, '(')) {
         tok  = tok->next;
@@ -397,7 +397,7 @@ ast_cond_incl_expr_primary(allocator *a, token **tokp) {
 
 ast *
 ast_cond_incl_expr_unary(allocator *a, token **tokp) {
-    ast *node  = 0;
+    ast *node  = NULL;
     token *tok = *tokp;
     if (IS_PUNCT(tok, '+')) {
         tok           = tok->next;
@@ -738,4 +738,3 @@ ast_cond_incl_expr(allocator *a, token **tokp) {
     }
     return node;
 }
-
