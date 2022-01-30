@@ -9,6 +9,7 @@
 #include "filepath.h"
 #include "llist.h"
 #include "str.h"
+#include "unicode.h"
 
 void
 add_default_include_paths(string **pathsp) {
@@ -212,7 +213,7 @@ file *
 get_file(file_storage *fs, string name, file *current_file) {
     file *f = NULL;
     for (f = fs->files; f; f = f->next) {
-        if (string_eq(f->name, name)) {
+        if (string_eq(f->full_path, name)) {
             break;
         }
     }
@@ -263,7 +264,7 @@ void
 report_error_internalv(char *filename, char *file_contents, uint32_t nline,
                        uint32_t ncol, char *fmt, va_list args) {
     char *line            = file_contents;
-    uint32_t line_counter = 0;
+    uint32_t line_counter = 1;
     while (line_counter < nline) {
         if (!*line) {
             NOT_IMPL;
@@ -275,18 +276,28 @@ report_error_internalv(char *filename, char *file_contents, uint32_t nline,
         }
         ++line;
     }
+    
+    uint32_t utf8_coln = 0;
+    char *cursor = line;
+    while (cursor < line + ncol) {
+        uint32_t cp;
+        cursor = utf8_decode(cursor, &cp);
+        ++utf8_coln;
+    }
 
-    char *line_end = line;
+    char *line_end = line + 1;
     while (*line_end && *line_end != '\n') {
         ++line_end;
     }
 
-    uint32_t loc = fprintf(stderr, "%s:%u/%u: ", filename, nline, ncol);
-    fprintf(stderr, "%.*s\n", (int)(line_end - line), line);
-    fprintf(stderr, "%*c", ncol + loc, ' ');
-    fprintf(stderr, "^ ");
+    fprintf(stderr, "\e[1m%s:%u:%u: \e[31merror:\e[0;1m ", filename, nline, utf8_coln);
     vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
+    fprintf(stderr, "\e[0m\n");
+    fprintf(stderr, "%.*s\n", (int)(line_end - line), line);
+    if (utf8_coln != 1) {
+        fprintf(stderr, "%*c", utf8_coln - 1, ' ');
+    }
+    fprintf(stderr, "^\n");
 }
 
 void
@@ -309,3 +320,4 @@ report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...) {
     va_start(args, fmt);
     report_errorv(f, line, col, fmt, args);
 }
+

@@ -79,7 +79,7 @@ ps_peek(preprocessor *pp, pp_parse_stack **psp) {
         } else {
             tok = NEW_PP_TOKEN(pp);
             memcpy(tok, &local_tok, sizeof(pp_token));
-            tok->loc.filename = (*psp)->f->name;
+            tok->loc.filename = (*psp)->f->full_path;
             if (tok->str.data) {
                 tok->str = string_dup(pp->a, tok->str);
             }
@@ -174,6 +174,15 @@ ps_eat_multiple(preprocessor *pp, pp_parse_stack *ps, uint32_t count) {
     for (uint32_t i = 0; i < count; ++i) {
         ps_eat(pp, ps);
     }
+}
+
+static void
+report_error_pp_tok(preprocessor *pp, pp_token *tok, char *fmt, ...) {
+    file *file = get_file(pp->fs, tok->loc.filename, 0);
+    assert(file);
+    va_list args;
+    va_start(args, fmt);
+    report_errorv(file, tok->loc.line, tok->loc.col, fmt, args);
 }
 
 // Frees macro arguments and adds them to freelist.
@@ -1210,7 +1219,9 @@ pp_parse(preprocessor *pp, struct token *tok) {
 
         if (!convert_pp_token(pp_tok, tok, pp->tok_buf, pp->tok_buf_capacity,
                               &pp->tok_buf_len, pp->a)) {
-            NOT_IMPL;
+            report_error_pp_tok(pp, pp_tok, "Unexpected token");
+            ps_eat(pp, pp->parse_stack);
+            continue;
         }
 #if HOLOC_DEBUG
         {

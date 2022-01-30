@@ -38,6 +38,7 @@ void report_error_internal(char *filename, char *file_contents, uint32_t line,
 void report_errorv(file *f, uint32_t line, uint32_t col, char *fmt,
                    va_list args);
 void report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...);
+
 // These are functions used internally in file_storage but we may want to use
 // them elsewhere
 //

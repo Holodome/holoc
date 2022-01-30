@@ -10,6 +10,8 @@
 /* привет мир */
 #endif 
 
+че)
+
 int main()
 {
     // comment
