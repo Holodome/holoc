@@ -501,8 +501,7 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
                 lex->tok_start = lex->cursor;
                 break;
             } else if (cp & 0x80) {
-                ++lex->cursor;
-
+                lex->tok_start = lex->cursor++;
                 tok->kind        = PP_TOK_OTHER;
                 lex->tok_buf[0]  = cp;
                 lex->tok_buf[1]  = 0;
