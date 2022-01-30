@@ -5,12 +5,10 @@
 #include <stdio.h>
 #define LAST 10
 
-#ifdef ASDSADAD
+#ifdef A
 /* !@!# */
 /* привет мир */
 #endif 
-
-че)
 
 int main()
 {

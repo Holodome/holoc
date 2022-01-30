@@ -738,3 +738,111 @@ ast_cond_incl_expr(allocator *a, token **tokp) {
     }
     return node;
 }
+
+int64_t
+ast_cond_incl_eval(ast *node) {
+    int64_t result = 0;
+    switch (node->kind) {
+        INVALID_DEFAULT_CASE;
+    case AST_TER: {
+        ast_ternary *ter = (void *)node;
+
+        result = ast_cond_incl_eval(ter->cond)
+                     ? ast_cond_incl_eval(ter->cond_true)
+                     : ast_cond_incl_eval(ter->cond_false);
+    } break;
+    case AST_BIN: {
+        ast_binary *bin = (void *)node;
+
+        int64_t left  = ast_cond_incl_eval(bin->left);
+        int64_t right = ast_cond_incl_eval(bin->right);
+
+        switch (bin->kind) {
+            INVALID_DEFAULT_CASE;
+        case AST_BIN_ADD:
+            result = left + right;
+            break;
+        case AST_BIN_SUB:
+            result = left - right;
+            break;
+        case AST_BIN_MUL:
+            result = left * right;
+            break;
+        case AST_BIN_DIV:
+            result = left / right;
+            break;
+        case AST_BIN_MOD:
+            result = left % right;
+            break;
+        case AST_BIN_LE:
+            result = left <= right;
+            break;
+        case AST_BIN_L:
+            result = left < right;
+            break;
+        case AST_BIN_GE:
+            result = left >= right;
+            break;
+        case AST_BIN_G:
+            result = left > right;
+            break;
+        case AST_BIN_EQ:
+            result = left == right;
+            break;
+        case AST_BIN_NEQ:
+            result = left != right;
+            break;
+        case AST_BIN_AND:
+            result = left & right;
+            break;
+        case AST_BIN_OR:
+            result = left | right;
+            break;
+        case AST_BIN_XOR:
+            result = left ^ right;
+            break;
+        case AST_BIN_LSHIFT:
+            result = left << right;
+            break;
+        case AST_BIN_RSHIFT:
+            result = left >> right;
+            break;
+        case AST_BIN_LAND:
+            result = left && right;
+            break;
+        case AST_BIN_LOR:
+            result = left || right;
+            break;
+        }
+    } break;
+    case AST_UN: {
+        ast_unary *un = (void *)node;
+
+        int64_t expr = ast_cond_incl_eval(un->expr);
+
+        switch (un->kind) {
+            INVALID_DEFAULT_CASE;
+        case AST_UN_MINUS:
+            result = -expr;
+            break;
+        case AST_UN_PLUS:
+            result = expr;
+            break;
+        case AST_UN_LNOT:
+            result = !expr;
+            break;
+        case AST_UN_NOT:
+            result = ~expr;
+            break;
+        }
+    } break;
+    case AST_NUM: {
+        ast_number *num = (void *)node;
+        assert(c_type_is_int(num->type->kind));
+        result = (int64_t)num->uint_value;
+    } break;
+    }
+
+    return result;
+}
+

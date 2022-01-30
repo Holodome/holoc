@@ -54,8 +54,7 @@ freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
 #define NEW_COND_INCL(_pp) FREELIST_ALLOC(_pp, cond_incl_freelist)
 #define NEW_LEX(_pp) FREELIST_ALLOC(_pp, lex_freelist)
 #define NEW_PARSE_STACK(_pp) FREELIST_ALLOC(_pp, parse_stack_freelist)
-
-#define NEW_PP_TOKEN(_pp) aalloc((_pp)->a, sizeof(pp_token))
+#define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(_pp, tok_freelist)
 
 // Peeks next token from parse stack.
 static pp_token *
@@ -502,7 +501,9 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
 
         tok = ps_peek(pp, ps);
         if (!PP_TOK_IS_PUNCT(tok, ')')) {
-            report_error_pp_tok(pp, tok, "Expected closing paren in function-like macro definition");
+            report_error_pp_tok(
+                pp, tok,
+                "Missin ')' in macro parameter list");
         } else {
             tok = ps_eat_peek(pp, ps);
         }
@@ -607,113 +608,6 @@ include_file(preprocessor *pp, pp_parse_stack **ps, string filename) {
     init_pp_lexer(parse->lexer, f->contents.data, STRING_END(f->contents),
                   pp->tok_buf, pp->tok_buf_capacity);
     LLIST_ADD(*ps, parse);
-}
-
-static int64_t
-evaluate_constant_expression(ast *node) {
-    int64_t result = 0;
-    switch (node->kind) {
-        INVALID_DEFAULT_CASE;
-    case AST_TER: {
-        ast_ternary *ter = (void *)node;
-
-        result = evaluate_constant_expression(ter->cond)
-                     ? evaluate_constant_expression(ter->cond_true)
-                     : evaluate_constant_expression(ter->cond_false);
-    } break;
-    case AST_BIN: {
-        ast_binary *bin = (void *)node;
-
-        int64_t left  = evaluate_constant_expression(bin->left);
-        int64_t right = evaluate_constant_expression(bin->right);
-
-        switch (bin->kind) {
-            INVALID_DEFAULT_CASE;
-        case AST_BIN_ADD:
-            result = left + right;
-            break;
-        case AST_BIN_SUB:
-            result = left - right;
-            break;
-        case AST_BIN_MUL:
-            result = left * right;
-            break;
-        case AST_BIN_DIV:
-            result = left / right;
-            break;
-        case AST_BIN_MOD:
-            result = left % right;
-            break;
-        case AST_BIN_LE:
-            result = left <= right;
-            break;
-        case AST_BIN_L:
-            result = left < right;
-            break;
-        case AST_BIN_GE:
-            result = left >= right;
-            break;
-        case AST_BIN_G:
-            result = left > right;
-            break;
-        case AST_BIN_EQ:
-            result = left == right;
-            break;
-        case AST_BIN_NEQ:
-            result = left != right;
-            break;
-        case AST_BIN_AND:
-            result = left & right;
-            break;
-        case AST_BIN_OR:
-            result = left | right;
-            break;
-        case AST_BIN_XOR:
-            result = left ^ right;
-            break;
-        case AST_BIN_LSHIFT:
-            result = left << right;
-            break;
-        case AST_BIN_RSHIFT:
-            result = left >> right;
-            break;
-        case AST_BIN_LAND:
-            result = left && right;
-            break;
-        case AST_BIN_LOR:
-            result = left || right;
-            break;
-        }
-    } break;
-    case AST_UN: {
-        ast_unary *un = (void *)node;
-
-        int64_t expr = evaluate_constant_expression(un->expr);
-
-        switch (un->kind) {
-            INVALID_DEFAULT_CASE;
-        case AST_UN_MINUS:
-            result = -expr;
-            break;
-        case AST_UN_PLUS:
-            result = expr;
-            break;
-        case AST_UN_LNOT:
-            result = !expr;
-            break;
-        case AST_UN_NOT:
-            result = ~expr;
-            break;
-        }
-    } break;
-    case AST_NUM: {
-        ast_number *num = (void *)node;
-        assert(c_type_is_int(num->type->kind));
-        result = (int64_t)num->uint_value;
-    } break;
-    }
-
-    return result;
 }
 
 static int64_t
@@ -822,7 +716,7 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
     printf("\n");
 #endif
     ast *expr_ast  = ast_cond_incl_expr_ternary(pp->a, &expr_tokens);
-    int64_t result = evaluate_constant_expression(expr_ast);
+    int64_t result = ast_cond_incl_eval(expr_ast);
 
     return result;
 }
