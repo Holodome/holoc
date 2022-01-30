@@ -12,7 +12,7 @@ TEST_EXES = $(TESTS:%.c=$(DIR)/%.exe)
 # all: format holoc 
 all: holoc 
 
-holoc: $(OBJS) | $(DIR)
+holoc: $(OBJS) | $(DIR) $(DEPS)
 	$(CC) -o $(DIR)/$@ $^ $(LDFLAGS)
 
 run: holoc 

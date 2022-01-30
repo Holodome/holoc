@@ -26,11 +26,15 @@
                                        pp_macro, next, name_hash, (_hash))
 #define GET_MACRO(_pp, _hash) (*GET_MACROP(_pp, _hash))
 
+#if 1
 #define FREELIST_ALLOC_(_fl, _a)                                \
     freelist_alloc_impl((void **)&(_fl),                        \
                         ((char *)&(_fl)->next - (char *)(_fl)), \
                         sizeof(*(_fl)), (_a))
 #define FREELIST_ALLOC(_pp, _fl_name) FREELIST_ALLOC_((_pp)->_fl_name, (_pp)->a)
+#else
+#define FREELIST_ALLOC(_pp, _fl_name) aalloc((_pp)->a, sizeof(*(_pp)->_fl_name))
+#endif
 
 static void *
 freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
@@ -57,7 +61,7 @@ freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
 static pp_token *
 ps_peek(preprocessor *pp, pp_parse_stack **psp) {
     pp_token *tok = NULL;
-    while (!tok) {
+    while (!tok && *psp) {
         tok = (*psp)->token_list;
         if (tok) {
             break;
@@ -71,9 +75,6 @@ ps_peek(preprocessor *pp, pp_parse_stack **psp) {
             pp_parse_stack *entry = *psp;
             LLIST_POP(*psp);
             LLIST_ADD(pp->parse_stack_freelist, entry);
-            if (!*psp) {
-                break;
-            }
             continue;
         } else {
             tok = NEW_PP_TOKEN(pp);
@@ -104,7 +105,7 @@ ps_peek(preprocessor *pp, pp_parse_stack **psp) {
 static void
 ps_eat(preprocessor *pp, pp_parse_stack *ps) {
     pp_token *tok = ps->token_list;
-#if 1
+#if 0
     char buffer[4096];
     fmt_pp_tok_verbose(buffer, sizeof(buffer), tok);
     printf("%s\n", buffer);
@@ -458,8 +459,7 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
     }
 
     // Get macro
-    string macro_name = tok->str;
-    printf("defined %s\n", tok->str.data);
+    string macro_name        = tok->str;
     uint32_t macro_name_hash = hash_string(macro_name);
     pp_macro **macrop        = GET_MACROP(pp, macro_name_hash);
     if (*macrop) {
@@ -786,9 +786,10 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = ps_eat_peek(pp, &converterp);
     }
+    LLIST_POP(pp->parse_stack_freelist);
 
     token *expr_tokens = converted.first;
-#if 1
+#if 0
     for (token *t = expr_tokens; t; t = t->next) {
         char buffer[4096];
         fmt_token(buffer, sizeof(buffer), t);
@@ -1193,7 +1194,7 @@ init_pp(preprocessor *pp, string filename, char *tok_buf,
 bool
 pp_parse(preprocessor *pp, struct token *tok) {
     bool result = false;
-    while (pp->parse_stack) {
+    while (ps_peek(pp, &pp->parse_stack)) {
         if (expand_macro(pp, &pp->parse_stack)) {
             continue;
         }
@@ -1203,6 +1204,10 @@ pp_parse(preprocessor *pp, struct token *tok) {
         }
 
         pp_token *pp_tok = ps_peek(pp, &pp->parse_stack);
+        if (!pp_tok) {
+            break;
+        }
+
         if (!convert_pp_token(pp_tok, tok, pp->tok_buf, pp->tok_buf_capacity,
                               &pp->tok_buf_len, pp->a)) {
             NOT_IMPL;
@@ -1217,6 +1222,7 @@ pp_parse(preprocessor *pp, struct token *tok) {
         }
 #endif
         result = true;
+        ps_eat(pp, pp->parse_stack);
         break;
     }
 
