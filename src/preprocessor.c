@@ -28,23 +28,23 @@
                                        pp_macro, next, name_hash, (_hash))
 #define GET_MACRO(_pp, _hash) (*GET_MACROP(_pp, _hash))
 
-#define NEW_MACRO_ARG(_pp) FREELIST_ALLOC(_pp->macro_arg_freelist, _pp->a)
+#define NEW_MACRO_ARG(_pp) FREELIST_ALLOC(&_pp->macro_arg_freelist, _pp->a)
 #define DEL_MACRO_ARG(_pp, _arg) FREELIST_FREE(_pp->macro_arg_freelist, _arg)
 
-#define NEW_MACRO(_pp) FREELIST_ALLOC(_pp->macro_freelist, _pp->a)
+#define NEW_MACRO(_pp) FREELIST_ALLOC(&_pp->macro_freelist, _pp->a)
 #define DEL_MACRO(_pp, _macro) FREELIST_FREE(_pp->macro_freelist, _macro)
 
-#define NEW_COND_INCL(_pp) FREELIST_ALLOC(_pp->cond_incl_freelist, _pp->a)
+#define NEW_COND_INCL(_pp) FREELIST_ALLOC(&_pp->cond_incl_freelist, _pp->a)
 #define DEL_COND_INCL(_pp, _incl) FREELIST_FREE(_pp->cond_incl_freelist, _incl)
 
-#define NEW_LEXER(_pp) FREELIST_ALLOC(_pp->lex_freelist, _pp->a)
+#define NEW_LEXER(_pp) FREELIST_ALLOC(&_pp->lex_freelist, _pp->a)
 #define DEL_LEXER(_pp, _lex) FREELIST_FREE(_pp->lex_freelist, _lex)
 
-#define NEW_PARSE_STACK(_pp) FREELIST_ALLOC(_pp->parse_stack_freelist, _pp->a)
+#define NEW_PARSE_STACK(_pp) FREELIST_ALLOC(&_pp->parse_stack_freelist, _pp->a)
 #define DEL_PARSE_STACK(_pp, _entry) \
     FREELIST_FREE(_pp->parse_stack_freelist, _entry)
 
-#define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(_pp->tok_freelist, _pp->a)
+#define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(&_pp->tok_freelist, _pp->a)
 #define DEL_PP_TOKEN(_pp, _tok) FREELIST_FREE(_pp->tok_freelist, _tok)
 
 static void
