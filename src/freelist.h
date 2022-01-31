@@ -17,6 +17,7 @@
 
 struct allocator;
 
+#if 1
 // Allocation from given freelist
 // HL 31.01.22 This code derefernces _fl that may be null pointer. This is
 // unclear whether this is considred a defined behaviour or not, but compilers
@@ -30,6 +31,10 @@ struct allocator;
 
 // Free object to freelist
 #define FREELIST_FREE(_fl, _node) LLIST_ADD(_fl, _node)
+#else 
+#define FREELIST_ALLOC(_flp, _a) aalloc(_a, sizeof(**(_flp)))
+#define FREELIST_FREE(_fl, _node) (void)0
+#endif 
 
 void *freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
                           struct allocator *a);

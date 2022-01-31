@@ -45,6 +45,8 @@ ppti_include_file(pp_token_iter *it, file_storage *fs, string filename) {
 
 void
 ppti_insert_tok_list(pp_token_iter *it, pp_token *first, pp_token *last) {
+    assert(first && last);
+
     ppti_entry *e = it->it;
     if (!e) {
         e = NEW_ENTRY(it);
@@ -62,7 +64,11 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
     if (e) {
         uint32_t idx    = 0;
         pp_token **tokp = &e->token_list;
-        while (idx != count) {
+        for (;;) {
+            if (*tokp && count == idx) {
+                break;
+            }
+
             // First handle the cases where some lookahead tokens are present
             if (*tokp && (*tokp)->next) {
                 tokp = &(*tokp)->next;
@@ -78,19 +84,52 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
             bool not_eof       = pp_lexer_parse(e->lexer, &local_tok);
             if (!not_eof) {
                 e = e->next;
+                if (e && e->token_list) {
+                    if (*tokp) {
+                        (*tokp)->next = e->token_list;
+                        tokp          = &(*tokp)->next;
+                    } else {
+                        *tokp = e->token_list;
+                    }
+                    e->token_list = NULL;
+                }
                 continue;
             }
 
             pp_token *new_tok = NEW_PP_TOKEN(it);
             memcpy(new_tok, &local_tok, sizeof(pp_token));
-            (*tokp)->next = new_tok;
-            tokp          = &(*tokp)->next;
-            ++idx;
+            new_tok->loc.filename = e->f->name;
+            if (new_tok->str.data) {
+                new_tok->str = string_dup(it->a, new_tok->str);
+            }
+#if HOLOC_DEBUG
+            {
+                char buffer[4096];
+                uint32_t len =
+                    fmt_pp_tok_verbose(buffer, sizeof(buffer), new_tok);
+                char *debug_info = aalloc(get_debug_allocator(), len + 1);
+                memcpy(debug_info, buffer, len + 1);
+                new_tok->_debug_info = debug_info;
+            }
+#endif
+
+            if (*tokp) {
+                assert(!(*tokp)->next);
+                (*tokp)->next = new_tok;
+                tokp          = &(*tokp)->next;
+                ++idx;
+            } else {
+                *tokp = new_tok;
+            }
         }
 
         if (idx == count) {
             tok = *tokp;
         }
+    }
+
+    if (!tok) {
+        tok = it->eof_token;
     }
     return tok;
 }

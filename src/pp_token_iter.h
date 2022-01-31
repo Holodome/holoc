@@ -55,6 +55,8 @@ typedef struct pp_token_iter {
 
     ppti_entry *it;
 
+    struct pp_token *eof_token;
+
     struct pp_token **token_freelist;
     struct pp_lexer **lexer_freelist;
     struct ppti_entry *it_freelist;
