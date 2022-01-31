@@ -290,9 +290,9 @@ report_error_internalv(char *filename, char *file_contents, uint32_t nline,
         ++line_end;
     }
 
-    fprintf(stderr, "\e[1m%s:%u:%u: \e[31merror:\e[0;1m ", filename, nline, utf8_coln);
+    fprintf(stderr, "033[1m%s:%u:%u: 033[31merror:033[0;1m ", filename, nline, utf8_coln);
     vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\e[0m\n");
+    fprintf(stderr, "033[0m\n");
     fprintf(stderr, "%.*s\n", (int)(line_end - line), line);
     if (utf8_coln != 1) {
         fprintf(stderr, "%*c", utf8_coln - 1, ' ');

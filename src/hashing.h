@@ -40,7 +40,7 @@ void **hash_table_sc_get_u32_(void **entries, uint32_t entry_count,
 #define hash_string__(_key, _len, _seed) murmur3_32(_key, _len, _seed)
 #define hash_string_(_string, _seed) \
     hash_string__((_string).data, (_string).len, _seed)
-#define hash_string(_string, ...) hash_string_((_string), (0, ##__VA_ARGS__))
+#define hash_string(_string) hash_string_((_string), 0)
 uint32_t murmur3_32(void *keyv, uint32_t len, uint32_t seed);
 
 #endif

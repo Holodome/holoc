@@ -48,7 +48,7 @@ bump_bootstrap__(uintptr_t offset, uint64_t size) {
     void *memory = bump_alloc(&allocator, size + sizeof(allocator));
     memcpy(memory, &allocator, sizeof(allocator));
     void *result                = (uint8_t *)memory + sizeof(allocator);
-    *(void **)(result + offset) = memory;
+    *(void **)((char *)result + offset) = memory;
     return result;
 }
 

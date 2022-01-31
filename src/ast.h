@@ -90,7 +90,7 @@ typedef enum {
 
 #define _AST_FIELDS   \
     struct ast *next; \
-    ast_kind kind;
+    ast_kind kind
 
 typedef struct ast {
     _AST_FIELDS;

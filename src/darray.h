@@ -31,11 +31,12 @@ typedef struct {
 #define da_reserve(_type, _size) da_reserve_(sizeof(_type), _size)
 // Pushes 1 element
 // _it must be the same type as array element (not pointer to it)
-#define da_push(_da, _it, _a)                                          \
-    do {                                                               \
-        da_is_full(_da) ? (_da) = da_grow((_da), sizeof(*(_da)), (_a)) \
-                        : (void)0;                                     \
-        (_da)[da_header(_da)->size++] = (_it);                         \
+#define da_push(_da, _it, _a)                             \
+    do {                                                  \
+        if (da_is_full(_da)) {                            \
+            (_da) = da_grow((_da), sizeof(*(_da)), (_a)); \
+        }                                                 \
+        (_da)[da_header(_da)->size++] = (_it);            \
     } while (0)
 // Frees memory allocated by array
 #define da_free(_da, _a) \
