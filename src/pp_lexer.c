@@ -500,7 +500,7 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
                 lex->tok_start = lex->cursor;
                 break;
             } else if (cp & 0x80) {
-                lex->tok_start = lex->cursor++;
+                lex->tok_start   = lex->cursor++;
                 tok->kind        = PP_TOK_OTHER;
                 lex->tok_buf[0]  = cp;
                 lex->tok_buf[1]  = 0;
@@ -540,7 +540,7 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
 }
 
 void
-init_pp_lexer(pp_lexer *lex, char *data, char *eof, char *tok_buf,
+pp_lexer_init(pp_lexer *lex, char *data, char *eof, char *tok_buf,
               uint32_t tok_buf_size) {
     lex->tok_buf          = tok_buf;
     lex->tok_buf_capacity = tok_buf_size;

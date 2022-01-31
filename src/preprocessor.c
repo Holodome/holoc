@@ -223,7 +223,7 @@ expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
         new_token->loc      = initial_loc;
         LLISTC_ADD_LAST(&def, new_token);
     }
-    ppti_insert_tok_list(it, def.first);
+    ppti_insert_tok_list(it, def.first, def.last);
 }
 
 static bool
@@ -252,7 +252,7 @@ expand_macro(preprocessor *pp, pp_token_iter *it) {
             // Eat the identifier. We do it here because we need it for copying
             // source information, like location to new tokens.
             ppti_eat(it);
-            ppti_insert_tok_list(it, def.first);
+            ppti_insert_tok_list(it, def.first, def.last);
 
             result = true;
         } break;
@@ -520,7 +520,7 @@ eval_pp_expr(preprocessor *pp, pp_token_iter *it) {
     // Convert these tokens to C ones.
     linked_list_constructor converted = {0};
     pp_token_iter iter = {.a = pp->a, .token_freelist = &pp->tok_freelist};
-    ppti_insert_tok_list(&iter, modified.first);
+    ppti_insert_tok_list(&iter, modified.first, modified.last);
     tok = ppti_peek(&iter);
     while (tok) {
         if (expand_macro(pp, &iter)) {
@@ -733,7 +733,7 @@ static void
 predefined_macro(preprocessor *pp, string name, string value) {
     char lexer_buffer[4096];
     pp_lexer lex = {0};
-    init_pp_lexer(&lex, value.data, STRING_END(value), lexer_buffer,
+    pp_lexer_init(&lex, value.data, STRING_END(value), lexer_buffer,
                   sizeof(lexer_buffer));
 
     linked_list_constructor tokens = {0};
@@ -957,7 +957,9 @@ init_pp(preprocessor *pp, string filename, char *tok_buf,
 
     define_common_predefined_macros(pp, filename);
 
-    pp->it = aalloc(pp->a, sizeof(pp_token_iter));
+    pp->it               = aalloc(pp->a, sizeof(pp_token_iter));
+    pp->tok_buf          = tok_buf;
+    pp->tok_buf_capacity = tok_buf_size;
     ppti_include_file(pp->it, pp->fs, filename);
 }
 

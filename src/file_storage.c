@@ -231,31 +231,29 @@ get_file(file_storage *fs, string name, file *current_file) {
             actual_path = get_filepath_relative(fs, name);
         }
 
-        if (!actual_path.data) {
-            NOT_IMPL;
+        if (actual_path.data) {
+            assert(file_exists(actual_path.data));
+
+            f                = aalloc(fs->a, sizeof(file));
+            f->name          = string_dup(fs->a, name);
+            f->full_path     = actual_path;
+            string contents  = read_file_data(actual_path, fs->a);
+            f->contents_init = contents;
+
+            char *s = contents.data;
+            // BOM
+            if (strcmp(s, "\xef\xbb\xbf") == 0) {
+                s += 3;
+            }
+            // Phase 1
+            canonicalize_newline(s);
+            replace_trigraphs(s);
+            // Phase 2
+            char *send  = remove_backslash_newline(s);
+            f->contents = string(s, send - s);
+
+            LLIST_ADD(fs->files, f);
         }
-
-        assert(file_exists(actual_path.data));
-
-        f                = aalloc(fs->a, sizeof(file));
-        f->name          = string_dup(fs->a, name);
-        f->full_path     = actual_path;
-        string contents  = read_file_data(actual_path, fs->a);
-        f->contents_init = contents;
-
-        char *s = contents.data;
-        // BOM
-        if (strcmp(s, "\xef\xbb\xbf") == 0) {
-            s += 3;
-        }
-        // Phase 1
-        canonicalize_newline(s);
-        replace_trigraphs(s);
-        // Phase 2
-        char *send  = remove_backslash_newline(s);
-        f->contents = string(s, send - s);
-
-        LLIST_ADD(fs->files, f);
     }
     return f;
 }
@@ -276,9 +274,9 @@ report_error_internalv(char *filename, char *file_contents, uint32_t nline,
         }
         ++line;
     }
-    
+
     uint32_t utf8_coln = 0;
-    char *cursor = line;
+    char *cursor       = line;
     while (cursor < line + ncol) {
         uint32_t cp;
         cursor = utf8_decode(cursor, &cp);
@@ -290,7 +288,8 @@ report_error_internalv(char *filename, char *file_contents, uint32_t nline,
         ++line_end;
     }
 
-    fprintf(stderr, "033[1m%s:%u:%u: 033[31merror:033[0;1m ", filename, nline, utf8_coln);
+    fprintf(stderr, "033[1m%s:%u:%u: 033[31merror:033[0;1m ", filename, nline,
+            utf8_coln);
     vfprintf(stderr, fmt, args);
     fprintf(stderr, "033[0m\n");
     fprintf(stderr, "%.*s\n", (int)(line_end - line), line);

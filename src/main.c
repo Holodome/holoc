@@ -84,7 +84,7 @@ mptv(string filename) {
 
     char token_buffer[4096];
     pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
-    init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
+    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
     pp_token tok = {0};
     while (pp_lexer_parse(lex, &tok)) {
@@ -108,7 +108,7 @@ mptf(string filename) {
 
     char token_buffer[4096];
     pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
-    init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
+    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
     pp_token tok = {0};
     while (pp_lexer_parse(lex, &tok)) {
@@ -137,7 +137,7 @@ mpt(string filename) {
 
     char token_buffer[4096];
     pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
-    init_pp_lexer(lex, f->contents.data, STRING_END(f->contents), token_buffer,
+    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents), token_buffer,
                   sizeof(token_buffer));
     pp_token tok = {0};
     while (pp_lexer_parse(lex, &tok)) {

@@ -49,6 +49,10 @@ typedef struct ppti_entry {
 typedef struct pp_token_iter {
     struct allocator *a;
 
+    char *tok_buf;
+    uint32_t tok_buf_capacity;
+    uint32_t tok_buf_len;
+
     ppti_entry *it;
 
     struct pp_token **token_freelist;
@@ -56,8 +60,10 @@ typedef struct pp_token_iter {
     struct ppti_entry *it_freelist;
 } pp_token_iter;
 
-void ppti_include_file(pp_token_iter *it, struct file_storage *fs, string filename);
-void ppti_insert_tok_list(pp_token_iter *it, struct pp_token *token_list);
+void ppti_include_file(pp_token_iter *it, struct file_storage *fs,
+                       string filename);
+void ppti_insert_tok_list(pp_token_iter *it, struct pp_token *first,
+                          struct pp_token *last);
 
 struct pp_token *ppti_peek_forward(pp_token_iter *it, uint32_t count);
 struct pp_token *ppti_peek(pp_token_iter *it);
