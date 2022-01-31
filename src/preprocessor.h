@@ -8,6 +8,7 @@ struct bump_allocator;
 struct pp_token;
 struct c_type;
 struct token;
+struct pp_token_iter;
 
 #define PREPROCESSOR_MACRO_HASH_SIZE 2048
 
@@ -64,13 +65,6 @@ typedef struct pp_conditional_include {
     bool is_after_else;
 } pp_conditional_include;
 
-typedef struct pp_parse_stack {
-    struct pp_parse_stack *next;
-    struct pp_token *token_list;
-    struct pp_lexer *lexer;
-    struct file *f;
-} pp_parse_stack;
-
 typedef struct preprocessor {
     // Allocator used for allocating objects needed for parsing.
     // Preprocessor is designed in a way that thries to minimize number of
@@ -78,6 +72,8 @@ typedef struct preprocessor {
     struct allocator *a;
     //
     struct file_storage *fs;
+
+    struct pp_token_iter *it;
     // Buffer where strings and other normally heap-allocated string-like data
     // is written. Because we want to simplify preprocessor structure a bit, we
     // don't request for a specific allocator. Instead, strings are written to
@@ -90,15 +86,12 @@ typedef struct preprocessor {
     // Stack of conditional includes. Pointer because default level is not an
     // include.
     pp_conditional_include *cond_incl_stack;
-    // Stack of parsing tokens.
-    pp_parse_stack *parse_stack;
     // Macro hash table
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
 
     pp_macro *macro_freelist;
     pp_macro_arg *macro_arg_freelist;
     pp_conditional_include *cond_incl_freelist;
-    pp_parse_stack *parse_stack_freelist;
     struct pp_token *tok_freelist;
     struct pp_lexer *lex_freelist;
 } preprocessor;

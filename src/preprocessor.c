@@ -17,6 +17,7 @@
 #include "hashing.h"
 #include "llist.h"
 #include "pp_lexer.h"
+#include "pp_token_iter.h"
 #include "str.h"
 
 // NOTE: These can be separate functions, but since they are really wrappers for
@@ -45,125 +46,6 @@
 
 #define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(_pp->tok_freelist, _pp->a)
 #define DEL_PP_TOKEN(_pp, _tok) FREELIST_FREE(_pp->tok_freelist, _tok)
-
-// Peeks next token from parse stack.
-static pp_token *
-ps_peek(preprocessor *pp, pp_parse_stack **psp) {
-    pp_token *tok = NULL;
-    while (!tok && *psp) {
-        tok = (*psp)->token_list;
-        if (tok) {
-            break;
-        }
-
-        pp_token local_tok = {0};
-        if (!(*psp)->lexer || !pp_lexer_parse((*psp)->lexer, &local_tok)) {
-            if ((*psp)->lexer) {
-                LLIST_ADD(pp->lex_freelist, (*psp)->lexer);
-            }
-            pp_parse_stack *entry = *psp;
-            LLIST_POP(*psp);
-            LLIST_ADD(pp->parse_stack_freelist, entry);
-            continue;
-        } else {
-            tok = NEW_PP_TOKEN(pp);
-            memcpy(tok, &local_tok, sizeof(pp_token));
-            tok->loc.filename = (*psp)->f->full_path;
-            if (tok->str.data) {
-                tok->str = string_dup(pp->a, tok->str);
-            }
-        }
-
-#if HOLOC_DEBUG
-        {
-            char buffer[4096];
-            uint32_t len     = fmt_pp_tok_verbose(buffer, sizeof(buffer), tok);
-            char *debug_info = aalloc(get_debug_allocator(), len + 1);
-            memcpy(debug_info, buffer, len + 1);
-            tok->_debug_info = debug_info;
-        }
-#endif
-
-        (*psp)->token_list = tok;
-    }
-    return tok;
-}
-
-// Eats current tokens from parse stack, forcing it to move to next one on next
-// peek call.
-static void
-ps_eat(preprocessor *pp, pp_parse_stack *ps) {
-    pp_token *tok = ps->token_list;
-#if 0
-    char buffer[4096];
-    fmt_pp_tok_verbose(buffer, sizeof(buffer), tok);
-    printf("%s\n", buffer);
-#endif
-    assert(tok);
-    LLIST_POP(ps->token_list);
-    DEL_PP_TOKEN(pp, tok);
-}
-
-// Wrapper for consequetive eat and peek.
-static pp_token *
-ps_eat_peek(preprocessor *pp, pp_parse_stack **psp) {
-    ps_eat(pp, *psp);
-    return ps_peek(pp, psp);
-}
-
-// Sets token list to be the next tokens for parse stack. Used when expanding a
-// macro.
-static void
-ps_set_next_toks(preprocessor *pp, pp_parse_stack *ps, pp_token *toks) {
-    pp_token *last_tok = 0;
-    for (last_tok = toks; last_tok; last_tok = last_tok->next) {
-        if (!last_tok->next) {
-            break;
-        }
-    }
-
-    if (last_tok) {
-        last_tok->next = ps->token_list;
-    }
-    ps->token_list = toks;
-}
-
-// Peeks next n'th token.
-static pp_token *
-ps_peek_forward(preprocessor *pp, pp_parse_stack *ps, uint32_t n) {
-    uint32_t idx    = 0;
-    pp_token **tokp = &ps->token_list;
-    while (idx != n) {
-        if (*tokp && (*tokp)->next) {
-            tokp = &(*tokp)->next;
-            ++idx;
-            continue;
-        }
-
-        pp_token *new_tok    = NEW_PP_TOKEN(pp);
-        bool should_continue = pp_lexer_parse(ps->lexer, new_tok);
-        (*tokp)->next        = new_tok;
-        tokp                 = &(*tokp)->next;
-        ++idx;
-        if (!should_continue) {
-            break;
-        }
-    }
-
-    pp_token *tok = NULL;
-    if (idx == n) {
-        tok = *tokp;
-    }
-    return tok;
-}
-
-// Multiple consquetive eats.
-static void
-ps_eat_multiple(preprocessor *pp, pp_parse_stack *ps, uint32_t count) {
-    for (uint32_t i = 0; i < count; ++i) {
-        ps_eat(pp, ps);
-    }
-}
 
 static void
 report_error_pp_tok(preprocessor *pp, pp_token *tok, char *fmt, ...) {
@@ -200,9 +82,9 @@ copy_pp_token(preprocessor *pp, pp_token *tok) {
 // and forms arguments, that are written to the given macro.
 // Doesn't eat closing paren.
 static void
-get_function_like_macro_arguments(preprocessor *pp, pp_parse_stack **ps,
+get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it,
                                   pp_macro *macro) {
-    pp_token *tok = ps_peek(pp, ps);
+    pp_token *tok = ppti_peek(it);
     // If next token is closing parens, don't collect arguments.
     if (macro->arg_count == 0 && !macro->is_variadic &&
         !PP_TOK_IS_PUNCT(tok, ')')) {
@@ -226,7 +108,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_parse_stack **ps,
                 if (PP_TOK_IS_PUNCT(tok, ')') && parens_depth == 0) {
                     break;
                 } else if (PP_TOK_IS_PUNCT(tok, ',') && parens_depth == 0) {
-                    tok = ps_eat_peek(pp, ps);
+                    tok = ppti_eat_peek(it);
                     if (!macro->is_variadic) {
                         break;
                     }
@@ -238,7 +120,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_parse_stack **ps,
                 }
                 pp_token *new_token = copy_pp_token(pp, tok);
                 LLISTC_ADD_LAST(&macro_tokens, new_token);
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
             }
             // Add eof to the end
             pp_token *eof = NEW_PP_TOKEN(pp);
@@ -284,16 +166,16 @@ get_argument(pp_macro *macro, string name) {
 // invocation won't be changed doring it.
 // Sets locations of new tokens to be the same as 'initial' param.
 static void
-expand_function_like_macro(preprocessor *pp, pp_parse_stack **ps,
-                           pp_macro *macro, source_loc initial_loc) {
+expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
+                           source_loc initial_loc) {
     // Collect macro arguments.
-    get_function_like_macro_arguments(pp, ps, macro);
-    pp_token *tok = ps_peek(pp, ps);
+    get_function_like_macro_arguments(pp, it, macro);
+    pp_token *tok = ppti_peek(it);
     if (!PP_TOK_IS_PUNCT(tok, ')')) {
         report_error_pp_tok(
             pp, tok, "Missing closing paren in function-like macro invocation");
     } else {
-        ps_eat(pp, *ps);
+        ppti_eat(it);
     }
 
     linked_list_constructor def = {0};
@@ -341,14 +223,14 @@ expand_function_like_macro(preprocessor *pp, pp_parse_stack **ps,
         new_token->loc      = initial_loc;
         LLISTC_ADD_LAST(&def, new_token);
     }
-    ps_set_next_toks(pp, *ps, def.first);
+    ppti_insert_tok_list(it, def.first);
 }
 
 static bool
-expand_macro(preprocessor *pp, pp_parse_stack **ps) {
+expand_macro(preprocessor *pp, pp_token_iter *it) {
     bool result     = false;
     pp_macro *macro = NULL;
-    pp_token *tok   = ps_peek(pp, ps);
+    pp_token *tok   = ppti_peek(it);
     if (tok->kind == PP_TOK_ID) {
         uint32_t name_hash = hash_string(tok->str);
         macro              = GET_MACRO(pp, name_hash);
@@ -369,18 +251,18 @@ expand_macro(preprocessor *pp, pp_parse_stack **ps) {
             }
             // Eat the identifier. We do it here because we need it for copying
             // source information, like location to new tokens.
-            ps_eat(pp, *ps);
-            ps_set_next_toks(pp, *ps, def.first);
+            ppti_eat(it);
+            ppti_insert_tok_list(it, def.first);
 
             result = true;
         } break;
         case PP_MACRO_FUNC: {
             source_loc initial_loc = tok->loc;
 
-            pp_token *next = ps_peek_forward(pp, *ps, 1);
+            pp_token *next = ppti_peek_forward(it, 1);
             if (next && !next->has_whitespace && PP_TOK_IS_PUNCT(next, '(')) {
-                ps_eat_multiple(pp, *ps, 2);
-                expand_function_like_macro(pp, ps, macro, initial_loc);
+                ppti_eat_multiple(it, 2);
+                expand_function_like_macro(pp, it, macro, initial_loc);
                 result = true;
             }
         } break;
@@ -402,9 +284,9 @@ expand_macro(preprocessor *pp, pp_parse_stack **ps) {
 }
 
 static void
-define_macro_function_like_args(preprocessor *pp, pp_parse_stack **ps,
+define_macro_function_like_args(preprocessor *pp, pp_token_iter *it,
                                 pp_macro *macro) {
-    pp_token *tok = ps_peek(pp, ps);
+    pp_token *tok = ppti_peek(it);
 
     linked_list_constructor args = {0};
     for (;;) {
@@ -423,7 +305,7 @@ define_macro_function_like_args(preprocessor *pp, pp_parse_stack **ps,
             arg->name          = WRAPZ("__VA_ARGS__");
             LLISTC_ADD_LAST(&args, arg);
 
-            tok = ps_eat_peek(pp, ps);
+            tok = ppti_eat_peek(it);
         } else if (tok->kind != PP_TOK_ID) {
             report_error_pp_tok(pp, tok, "Unexpected token");
             break;
@@ -437,12 +319,12 @@ define_macro_function_like_args(preprocessor *pp, pp_parse_stack **ps,
             LLISTC_ADD_LAST(&args, arg);
             ++macro->arg_count;
 
-            tok = ps_eat_peek(pp, ps);
+            tok = ppti_eat_peek(it);
         }
 
         // Parse post-argument
         if (!tok->at_line_start && PP_TOK_IS_PUNCT(tok, ',')) {
-            tok = ps_eat_peek(pp, ps);
+            tok = ppti_eat_peek(it);
         } else {
             break;
         }
@@ -457,8 +339,8 @@ define_macro_function_like_args(preprocessor *pp, pp_parse_stack **ps,
 }
 
 static void
-define_macro(preprocessor *pp, pp_parse_stack **ps) {
-    pp_token *tok = ps_peek(pp, ps);
+define_macro(preprocessor *pp, pp_token_iter *it) {
+    pp_token *tok = ppti_peek(it);
 
     if (tok->kind != PP_TOK_ID) {
         report_error_pp_tok(pp, tok, "Expected identifier after #define");
@@ -481,19 +363,19 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
     macro->name      = macro_name;
     macro->name_hash = macro_name_hash;
 
-    tok = ps_eat_peek(pp, ps);
+    tok = ppti_eat_peek(it);
     // Function-like macro
     if (PP_TOK_IS_PUNCT(tok, '(') && !tok->has_whitespace) {
-        tok = ps_eat_peek(pp, ps);
+        tok = ppti_eat_peek(it);
         if (!PP_TOK_IS_PUNCT(tok, ')')) {
-            define_macro_function_like_args(pp, ps, macro);
+            define_macro_function_like_args(pp, it, macro);
         }
 
-        tok = ps_peek(pp, ps);
+        tok = ppti_peek(it);
         if (!PP_TOK_IS_PUNCT(tok, ')')) {
             report_error_pp_tok(pp, tok, "Missin ')' in macro parameter list");
         } else {
-            tok = ps_eat_peek(pp, ps);
+            tok = ppti_eat_peek(it);
         }
         macro->kind = PP_MACRO_FUNC;
     } else {
@@ -505,7 +387,7 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
     while (!tok->at_line_start) {
         pp_token *new_token = copy_pp_token(pp, tok);
         LLISTC_ADD_LAST(&def, new_token);
-        tok = ps_eat_peek(pp, ps);
+        tok = ppti_eat_peek(it);
     }
 
     pp_token *eof = NEW_PP_TOKEN(pp);
@@ -515,8 +397,8 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
 }
 
 static void
-undef_macro(preprocessor *pp, pp_parse_stack **ps) {
-    pp_token *tok = ps_peek(pp, ps);
+undef_macro(preprocessor *pp, pp_token_iter *it) {
+    pp_token *tok = ppti_peek(it);
     if (tok->kind != PP_TOK_ID) {
         report_error_pp_tok(pp, tok, "Expected identifier after #undef");
     }
@@ -540,19 +422,19 @@ push_cond_incl(preprocessor *pp, bool is_included) {
 }
 
 static void
-skip_cond_incl(preprocessor *pp, pp_parse_stack **ps) {
-    pp_token *tok  = ps_peek(pp, ps);
+skip_cond_incl(preprocessor *pp, pp_token_iter *it) {
+    pp_token *tok  = ppti_peek(it);
     uint32_t depth = 0;
     while (tok->kind != PP_TOK_EOF) {
         if (!PP_TOK_IS_PUNCT(tok, '#') || !tok->at_line_start) {
-            tok = ps_eat_peek(pp, ps);
+            tok = ppti_eat_peek(it);
             continue;
         }
         // now the token is hash
-        pp_token *next = ps_peek_forward(pp, *ps, 1);
+        pp_token *next = ppti_peek_forward(it, 1);
 
         if (next->kind != PP_TOK_ID) {
-            ps_eat_multiple(pp, *ps, 2);
+            ppti_eat_multiple(it, 2);
             continue;
         }
 
@@ -570,8 +452,8 @@ skip_cond_incl(preprocessor *pp, pp_parse_stack **ps) {
                 --depth;
             }
         }
-        ps_eat_multiple(pp, *ps, 2);
-        tok = ps_peek(pp, ps);
+        ppti_eat_multiple(it, 2);
+        tok = ppti_peek(it);
     }
 
     if (depth) {
@@ -579,35 +461,16 @@ skip_cond_incl(preprocessor *pp, pp_parse_stack **ps) {
     }
 }
 
-static void
-include_file(preprocessor *pp, pp_parse_stack **ps, string filename) {
-    file *current_file = 0;
-    for (pp_parse_stack *entry = *ps; entry; entry = entry->next) {
-        if (entry->f) {
-            current_file = entry->f;
-            break;
-        }
-    }
-    file *f = get_file(pp->fs, filename, current_file);
-
-    pp_parse_stack *parse = NEW_PARSE_STACK(pp);
-    parse->lexer          = NEW_LEXER(pp);
-    parse->f              = f;
-    init_pp_lexer(parse->lexer, f->contents.data, STRING_END(f->contents),
-                  pp->tok_buf, pp->tok_buf_capacity);
-    LLIST_ADD(*ps, parse);
-}
-
 static int64_t
-eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
+eval_pp_expr(preprocessor *pp, pp_token_iter *it) {
     // Copy all tokens from current line so we can process them
     // independently
-    pp_token *tok                  = ps_peek(pp, ps);
+    pp_token *tok                  = ppti_peek(it);
     linked_list_constructor copied = {0};
     while (!tok->at_line_start) {
         pp_token *new_tok = copy_pp_token(pp, tok);
         LLISTC_ADD_LAST(&copied, new_tok);
-        tok = ps_eat_peek(pp, ps);
+        tok = ppti_eat_peek(it);
     }
     pp_token *eof = NEW_PP_TOKEN(pp);
     eof->kind     = PP_TOK_EOF;
@@ -656,13 +519,12 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
     // So now in tok we have a list of tokens that form constant expression.
     // Convert these tokens to C ones.
     linked_list_constructor converted = {0};
-    pp_parse_stack converter          = {.token_list = modified.first};
-    // OK THIS IS STRANGE TODO:
-    pp_parse_stack *converterp = &converter;
-    tok                        = ps_peek(pp, &converterp);
+    pp_token_iter iter = {.a = pp->a, .token_freelist = &pp->tok_freelist};
+    ppti_insert_tok_list(&iter, modified.first);
+    tok = ppti_peek(&iter);
     while (tok) {
-        if (expand_macro(pp, &converterp)) {
-            tok = ps_peek(pp, &converterp);
+        if (expand_macro(pp, &iter)) {
+            tok = ppti_peek(&iter);
             continue;
         }
 
@@ -690,9 +552,8 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
             c_tok->str = string_dup(pp->a, c_tok->str);
         }
         LLISTC_ADD_LAST(&converted, c_tok);
-        tok = ps_eat_peek(pp, &converterp);
+        tok = ppti_eat_peek(&iter);
     }
-    LLIST_POP(pp->parse_stack_freelist);
 
     token *expr_tokens = converted.first;
 #if 0
@@ -710,28 +571,28 @@ eval_pp_expr(preprocessor *pp, pp_parse_stack **ps) {
 }
 
 static bool
-process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
-    pp_token *tok = ps_peek(pp, ps);
+process_pp_directive(preprocessor *pp, pp_token_iter *it) {
+    pp_token *tok = ppti_peek(it);
     bool result   = false;
     if (PP_TOK_IS_PUNCT(tok, '#') && tok->at_line_start) {
-        tok = ps_eat_peek(pp, ps);
+        tok = ppti_eat_peek(it);
         if (tok->kind == PP_TOK_ID) {
             if (string_eq(tok->str, WRAPZ("define"))) {
-                tok = ps_eat_peek(pp, ps);
-                define_macro(pp, ps);
+                tok = ppti_eat_peek(it);
+                define_macro(pp, it);
             } else if (string_eq(tok->str, WRAPZ("undef"))) {
-                tok = ps_eat_peek(pp, ps);
-                undef_macro(pp, ps);
+                tok = ppti_eat_peek(it);
+                undef_macro(pp, it);
             } else if (string_eq(tok->str, WRAPZ("if"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
 
-                int64_t expr_result = eval_pp_expr(pp, ps);
+                int64_t expr_result = eval_pp_expr(pp, it);
                 push_cond_incl(pp, expr_result != 0);
                 if (!expr_result) {
-                    skip_cond_incl(pp, ps);
+                    skip_cond_incl(pp, it);
                 }
             } else if (string_eq(tok->str, WRAPZ("elif"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
 
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
@@ -742,18 +603,18 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
                     }
 
                     if (!incl->is_included) {
-                        int64_t expr_result = eval_pp_expr(pp, ps);
+                        int64_t expr_result = eval_pp_expr(pp, it);
                         if (expr_result) {
                             incl->is_included = true;
                         } else {
-                            skip_cond_incl(pp, ps);
+                            skip_cond_incl(pp, it);
                         }
                     } else {
-                        skip_cond_incl(pp, ps);
+                        skip_cond_incl(pp, it);
                     }
                 }
             } else if (string_eq(tok->str, WRAPZ("else"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
 
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
@@ -764,11 +625,11 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
                     }
                     incl->is_after_else = true;
                     if (incl->is_included) {
-                        skip_cond_incl(pp, ps);
+                        skip_cond_incl(pp, it);
                     }
                 }
             } else if (string_eq(tok->str, WRAPZ("endif"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
 
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
@@ -778,7 +639,7 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
                     DEL_COND_INCL(pp, incl);
                 }
             } else if (string_eq(tok->str, WRAPZ("ifdef"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
 
                 if (tok->kind != PP_TOK_ID) {
                     report_error_pp_tok(pp, tok, "Expected identifier");
@@ -787,10 +648,10 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
                 bool is_defined          = GET_MACRO(pp, macro_name_hash) != 0;
                 push_cond_incl(pp, is_defined);
                 if (!is_defined) {
-                    skip_cond_incl(pp, ps);
+                    skip_cond_incl(pp, it);
                 }
             } else if (string_eq(tok->str, WRAPZ("ifndef"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
 
                 if (tok->kind != PP_TOK_ID) {
                     report_error_pp_tok(pp, tok, "Expected identifier");
@@ -799,54 +660,54 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
                 bool is_defined          = GET_MACRO(pp, macro_name_hash) != 0;
                 push_cond_incl(pp, !is_defined);
                 if (is_defined) {
-                    skip_cond_incl(pp, ps);
+                    skip_cond_incl(pp, it);
                 }
             } else if (string_eq(tok->str, WRAPZ("line"))) {
                 // TODO:
             } else if (string_eq(tok->str, WRAPZ("pragma"))) {
                 NOT_IMPL;
             } else if (string_eq(tok->str, WRAPZ("error"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
                 char buffer[4096];
                 buffer_writer w = {buffer, buffer + sizeof(buffer)};
                 while (!tok->at_line_start) {
                     fmt_pp_tokw(&w, tok);
-                    tok = ps_eat_peek(pp, ps);
+                    tok = ppti_eat_peek(it);
                 }
                 report_error_pp_tok(pp, tok, "%s", buffer);
             } else if (string_eq(tok->str, WRAPZ("warning"))) {
                 // TODO:
             } else if (string_eq(tok->str, WRAPZ("include"))) {
-                tok = ps_eat_peek(pp, ps);
+                tok = ppti_eat_peek(it);
 
                 if (tok->at_line_start) {
                     NOT_IMPL;
                 }
 
                 if (PP_TOK_IS_PUNCT(tok, '<')) {
-                    tok = ps_eat_peek(pp, ps);
+                    tok = ppti_eat_peek(it);
                     char filename_buffer[4096];
                     char *buf_eof = filename_buffer + sizeof(filename_buffer);
                     char *cursor  = filename_buffer;
                     while (!PP_TOK_IS_PUNCT(tok, '>') && !tok->at_line_start) {
                         cursor += fmt_pp_tok(cursor, buf_eof - cursor, tok);
-                        tok = ps_eat_peek(pp, ps);
+                        tok = ppti_eat_peek(it);
                     }
 
                     if (!PP_TOK_IS_PUNCT(tok, '>')) {
                         report_error_pp_tok(pp, tok, "Expected '>'");
                     } else {
-                        tok = ps_eat_peek(pp, ps);
+                        tok = ppti_eat_peek(it);
                     }
 
                     string filename =
                         string(filename_buffer, cursor - filename_buffer);
-                    include_file(pp, ps, filename);
+                    ppti_include_file(it, pp->fs, filename);
                 } else if (tok->kind == PP_TOK_STR) {
                     string filename = tok->str;
 
-                    tok = ps_eat_peek(pp, ps);
-                    include_file(pp, ps, filename);
+                    tok = ppti_eat_peek(it);
+                    ppti_include_file(it, pp->fs, filename);
                 } else {
                     report_error_pp_tok(pp, tok,
                                         "Unexpected token (expected filename)");
@@ -859,9 +720,9 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
             NOT_IMPL;
         }
 
-        tok = ps_peek(pp, ps);
+        tok = ppti_peek(it);
         while (!tok->at_line_start) {
-            tok = ps_eat_peek(pp, ps);
+            tok = ppti_eat_peek(it);
         }
         result = true;
     }
@@ -1096,28 +957,23 @@ init_pp(preprocessor *pp, string filename, char *tok_buf,
 
     define_common_predefined_macros(pp, filename);
 
-    pp_token *eof_tok   = NEW_PP_TOKEN(pp);
-    eof_tok->kind       = PP_TOK_EOF;
-    pp_parse_stack *eof = NEW_PARSE_STACK(pp);
-    eof->token_list     = eof_tok;
-    LLIST_ADD(pp->parse_stack, eof);
-
-    include_file(pp, &pp->parse_stack, filename);
+    pp->it = aalloc(pp->a, sizeof(pp_token_iter));
+    ppti_include_file(pp->it, pp->fs, filename);
 }
 
 bool
 pp_parse(preprocessor *pp, struct token *tok) {
     bool result = false;
-    while (ps_peek(pp, &pp->parse_stack)) {
-        if (expand_macro(pp, &pp->parse_stack)) {
+    while (ppti_peek(pp->it)) {
+        if (expand_macro(pp, pp->it)) {
             continue;
         }
 
-        if (process_pp_directive(pp, &pp->parse_stack)) {
+        if (process_pp_directive(pp, pp->it)) {
             continue;
         }
 
-        pp_token *pp_tok = ps_peek(pp, &pp->parse_stack);
+        pp_token *pp_tok = ppti_peek(pp->it);
         if (!pp_tok) {
             break;
         }
@@ -1125,7 +981,7 @@ pp_parse(preprocessor *pp, struct token *tok) {
         if (!convert_pp_token(pp_tok, tok, pp->tok_buf, pp->tok_buf_capacity,
                               &pp->tok_buf_len, pp->a)) {
             report_error_pp_tok(pp, pp_tok, "Unexpected token");
-            ps_eat(pp, pp->parse_stack);
+            ppti_eat(pp->it);
             continue;
         }
 #if HOLOC_DEBUG
@@ -1138,7 +994,7 @@ pp_parse(preprocessor *pp, struct token *tok) {
         }
 #endif
         result = true;
-        ps_eat(pp, pp->parse_stack);
+        ppti_eat(pp->it);
         break;
     }
 

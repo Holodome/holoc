@@ -18,6 +18,11 @@
 struct allocator;
 
 // Allocation from given freelist
+// HL 31.01.22 This code derefernces _fl that may be null pointer. This is
+// unclear whether this is considred a defined behaviour or not, but compilers
+// generate code that does not actually do dereferencing. When accessing member,
+// it adds offset of that member to the location of the struct head.
+// https://godbolt.org/z/hKvsx38f9
 #define FREELIST_ALLOC(_fl, _a)                                 \
     freelist_alloc_impl((void **)&(_fl),                        \
                         ((char *)&(_fl)->next - (char *)(_fl)), \

@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "allocator.h"
 #include "buffer_writer.h"
 #include "str.h"
 #include "unicode.h"

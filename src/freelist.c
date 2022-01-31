@@ -1,8 +1,8 @@
 #include "freelist.h"
 
-#include "allocator.h"
 #include <string.h>
 
+#include "allocator.h"
 
 void *
 freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
