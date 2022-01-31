@@ -13,6 +13,7 @@
 #include "c_types.h"
 #include "file_storage.h"
 #include "filepath.h"
+#include "freelist.h"
 #include "hashing.h"
 #include "llist.h"
 #include "pp_lexer.h"
@@ -26,35 +27,24 @@
                                        pp_macro, next, name_hash, (_hash))
 #define GET_MACRO(_pp, _hash) (*GET_MACROP(_pp, _hash))
 
-#if 1
-#define FREELIST_ALLOC_(_fl, _a)                                \
-    freelist_alloc_impl((void **)&(_fl),                        \
-                        ((char *)&(_fl)->next - (char *)(_fl)), \
-                        sizeof(*(_fl)), (_a))
-#define FREELIST_ALLOC(_pp, _fl_name) FREELIST_ALLOC_((_pp)->_fl_name, (_pp)->a)
-#else
-#define FREELIST_ALLOC(_pp, _fl_name) aalloc((_pp)->a, sizeof(*(_pp)->_fl_name))
-#endif
+#define NEW_MACRO_ARG(_pp) FREELIST_ALLOC(_pp->macro_arg_freelist, _pp->a)
+#define DEL_MACRO_ARG(_pp, _arg) FREELIST_FREE(_pp->macro_arg_freelist, _arg)
 
-static void *
-freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
-                    allocator *a) {
-    void *result = *flp;
-    if (!result) {
-        result = aalloc(a, size);
-    } else {
-        *flp = *(void **)((char *)result + next_offset);
-        memset(result, 0, size);
-    }
-    return result;
-}
+#define NEW_MACRO(_pp) FREELIST_ALLOC(_pp->macro_freelist, _pp->a)
+#define DEL_MACRO(_pp, _macro) FREELIST_FREE(_pp->macro_freelist, _macro)
 
-#define NEW_MACRO_ARG(_pp) FREELIST_ALLOC(_pp, macro_arg_freelist)
-#define NEW_MACRO(_pp) FREELIST_ALLOC(_pp, macro_freelist)
-#define NEW_COND_INCL(_pp) FREELIST_ALLOC(_pp, cond_incl_freelist)
-#define NEW_LEX(_pp) FREELIST_ALLOC(_pp, lex_freelist)
-#define NEW_PARSE_STACK(_pp) FREELIST_ALLOC(_pp, parse_stack_freelist)
-#define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(_pp, tok_freelist)
+#define NEW_COND_INCL(_pp) FREELIST_ALLOC(_pp->cond_incl_freelist, _pp->a)
+#define DEL_COND_INCL(_pp, _incl) FREELIST_FREE(_pp->cond_incl_freelist, _incl)
+
+#define NEW_LEXER(_pp) FREELIST_ALLOC(_pp->lex_freelist, _pp->a)
+#define DEL_LEXER(_pp, _lex) FREELIST_FREE(_pp->lex_freelist, _lex)
+
+#define NEW_PARSE_STACK(_pp) FREELIST_ALLOC(_pp->parse_stack_freelist, _pp->a)
+#define DEL_PARSE_STACK(_pp, _entry) \
+    FREELIST_FREE(_pp->parse_stack_freelist, _entry)
+
+#define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(_pp->tok_freelist, _pp->a)
+#define DEL_PP_TOKEN(_pp, _tok) FREELIST_FREE(_pp->tok_freelist, _tok)
 
 // Peeks next token from parse stack.
 static pp_token *
@@ -111,7 +101,7 @@ ps_eat(preprocessor *pp, pp_parse_stack *ps) {
 #endif
     assert(tok);
     LLIST_POP(ps->token_list);
-    LLIST_ADD(pp->tok_freelist, tok);
+    DEL_PP_TOKEN(pp, tok);
 }
 
 // Wrapper for consequetive eat and peek.
@@ -501,9 +491,7 @@ define_macro(preprocessor *pp, pp_parse_stack **ps) {
 
         tok = ps_peek(pp, ps);
         if (!PP_TOK_IS_PUNCT(tok, ')')) {
-            report_error_pp_tok(
-                pp, tok,
-                "Missin ')' in macro parameter list");
+            report_error_pp_tok(pp, tok, "Missin ')' in macro parameter list");
         } else {
             tok = ps_eat_peek(pp, ps);
         }
@@ -603,7 +591,7 @@ include_file(preprocessor *pp, pp_parse_stack **ps, string filename) {
     file *f = get_file(pp->fs, filename, current_file);
 
     pp_parse_stack *parse = NEW_PARSE_STACK(pp);
-    parse->lexer          = NEW_LEX(pp);
+    parse->lexer          = NEW_LEXER(pp);
     parse->f              = f;
     init_pp_lexer(parse->lexer, f->contents.data, STRING_END(f->contents),
                   pp->tok_buf, pp->tok_buf_capacity);
@@ -787,7 +775,7 @@ process_pp_directive(preprocessor *pp, pp_parse_stack **ps) {
                     report_error_pp_tok(pp, tok, "Stray #endif");
                 } else {
                     LLIST_POP(pp->cond_incl_stack);
-                    LLIST_ADD(pp->cond_incl_freelist, incl);
+                    DEL_COND_INCL(pp, incl);
                 }
             } else if (string_eq(tok->str, WRAPZ("ifdef"))) {
                 tok = ps_eat_peek(pp, ps);
