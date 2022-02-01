@@ -43,7 +43,6 @@ fs_add_default_include_paths(void) {
                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
                   "Frameworks"),
             fs->a);
-    fs->include_path_count = da_size(fs->include_paths);
 }
 
 void
@@ -51,7 +50,6 @@ fs_add_include_paths(string *new_paths, uint32_t new_path_count) {
     for (uint32_t i = 0; i < new_path_count; ++i) {
         da_push(fs->include_paths, new_paths[i], fs->a);
     }
-    fs->include_path_count = da_size(fs->include_paths);
 }
 
 char *
@@ -199,7 +197,7 @@ get_filepath_in_same_dir(string name, string current_path) {
 static string
 get_filepath_from_include_paths(string name) {
     string result = {0};
-    for (uint32_t i = 0; i < fs->include_path_count; ++i) {
+    for (uint32_t i = 0; i < da_size(fs->include_paths); ++i) {
         string dir = fs->include_paths[i];
         char buffer[4096];
         snprintf(buffer, sizeof(buffer), "%.*s/%.*s", dir.len, dir.data,
