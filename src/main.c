@@ -240,6 +240,9 @@ process_file(string filename) {
 
 int
 main(int argc, char **argv) {
+    get_file_storage()->a = get_system_allocator();
+    fs_add_default_include_paths();
+
     parse_clargs(argc, argv);
 
     if (!da_size(settings.filenames)) {

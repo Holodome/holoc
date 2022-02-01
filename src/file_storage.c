@@ -14,41 +14,44 @@
 static file_storage fs_;
 static file_storage *fs = &fs_;
 
+file_storage *
+get_file_storage(void) {
+    return fs;
+}
+
 void
-gs_add_default_include_paths(void) {
-    allocator *a  = get_system_allocator();
-    string *paths = fs->include_paths;
+fs_add_default_include_paths(void) {
     // Linux folders
-    da_push(paths, WRAPZ("/usr/local/include"), a);
-    da_push(paths, WRAPZ("/usr/include/x86_64-linux-gnu"), a);
-    da_push(paths, WRAPZ("/usr/include"), a);
+    da_push(fs->include_paths, WRAPZ("/usr/local/include"), fs->a);
+    da_push(fs->include_paths, WRAPZ("/usr/include/x86_64-linux-gnu"), fs->a);
+    da_push(fs->include_paths, WRAPZ("/usr/include"), fs->a);
     // HL: This is copy from my mac clang paths
-    da_push(paths,
+    da_push(fs->include_paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Toolchains/"
                   "XcodeDefault.xctoolchain/usr/lib/clang/13.0.0/include"),
-            a);
-    da_push(paths,
+            fs->a);
+    da_push(fs->include_paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Platforms/"
                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"),
-            a);
-    da_push(paths,
+            fs->a);
+    da_push(fs->include_paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Toolchains/"
                   "XcodeDefault.xctoolchain/usr/include"),
-            a);
-    da_push(paths,
+            fs->a);
+    da_push(fs->include_paths,
             WRAPZ("/Applications/Xcode.app/Contents/Developer/Platforms/"
                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
                   "Frameworks"),
-            a);
+            fs->a);
+    fs->include_path_count = da_size(fs->include_paths);
 }
 
 void
 fs_add_include_paths(string *new_paths, uint32_t new_path_count) {
-    allocator *a  = get_system_allocator();
-    string *paths = fs->include_paths;
     for (uint32_t i = 0; i < new_path_count; ++i) {
-        da_push(paths, new_paths[i], a);
+        da_push(fs->include_paths, new_paths[i], fs->a);
     }
+    fs->include_path_count = da_size(fs->include_paths);
 }
 
 char *
@@ -269,46 +272,5 @@ fs_get_file(string name, file *current_file) {
         }
     }
     return f;
-}
-
-void
-report_error_internalv(char *filename, char *file_contents, uint32_t nline,
-                       uint32_t ncol, char *fmt, va_list args) {
-    char *line            = file_contents;
-    uint32_t line_counter = 1;
-    while (line_counter < nline) {
-        if (!*line) {
-            NOT_IMPL;
-            return;
-        }
-
-        if (*line == '\n') {
-            ++line_counter;
-        }
-        ++line;
-    }
-
-    uint32_t utf8_coln = 0;
-    char *cursor       = line;
-    while (cursor < line + ncol) {
-        uint32_t cp;
-        cursor = utf8_decode(cursor, &cp);
-        ++utf8_coln;
-    }
-
-    char *line_end = line + 1;
-    while (*line_end && *line_end != '\n') {
-        ++line_end;
-    }
-
-    fprintf(stderr, "\033[1m%s:%u:%u: \033[31merror:\033[0;1m ", filename,
-            nline, utf8_coln);
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\033[0m\n");
-    fprintf(stderr, "%.*s\n", (int)(line_end - line), line);
-    if (utf8_coln != 1) {
-        fprintf(stderr, "%*c", utf8_coln - 1, ' ');
-    }
-    fprintf(stderr, "^\n");
 }
 
