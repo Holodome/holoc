@@ -195,7 +195,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
             tok->kind     = TOK_ID;
             *buf_writtenp = snprintf(buf, buf_size, "%.*s", pp_tok->str.len,
                                      pp_tok->str.data);
-            tok->str = string(buf, pp_tok->str.len);
+            tok->str      = string(buf, pp_tok->str.len);
         }
         result = true;
     } break;

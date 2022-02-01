@@ -8,6 +8,7 @@
 static uint64_t allocated;
 
 static ALLOCATOR_REALLOC(system_realloc) {
+    (void)internal;
     void *new_ptr = 0;
     if (new_size == 0) {
         free(ptr);

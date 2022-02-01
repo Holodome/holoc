@@ -845,4 +845,3 @@ ast_cond_incl_eval(ast *node) {
 
     return result;
 }
-

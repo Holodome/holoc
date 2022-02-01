@@ -47,7 +47,7 @@ bump_bootstrap__(uintptr_t offset, uint64_t size) {
 
     void *memory = bump_alloc(&allocator, size + sizeof(allocator));
     memcpy(memory, &allocator, sizeof(allocator));
-    void *result                = (uint8_t *)memory + sizeof(allocator);
+    void *result                        = (uint8_t *)memory + sizeof(allocator);
     *(void **)((char *)result + offset) = memory;
     return result;
 }
@@ -136,6 +136,8 @@ bump_temp_end(temp_memory temp) {
 }
 
 static ALLOCATOR_REALLOC(bump_realloc) {
+    (void)ptr;
+    (void)old_size;
     bump_allocator *a = internal;
 
     void *new_ptr = 0;

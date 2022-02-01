@@ -227,6 +227,7 @@ mtpf(string filename) {
 
 static void
 mast(string filename) {
+    (void)filename;
     NOT_IMPL;
 }
 

@@ -84,7 +84,8 @@ copy_pp_token(preprocessor *pp, pp_token *tok) {
 // and forms arguments, that are written to the given macro.
 // Doesn't eat closing paren.
 static void
-get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro *macro) {
+get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it,
+                                  pp_macro *macro) {
     pp_token *tok = ppti_peek(it);
     // If next token is closing parens, don't collect arguments.
     if (macro->arg_count == 0 && !macro->is_variadic &&

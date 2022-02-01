@@ -31,10 +31,10 @@ struct allocator;
 
 // Free object to freelist
 #define FREELIST_FREE(_fl, _node) LLIST_ADD(_fl, _node)
-#else 
+#else
 #define FREELIST_ALLOC(_flp, _a) aalloc(_a, sizeof(**(_flp)))
 #define FREELIST_FREE(_fl, _node) (void)0
-#endif 
+#endif
 
 void *freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
                           struct allocator *a);

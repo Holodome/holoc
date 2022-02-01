@@ -1,11 +1,10 @@
 #include "ast_builder.h"
 
 #if 0
-#include "ast_builder.h"
-
 #include <assert.h>
 
 #include "ast.h"
+#include "ast_builder.h"
 #include "bump_allocator.h"
 #include "c_lang.h"
 #include "c_types.h"

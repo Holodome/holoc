@@ -288,8 +288,8 @@ report_error_internalv(char *filename, char *file_contents, uint32_t nline,
         ++line_end;
     }
 
-    fprintf(stderr, "\033[1m%s:%u:%u: \033[31merror:\033[0;1m ", filename, nline,
-            utf8_coln);
+    fprintf(stderr, "\033[1m%s:%u:%u: \033[31merror:\033[0;1m ", filename,
+            nline, utf8_coln);
     vfprintf(stderr, fmt, args);
     fprintf(stderr, "\033[0m\n");
     fprintf(stderr, "%.*s\n", (int)(line_end - line), line);
@@ -319,4 +319,3 @@ report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...) {
     va_start(args, fmt);
     report_errorv(f, line, col, fmt, args);
 }
-

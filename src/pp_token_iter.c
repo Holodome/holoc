@@ -167,4 +167,3 @@ ppti_eat_peek(pp_token_iter *it) {
     ppti_eat(it);
     return ppti_peek(it);
 }
-

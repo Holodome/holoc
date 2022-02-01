@@ -313,7 +313,7 @@ ast *ast_expr_primary(struct allocator *a, struct token **tokp);
 //
 // postfix_tail = '[' expr ']'
 //              | '(' func_args ')'
-//              | '.' ident 
+//              | '.' ident
 //              | '->' ident
 //              | '++'
 //              | '--'
@@ -324,7 +324,7 @@ ast *ast_expr_postfix(struct allocator *a, struct token **tokp);
 //       | '~' cast
 //       | '&' cast
 //       | '*' cast
-//       | '++' unary 
+//       | '++' unary
 //       | '--' unary
 //       | postfix
 ast *ast_expr_unary(struct allocator *a, struct token **tokp);

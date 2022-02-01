@@ -67,7 +67,7 @@ c_type_is_int_unsigned(c_type_kind kind) {
 bool
 c_types_are_compatible(c_type *a, c_type *b) {
     bool result = false;
-    assert(false);
+    assert(false && a && b);
     // TODO:
     return result;
 }
