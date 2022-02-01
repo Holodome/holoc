@@ -27,17 +27,13 @@ typedef struct file_storage {
     uint32_t include_path_count;
 } file_storage;
 
-file *get_file(file_storage *fs, string name, file *current_file);
+// file storage is made global. This, most obvoiuslt, prevents asynchronous
+// lock-free file reads. But it has been decided to be unimportant.
+file_storage *get_file_storage(void);
+void fs_add_default_include_paths(void);
+void fs_add_include_paths(string *paths, uint32_t path_count);
 
-void add_default_include_paths(string **pathsp);
-
-void report_error_internalv(char *filename, char *file_contents, uint32_t line,
-                            uint32_t col, char *fmt, va_list args);
-void report_error_internal(char *filename, char *file_contents, uint32_t line,
-                           uint32_t col, char *fmt, ...);
-void report_errorv(file *f, uint32_t line, uint32_t col, char *fmt,
-                   va_list args);
-void report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...);
+file *fs_get_file(string name, file *current_file);
 
 // These are functions used internally in file_storage but we may want to use
 // them elsewhere

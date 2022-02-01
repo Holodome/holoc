@@ -21,7 +21,7 @@
 #define DEL_PP_TOKEN(_it, _tok) FREELIST_FREE(*((_it)->token_freelist), _tok)
 
 void
-ppti_include_file(pp_token_iter *it, file_storage *fs, string filename) {
+ppti_include_file(pp_token_iter *it, string filename) {
     file *current_file = NULL;
     for (ppti_entry *e = it->it; e; e = e->next) {
         if (e->f) {
@@ -30,7 +30,7 @@ ppti_include_file(pp_token_iter *it, file_storage *fs, string filename) {
         }
     }
 
-    file *f = get_file(fs, filename, current_file);
+    file *f = fs_get_file(filename, current_file);
     if (!f) {
         NOT_IMPL;
     }

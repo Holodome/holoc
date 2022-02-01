@@ -11,10 +11,13 @@
 #include "str.h"
 #include "unicode.h"
 
+static file_storage fs_;
+static file_storage *fs = &fs_;
+
 void
-add_default_include_paths(string **pathsp) {
+gs_add_default_include_paths(void) {
     allocator *a  = get_system_allocator();
-    string *paths = *pathsp;
+    string *paths = fs->include_paths;
     // Linux folders
     da_push(paths, WRAPZ("/usr/local/include"), a);
     da_push(paths, WRAPZ("/usr/include/x86_64-linux-gnu"), a);
@@ -37,7 +40,15 @@ add_default_include_paths(string **pathsp) {
                   "MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/"
                   "Frameworks"),
             a);
-    *pathsp = paths;
+}
+
+void
+fs_add_include_paths(string *new_paths, uint32_t new_path_count) {
+    allocator *a  = get_system_allocator();
+    string *paths = fs->include_paths;
+    for (uint32_t i = 0; i < new_path_count; ++i) {
+        da_push(paths, new_paths[i], a);
+    }
 }
 
 char *
@@ -170,12 +181,12 @@ file_exists(char *filename) {
 }
 
 static string
-get_filepath_in_same_dir(file_storage *fs, string name, string current_path) {
+get_filepath_in_same_dir(string name, string current_path) {
     string result      = {0};
     string current_dir = path_dirname(current_path);
     char buffer[4096];
-    snprintf(buffer, sizeof(buffer), "%.*s/%s", current_dir.len,
-             current_dir.data, name.data);
+    snprintf(buffer, sizeof(buffer), "%.*s/%.*s", current_dir.len,
+             current_dir.data, name.len, name.data);
     if (file_exists(buffer)) {
         result = string_strdup(fs->a, buffer);
     }
@@ -183,12 +194,13 @@ get_filepath_in_same_dir(file_storage *fs, string name, string current_path) {
 }
 
 static string
-get_filepath_from_include_paths(file_storage *fs, string name) {
+get_filepath_from_include_paths(string name) {
     string result = {0};
     for (uint32_t i = 0; i < fs->include_path_count; ++i) {
         string dir = fs->include_paths[i];
         char buffer[4096];
-        snprintf(buffer, sizeof(buffer), "%s/%s", dir.data, name.data);
+        snprintf(buffer, sizeof(buffer), "%.*s/%.*s", dir.len, dir.data,
+                 name.len, name.data);
         if (file_exists(buffer)) {
             result = string_strdup(fs->a, buffer);
         }
@@ -197,12 +209,13 @@ get_filepath_from_include_paths(file_storage *fs, string name) {
 }
 
 static string
-get_filepath_relative(file_storage *fs, string name) {
+get_filepath_relative(string name) {
     string result = {0};
     char buffer[4096];
     get_current_dir(buffer, sizeof(buffer));
     uint32_t dir_len = strlen(buffer);
-    snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "/%s", name.data);
+    snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "/%.*s", name.len,
+             name.data);
     if (file_exists(buffer)) {
         result = string_strdup(fs->a, buffer);
     }
@@ -210,7 +223,7 @@ get_filepath_relative(file_storage *fs, string name) {
 }
 
 file *
-get_file(file_storage *fs, string name, file *current_file) {
+fs_get_file(string name, file *current_file) {
     file *f = NULL;
     for (f = fs->files; f; f = f->next) {
         if (string_eq(f->full_path, name)) {
@@ -222,13 +235,13 @@ get_file(file_storage *fs, string name, file *current_file) {
         string actual_path = {0};
         if (current_file) {
             actual_path =
-                get_filepath_in_same_dir(fs, name, current_file->full_path);
+                get_filepath_in_same_dir(name, current_file->full_path);
         }
         if (!actual_path.data) {
-            actual_path = get_filepath_from_include_paths(fs, name);
+            actual_path = get_filepath_from_include_paths(name);
         }
         if (!actual_path.data) {
-            actual_path = get_filepath_relative(fs, name);
+            actual_path = get_filepath_relative(name);
         }
 
         if (actual_path.data) {
@@ -299,23 +312,3 @@ report_error_internalv(char *filename, char *file_contents, uint32_t nline,
     fprintf(stderr, "^\n");
 }
 
-void
-report_error_internal(char *filename, char *file_contents, uint32_t line,
-                      uint32_t col, char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    report_error_internalv(filename, file_contents, line, col, fmt, args);
-}
-
-void
-report_errorv(file *f, uint32_t line, uint32_t col, char *fmt, va_list args) {
-    report_error_internalv(f->name.data, f->contents.data, line, col, fmt,
-                           args);
-}
-
-void
-report_error(file *f, uint32_t line, uint32_t col, char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    report_errorv(f, line, col, fmt, args);
-}

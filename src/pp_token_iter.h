@@ -31,7 +31,6 @@ struct pp_token;
 struct pp_lexer;
 struct file;
 struct allocator;
-struct file_storage;
 
 // Entry of preprocessor parse stack.
 typedef struct ppti_entry {
@@ -62,8 +61,7 @@ typedef struct pp_token_iter {
     struct ppti_entry *it_freelist;
 } pp_token_iter;
 
-void ppti_include_file(pp_token_iter *it, struct file_storage *fs,
-                       string filename);
+void ppti_include_file(pp_token_iter *it, string filename);
 void ppti_insert_tok_list(pp_token_iter *it, struct pp_token *first,
                           struct pp_token *last);
 

@@ -70,8 +70,6 @@ typedef struct preprocessor {
     // Preprocessor is designed in a way that thries to minimize number of
     // deallocations.
     struct allocator *a;
-    //
-    struct file_storage *fs;
 
     struct pp_token_iter *it;
     // Buffer where strings and other normally heap-allocated string-like data
