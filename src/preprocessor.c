@@ -982,8 +982,7 @@ init_pp(preprocessor *pp, string filename, char *tok_buf,
 
 bool
 pp_parse(preprocessor *pp, struct token *tok) {
-    bool result = false;
-    while (ppti_peek(pp->it)) {
+    for (;;) {
         if (expand_macro(pp, pp->it)) {
             continue;
         }
@@ -1012,10 +1011,9 @@ pp_parse(preprocessor *pp, struct token *tok) {
             tok->_debug_info = debug_info;
         }
 #endif
-        result = true;
         ppti_eat(pp->it);
         break;
     }
 
-    return result;
+    return tok->kind != TOK_EOF;
 }
