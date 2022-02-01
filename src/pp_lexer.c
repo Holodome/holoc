@@ -214,18 +214,6 @@ read_escaped_char(pp_lexer *lex) {
         default:
             result = cp;
             break;
-        case '\'':
-            result = '\'';
-            break;
-        case '\"':
-            result = '\"';
-            break;
-        case '?':
-            result = '?';
-            break;
-        case '\\':
-            result = '\\';
-            break;
         case 'a':
             result = '\a';
             break;
