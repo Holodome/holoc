@@ -15,7 +15,7 @@
 #define DEL_LEXER(_it, _lex) FREELIST_FREE(*((_it)->lexer_freelist), _lex)
 
 #define NEW_ENTRY(_it) FREELIST_ALLOC(&(_it)->it_freelist, (_it)->a)
-#define DEL_ENTRY(_it, _entry) FREELIST_FREE(*((_it)->it_freelist), _entry)
+#define DEL_ENTRY(_it, _entry) FREELIST_FREE(((_it)->it_freelist), _entry)
 
 #define NEW_PP_TOKEN(_it) FREELIST_ALLOC(((_it)->token_freelist), (_it)->a)
 #define DEL_PP_TOKEN(_it, _tok) FREELIST_FREE(*((_it)->token_freelist), _tok)
@@ -65,33 +65,29 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
         uint32_t idx    = 0;
         pp_token **tokp = &e->token_list;
         for (;;) {
-            if (*tokp && count == idx) {
-                break;
-            }
-
-            // First handle the cases where some lookahead tokens are present
-            if (*tokp && (*tokp)->next) {
+            // First, skip tokens that are already in tokens list
+            while (*tokp && (*tokp)->next && idx != count) {
                 tokp = &(*tokp)->next;
                 ++idx;
-                continue;
+            }
+
+            if (*tokp && count == idx) {
+                break;
             }
 
             if (!e || !e->lexer) {
                 break;
             }
 
+            // Try to use lexer.
             pp_token local_tok = {0};
             bool not_eof       = pp_lexer_parse(e->lexer, &local_tok);
+            // If lexer produces eof, meaning it has reached its end, we must
+            // skip to the next stack entry.
             if (!not_eof) {
                 e = e->next;
-                if (e && e->token_list) {
-                    if (*tokp) {
-                        (*tokp)->next = e->token_list;
-                        tokp          = &(*tokp)->next;
-                    } else {
-                        *tokp = e->token_list;
-                    }
-                    e->token_list = NULL;
+                if (e) {
+                    tokp = &e->token_list;
                 }
                 continue;
             }
@@ -155,6 +151,13 @@ ppti_eat(pp_token_iter *it) {
         if (tok) {
             LLIST_POP(e->token_list);
             DEL_PP_TOKEN(it, tok);
+        } else {
+            if (e->lexer) {
+                DEL_LEXER(it, e->lexer);
+            }
+            it->it = e->next;
+            DEL_ENTRY(it, e);
+            ppti_eat(it);
         }
     }
 }
