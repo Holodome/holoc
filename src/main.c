@@ -12,6 +12,7 @@
 #include "pp_lexer.h"
 #include "preprocessor.h"
 #include "str.h"
+#include "error_reporter.h"
 
 typedef enum {
     // print preprocessing tokens verbose, its on its own line
@@ -116,6 +117,7 @@ mptf(string filename) {
         printf("%s", buffer);
         memset(&tok, 0, sizeof(tok));
     }
+    printf("\n");
 }
 
 static void
@@ -201,6 +203,7 @@ mtpf(string filename) {
         }
         printf("%s", buffer);
     }
+    printf("\n");
 }
 
 static void
@@ -258,6 +261,6 @@ main(int argc, char **argv) {
 
         process_file(filename);
     }
-
+    er_print_final_stats();
     return 0;
 }

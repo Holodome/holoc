@@ -9,6 +9,7 @@ typedef struct error_reporter {
 } error_reporter;
 
 error_reporter *get_error_reporter(void);
+void er_print_final_stats(void);
 
 void report_message_internalv(string file_contents, source_loc loc, string message_kind,
                               char *msg, va_list args);
