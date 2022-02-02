@@ -47,13 +47,6 @@
 #define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(&(_pp)->tok_freelist, (_pp)->a)
 #define DEL_PP_TOKEN(_pp, _tok) FREELIST_FREE((_pp)->tok_freelist, _tok)
 
-static void
-report_error_pp_tok(pp_token *tok, char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    report_errorv(tok->loc, fmt, args);
-}
-
 // Frees macro arguments and adds them to freelist.
 // TODO: Free tokens too.
 static void
@@ -84,7 +77,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro 
     pp_token *tok = ppti_peek(it);
     // If next token is closing parens, don't collect arguments.
     if (macro->arg_count == 0 && !macro->is_variadic && !PP_TOK_IS_PUNCT(tok, ')')) {
-        report_error_pp_tok(tok, "Unexpected macro arguments");
+        report_error_pp_token(tok, "Unexpected macro arguments");
     } else {
         // Collect arguments.
         // arg_idx needed for variadic argument checking and validating number
@@ -130,7 +123,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro 
             // Check if we are finished
             if (PP_TOK_IS_PUNCT(tok, ')')) {
                 if (arg_idx != macro->arg_count && !macro->is_variadic) {
-                    report_error_pp_tok(tok,
+                    report_error_pp_token(tok,
                                         "Incorrect number of arguments in macro invocation "
                                         "(expected %u, got %u)",
                                         macro->arg_count, arg_idx + 1);
@@ -167,7 +160,7 @@ expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
     get_function_like_macro_arguments(pp, it, macro);
     pp_token *tok = ppti_peek(it);
     if (!PP_TOK_IS_PUNCT(tok, ')')) {
-        report_error_pp_tok(tok, "Missing closing paren in function-like macro invocation");
+        report_error_pp_token(tok, "Missing closing paren in function-like macro invocation");
     } else {
         ppti_eat(it);
     }
@@ -190,7 +183,7 @@ expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
             temp              = temp->next;
             pp_macro_arg *arg = get_argument(macro, temp->str);
             if (!arg) {
-                report_error_pp_tok(tok,
+                report_error_pp_token(tok,
                                     "Expected macro argument after "
                                     "stringification operator '#'");
                 continue;
@@ -293,7 +286,7 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
         // Eat argument
         if (PP_TOK_IS_PUNCT(tok, PP_TOK_PUNCT_VARARGS)) {
             if (macro->is_variadic) {
-                report_error_pp_tok(tok, "Multiple varargs");
+                report_error_pp_token(tok, "Multiple varargs");
             }
 
             macro->is_variadic = true;
@@ -303,11 +296,11 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
 
             tok = ppti_eat_peek(pp->it);
         } else if (tok->kind != PP_TOK_ID) {
-            report_error_pp_tok(tok, "Unexpected token");
+            report_error_pp_token(tok, "Unexpected token");
             break;
         } else {
             if (macro->is_variadic) {
-                report_error_pp_tok(tok, "Argument after varargs");
+                report_error_pp_token(tok, "Argument after varargs");
             }
 
             pp_macro_arg *arg = NEW_MACRO_ARG(pp);
@@ -327,7 +320,7 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
     }
 
     if (tok->at_line_start || !PP_TOK_IS_PUNCT(tok, ')')) {
-        report_error_pp_tok(tok, "Expected closing paren in function-like macro");
+        report_error_pp_token(tok, "Expected closing paren in function-like macro");
     } else {
         macro->args = args.first;
     }
@@ -338,7 +331,7 @@ define_macro(preprocessor *pp) {
     pp_token *tok = ppti_peek(pp->it);
 
     if (tok->kind != PP_TOK_ID) {
-        report_error_pp_tok(tok, "Expected identifier after #define");
+        report_error_pp_token(tok, "Expected identifier after #define");
     }
 
     // Get macro
@@ -346,7 +339,7 @@ define_macro(preprocessor *pp) {
     uint32_t macro_name_hash = hash_string(macro_name);
     pp_macro **macrop        = GET_MACROP(pp, macro_name_hash);
     if (*macrop) {
-        report_error_pp_tok(tok, "#define on already defined macro");
+        report_error_pp_token(tok, "#define on already defined macro");
     } else {
         pp_macro *macro = NEW_MACRO(pp);
         LLIST_ADD(*macrop, macro);
@@ -368,7 +361,7 @@ define_macro(preprocessor *pp) {
 
         tok = ppti_peek(pp->it);
         if (!PP_TOK_IS_PUNCT(tok, ')')) {
-            report_error_pp_tok(tok, "Missin ')' in macro parameter list");
+            report_error_pp_token(tok, "Missin ')' in macro parameter list");
         } else {
             tok = ppti_eat_peek(pp->it);
         }
@@ -395,7 +388,7 @@ static void
 undef_macro(preprocessor *pp) {
     pp_token *tok = ppti_peek(pp->it);
     if (tok->kind != PP_TOK_ID) {
-        report_error_pp_tok(tok, "Expected identifier after #undef");
+        report_error_pp_token(tok, "Expected identifier after #undef");
     }
 
     string macro_name        = tok->str;
@@ -482,7 +475,7 @@ eval_pp_expr(preprocessor *pp) {
             }
 
             if (tok->kind != PP_TOK_ID) {
-                report_error_pp_tok(tok, "Expected identifier");
+                report_error_pp_token(tok, "Expected identifier");
                 break;
             }
 
@@ -498,7 +491,7 @@ eval_pp_expr(preprocessor *pp) {
             tok = tok->next;
             if (has_paren) {
                 if (!PP_TOK_IS_PUNCT(tok, ')')) {
-                    report_error_pp_tok(tok, "Expected closing parens ')' for defined()");
+                    report_error_pp_token(tok, "Expected closing parens ')' for defined()");
                 }
                 tok = tok->next;
             }
@@ -526,7 +519,7 @@ eval_pp_expr(preprocessor *pp) {
             // macro. In this case we can't do anything with it, so leave it be
             // and error will be reported when evaluating expression.
             if (macro) {
-                report_error_pp_tok(tok, "Unexpected identifier");
+                report_error_pp_token(tok, "Unexpected identifier");
                 break;
             } else {
                 tok->kind = PP_TOK_NUM;
@@ -537,7 +530,7 @@ eval_pp_expr(preprocessor *pp) {
         token *c_tok = aalloc(pp->a, sizeof(token));
         if (!convert_pp_token(tok, c_tok, pp->tok_buf, pp->tok_buf_capacity, &pp->tok_buf_len,
                               pp->a)) {
-            report_error_pp_tok(tok, "Unexpected token");
+            report_error_pp_token(tok, "Unexpected token");
             break;
         }
         if (c_tok->str.data) {
@@ -576,7 +569,7 @@ process_pp_directive(preprocessor *pp) {
                 tok = ppti_eat_peek(pp->it);
                 undef_macro(pp);
             } else if (string_eq(tok->str, WRAPZ("if"))) {
-                /* report_error_pp_tok(pp, tok, "DBG: IF"); */
+                /* report_error_pp_token(pp, tok, "DBG: IF"); */
                 tok = ppti_eat_peek(pp->it);
 
                 int64_t expr_result = eval_pp_expr(pp);
@@ -587,11 +580,11 @@ process_pp_directive(preprocessor *pp) {
             } else if (string_eq(tok->str, WRAPZ("elif"))) {
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
-                    report_error_pp_tok(tok, "Stray #elif");
+                    report_error_pp_token(tok, "Stray #elif");
                     tok = ppti_eat_peek(pp->it);
                 } else {
                     if (incl->is_after_else) {
-                        report_error_pp_tok(tok, "#elif is after #else");
+                        report_error_pp_token(tok, "#elif is after #else");
                     }
 
                     tok = ppti_eat_peek(pp->it);
@@ -609,12 +602,12 @@ process_pp_directive(preprocessor *pp) {
             } else if (string_eq(tok->str, WRAPZ("else"))) {
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
-                    report_error_pp_tok(tok, "Stray #else");
+                    report_error_pp_token(tok, "Stray #else");
                     tok = ppti_eat_peek(pp->it);
                 } else {
-                    /* report_error_pp_tok(pp, tok, "DBG: ELSE"); */
+                    /* report_error_pp_token(pp, tok, "DBG: ELSE"); */
                     if (incl->is_after_else) {
-                        report_error_pp_tok(tok, "#else is after #else");
+                        report_error_pp_token(tok, "#else is after #else");
                     }
                     tok                 = ppti_eat_peek(pp->it);
                     incl->is_after_else = true;
@@ -625,18 +618,18 @@ process_pp_directive(preprocessor *pp) {
             } else if (string_eq(tok->str, WRAPZ("endif"))) {
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
-                    report_error_pp_tok(tok, "Stray #endif");
+                    report_error_pp_token(tok, "Stray #endif");
                     tok = ppti_eat_peek(pp->it);
                 } else {
-                    /* report_error_pp_tok(pp, tok, "DBG: ENDIF"); */
+                    /* report_error_pp_token(pp, tok, "DBG: ENDIF"); */
                     tok = ppti_eat_peek(pp->it);
                     LLIST_POP(pp->cond_incl_stack);
                     DEL_COND_INCL(pp, incl);
                 }
             } else if (string_eq(tok->str, WRAPZ("ifdef"))) {
-                /* report_error_pp_tok(pp, tok, "DBG: IFDEF"); */
+                /* report_error_pp_token(pp, tok, "DBG: IFDEF"); */
                 if (tok->kind != PP_TOK_ID) {
-                    report_error_pp_tok(tok, "Expected identifier");
+                    report_error_pp_token(tok, "Expected identifier");
                 }
 
                 tok = ppti_eat_peek(pp->it);
@@ -648,9 +641,9 @@ process_pp_directive(preprocessor *pp) {
                     skip_cond_incl(pp);
                 }
             } else if (string_eq(tok->str, WRAPZ("ifndef"))) {
-                /* report_error_pp_tok(pp, tok, "DBG: IFNDEF"); */
+                /* report_error_pp_token(pp, tok, "DBG: IFNDEF"); */
                 if (tok->kind != PP_TOK_ID) {
-                    report_error_pp_tok(tok, "Expected identifier");
+                    report_error_pp_token(tok, "Expected identifier");
                 }
 
                 tok                      = ppti_eat_peek(pp->it);
@@ -672,7 +665,7 @@ process_pp_directive(preprocessor *pp) {
                     fmt_pp_tokw(&w, tok);
                     tok = ppti_eat_peek(pp->it);
                 }
-                report_error_pp_tok(tok, "%s", buffer);
+                report_error_pp_token(tok, "%s", buffer);
             } else if (string_eq(tok->str, WRAPZ("warning"))) {
                 // TODO:
             } else if (string_eq(tok->str, WRAPZ("include"))) {
@@ -693,7 +686,7 @@ process_pp_directive(preprocessor *pp) {
                     }
 
                     if (!PP_TOK_IS_PUNCT(tok, '>')) {
-                        report_error_pp_tok(tok, "Expected '>'");
+                        report_error_pp_token(tok, "Expected '>'");
                     } else {
                         tok = ppti_eat_peek(pp->it);
                     }
@@ -706,18 +699,21 @@ process_pp_directive(preprocessor *pp) {
                     tok = ppti_eat_peek(pp->it);
                     ppti_include_file(pp->it, filename);
                 } else {
-                    report_error_pp_tok(tok, "Unexpected token (expected filename)");
+                    report_error_pp_token(tok, "Unexpected token (expected filename)");
                 }
             } else {
-                report_error_pp_tok(tok, "Unexpected preprocessor directive");
+                report_error_pp_token(tok, "Unexpected preprocessor directive");
             }
         } else {
             NOT_IMPL;
         }
 
         tok = ppti_peek(pp->it);
-        while (!tok->at_line_start) {
-            tok = ppti_eat_peek(pp->it);
+        if (tok->kind != TOK_EOF && !tok->at_line_start) {
+            report_error_pp_token(tok, "Unexpected tokens aftern preprocessor directive");
+            while (tok->kind != TOK_EOF && !tok->at_line_start) {
+                tok = ppti_eat_peek(pp->it);
+            }
         }
         result = true;
     }
@@ -970,10 +966,11 @@ pp_parse(preprocessor *pp, struct token *tok) {
 
         if (!convert_pp_token(pp_tok, tok, pp->tok_buf, pp->tok_buf_capacity, &pp->tok_buf_len,
                               pp->a)) {
-            report_error_pp_tok(pp_tok, "Unexpected token");
+            report_error_pp_token(pp_tok, "Unexpected token");
             ppti_eat(pp->it);
             continue;
         }
+
 #if HOLOC_DEBUG
         {
             char buffer[4096];
