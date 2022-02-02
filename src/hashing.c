@@ -4,14 +4,14 @@
 #include <stddef.h>
 
 void *
-hash_table_oa_get_u32(void *entries, uint32_t entry_count, uintptr_t stride,
-                      uintptr_t hash_offset, uint32_t hash, bool or_zero) {
+hash_table_oa_get_u32(void *entries, uint32_t entry_count, uintptr_t stride, uintptr_t hash_offset,
+                      uint32_t hash, bool or_zero) {
     void *result       = NULL;
     uint32_t hash_mask = entry_count - 1;
     assert(!(hash_mask & entry_count));
     for (uint32_t offset = 0; offset < entry_count; ++offset) {
-        uint32_t hash_slot_idx = (hash + offset) & hash_mask;
-        void *hash_bucket      = ((uint8_t *)entries + hash_slot_idx * stride);
+        uint32_t hash_slot_idx     = (hash + offset) & hash_mask;
+        void *hash_bucket          = ((uint8_t *)entries + hash_slot_idx * stride);
         void *hash_bucket_hash_ptr = (uint8_t *)hash_bucket + hash_offset;
         uint32_t hash_bucket_hash  = *(uint32_t *)hash_bucket_hash_ptr;
         if (hash_bucket_hash == hash || (or_zero && !hash_bucket_hash)) {
@@ -24,9 +24,8 @@ hash_table_oa_get_u32(void *entries, uint32_t entry_count, uintptr_t stride,
 }
 
 void **
-hash_table_sc_get_u32_(void **entries, uint32_t entry_count,
-                       uintptr_t chain_offset, uintptr_t hash_offset,
-                       uint32_t hash) {
+hash_table_sc_get_u32_(void **entries, uint32_t entry_count, uintptr_t chain_offset,
+                       uintptr_t hash_offset, uint32_t hash) {
     uint32_t hash_mask = entry_count - 1;
     assert(!(hash_mask & entry_count));
     uint32_t hash_slot_idx = hash & hash_mask;

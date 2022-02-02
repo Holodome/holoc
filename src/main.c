@@ -7,11 +7,11 @@
 #include "ast.h"
 #include "c_lang.h"
 #include "darray.h"
+#include "error_reporter.h"
 #include "file_storage.h"
 #include "pp_lexer.h"
 #include "preprocessor.h"
 #include "str.h"
-#include "error_reporter.h"
 
 typedef enum {
     // print preprocessing tokens verbose, its on its own line
@@ -74,8 +74,7 @@ parse_clargs(uint32_t argc, char **argv) {
 static void
 mptv(string filename) {
     allocator *a = get_system_allocator();
-    fs_add_include_paths(settings.include_paths,
-                         da_size(settings.include_paths));
+    fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     file *f = fs_get_file(filename, 0);
 
@@ -95,8 +94,7 @@ mptv(string filename) {
 static void
 mptf(string filename) {
     allocator *a = get_system_allocator();
-    fs_add_include_paths(settings.include_paths,
-                         da_size(settings.include_paths));
+    fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     file *f = fs_get_file(filename, 0);
 
@@ -122,8 +120,7 @@ mptf(string filename) {
 static void
 mpt(string filename) {
     allocator *a = get_system_allocator();
-    fs_add_include_paths(settings.include_paths,
-                         da_size(settings.include_paths));
+    fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     file *f = fs_get_file(filename, 0);
 
@@ -144,8 +141,7 @@ static void
 mtp(string filename) {
     allocator *a = get_system_allocator();
 
-    fs_add_include_paths(settings.include_paths,
-                         da_size(settings.include_paths));
+    fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     char pp_buf[4096];
     preprocessor *pp = aalloc(a, sizeof(preprocessor));
@@ -163,8 +159,7 @@ mtp(string filename) {
 static void
 mtpv(string filename) {
     allocator *a = get_system_allocator();
-    fs_add_include_paths(settings.include_paths,
-                         da_size(settings.include_paths));
+    fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     char pp_buf[4096];
     preprocessor *pp = aalloc(a, sizeof(preprocessor));
@@ -183,8 +178,7 @@ static void
 mtpf(string filename) {
     allocator *a = get_system_allocator();
 
-    fs_add_include_paths(settings.include_paths,
-                         da_size(settings.include_paths));
+    fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     char pp_buf[4096];
     preprocessor *pp = aalloc(a, sizeof(preprocessor));
@@ -252,8 +246,7 @@ main(int argc, char **argv) {
         return 1;
     }
 
-    for (uint32_t filename_idx = 0; filename_idx < da_size(settings.filenames);
-         filename_idx++) {
+    for (uint32_t filename_idx = 0; filename_idx < da_size(settings.filenames); filename_idx++) {
         string filename = settings.filenames[filename_idx];
         /* printf("Filename %u: %.*s\n", filename_idx, filename.len, */
         /*        filename.data); */

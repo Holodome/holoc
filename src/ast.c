@@ -10,27 +10,20 @@
 #include "str.h"
 
 static uint64_t AST_STRUCT_SIZES[] = {
-    sizeof(ast),           sizeof(ast_identifier),
-    sizeof(ast_string),    sizeof(ast_number),
-    sizeof(ast_unary),     sizeof(ast_binary),
-    sizeof(ast_ternary),   sizeof(ast_if),
-    sizeof(ast_for),       sizeof(ast_do),
-    sizeof(ast_switch),    sizeof(ast_case),
-    sizeof(ast_block),     sizeof(ast_goto),
-    sizeof(ast_label),     sizeof(ast_func_call),
-    sizeof(ast_cast),      sizeof(ast_member),
-    sizeof(ast_return),    sizeof(ast_struct_decl),
-    sizeof(ast_enum_decl), sizeof(ast_enum_field),
-    sizeof(ast_decl),      sizeof(ast_func),
+    sizeof(ast),           sizeof(ast_identifier), sizeof(ast_string),  sizeof(ast_number),
+    sizeof(ast_unary),     sizeof(ast_binary),     sizeof(ast_ternary), sizeof(ast_if),
+    sizeof(ast_for),       sizeof(ast_do),         sizeof(ast_switch),  sizeof(ast_case),
+    sizeof(ast_block),     sizeof(ast_goto),       sizeof(ast_label),   sizeof(ast_func_call),
+    sizeof(ast_cast),      sizeof(ast_member),     sizeof(ast_return),  sizeof(ast_struct_decl),
+    sizeof(ast_enum_decl), sizeof(ast_enum_field), sizeof(ast_decl),    sizeof(ast_func),
     sizeof(ast_typedef),   sizeof(ast_type)};
 
 static string AST_BINARY_STRS[] = {
-    WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),  WRAPZ("*"),  WRAPZ("/"),
-    WRAPZ("%"),         WRAPZ("<="),  WRAPZ("<"),  WRAPZ(">="), WRAPZ(">"),
-    WRAPZ("=="),        WRAPZ("!="),  WRAPZ("&"),  WRAPZ("|"),  WRAPZ("^"),
-    WRAPZ("<<"),        WRAPZ(">>"),  WRAPZ("&&"), WRAPZ("||"), WRAPZ("="),
-    WRAPZ("+="),        WRAPZ("-="),  WRAPZ("*="), WRAPZ("/="), WRAPZ("%="),
-    WRAPZ("<<="),       WRAPZ(">>="), WRAPZ("&="), WRAPZ("|="), WRAPZ("^="),
+    WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),   WRAPZ("*"),  WRAPZ("/"),  WRAPZ("%"),
+    WRAPZ("<="),        WRAPZ("<"),   WRAPZ(">="),  WRAPZ(">"),  WRAPZ("=="), WRAPZ("!="),
+    WRAPZ("&"),         WRAPZ("|"),   WRAPZ("^"),   WRAPZ("<<"), WRAPZ(">>"), WRAPZ("&&"),
+    WRAPZ("||"),        WRAPZ("="),   WRAPZ("+="),  WRAPZ("-="), WRAPZ("*="), WRAPZ("/="),
+    WRAPZ("%="),        WRAPZ("<<="), WRAPZ(">>="), WRAPZ("&="), WRAPZ("|="), WRAPZ("^="),
     WRAPZ(","),
 };
 
@@ -54,10 +47,10 @@ fmt_astw(void *node, buffer_writer *w) {
     } break;
     case AST_NUM: {
         ast_number *num = node;
-        fmt_c_numw((fmt_c_num_args){.uint_value  = num->uint_value,
-                                    .float_value = num->float_value,
-                                    .type        = num->type},
-                   w);
+        fmt_c_numw(
+            (fmt_c_num_args){
+                .uint_value = num->uint_value, .float_value = num->float_value, .type = num->type},
+            w);
     } break;
     case AST_UN: {
         ast_unary *un = node;
@@ -171,10 +164,10 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         ast_number *num = node;
         buf_write(w, "%*c", depth, ' ');
         buf_write(w, "Num: ");
-        fmt_c_numw((fmt_c_num_args){.uint_value  = num->uint_value,
-                                    .float_value = num->float_value,
-                                    .type        = num->type},
-                   w);
+        fmt_c_numw(
+            (fmt_c_num_args){
+                .uint_value = num->uint_value, .float_value = num->float_value, .type = num->type},
+            w);
         buf_write(w, "\n");
     } break;
     case AST_UN: {
@@ -316,8 +309,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         buf_write(w, "Name: %s\n", enum_->name.data);
         buf_write(w, "%*c", depth + 1, ' ');
         buf_write(w, "Enumerators: %s\n", enum_->name.data);
-        for (ast_enum_field *field = enum_->fields; field;
-             field                 = (void *)field->next) {
+        for (ast_enum_field *field = enum_->fields; field; field = (void *)field->next) {
             fmt_ast_verbosew_internal(field, w, depth + 2);
         }
     } break;
@@ -359,11 +351,57 @@ fmt_ast_verbose(void *node, char *buf, uint32_t buf_size) {
 }
 
 void *
-make_ast(struct allocator *a, ast_kind kind) {
+make_ast(struct allocator *a, ast_kind kind, source_loc loc) {
     assert(kind < ARRAY_SIZE(AST_STRUCT_SIZES));
     ast *node  = aalloc(a, AST_STRUCT_SIZES[kind]);
     node->kind = kind;
+    node->loc  = loc;
     return node;
 }
 
+ast *
+make_ast_num_int(struct allocator *a, source_loc loc, uint64_t value, struct c_type *type) {
+    ast_number *num = make_ast(a, AST_NUM, loc);
+    num->uint_value = value;
+    num->type       = type;
+    assert(c_type_is_int(type));
+    return (ast *)num;
+}
 
+ast *
+make_ast_unary(struct allocator *a, source_loc loc, ast_unary_kind kind, ast *expr) {
+    assert(expr);
+    ast_unary *un = make_ast(a, AST_UN, loc);
+    un->un_kind   = kind;
+    un->expr      = expr;
+    return (ast *)un;
+}
+
+ast *
+make_ast_binary(struct allocator *a, ast_binary_kind kind, ast *left, ast *right) {
+    assert(left && right);
+    ast_binary *bin = make_ast(a, AST_BIN, left->loc);
+    bin->bin_kind   = kind;
+    bin->left       = left;
+    bin->right      = right;
+    return (ast *)bin;
+}
+
+ast *
+make_ast_cast(struct allocator *a, source_loc loc, ast *expr, struct c_type *type) {
+    assert(expr && type);
+    ast_cast *cast = make_ast(a, AST_CAST, loc);
+    cast->type     = type;
+    cast->expr     = expr;
+    return (ast *)cast;
+}
+
+ast *
+make_ast_ternary(struct allocator *a, ast *cond, ast *cond_true, ast *cond_false) {
+    assert(cond && cond_true && cond_false);
+    ast_ternary *ter = make_ast(a, AST_TER, cond->loc);
+    ter->cond        = cond;
+    ter->cond_true   = cond_true;
+    ter->cond_false  = cond_false;
+    return (ast *)ter;
+}

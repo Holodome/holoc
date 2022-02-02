@@ -24,9 +24,8 @@ struct allocator;
 // generate code that does not actually do dereferencing. When accessing member,
 // it adds offset of that member to the location of the struct head.
 // https://godbolt.org/z/hKvsx38f9
-#define FREELIST_ALLOC(_flp, _a)                                        \
-    freelist_alloc_impl((void **)(_flp),                                \
-                        ((char *)&(*(_flp))->next - (char *)(*(_flp))), \
+#define FREELIST_ALLOC(_flp, _a)                                                         \
+    freelist_alloc_impl((void **)(_flp), ((char *)&(*(_flp))->next - (char *)(*(_flp))), \
                         sizeof(**(_flp)), (_a))
 
 // Free object to freelist
@@ -36,7 +35,6 @@ struct allocator;
 #define FREELIST_FREE(_fl, _node) (void)0
 #endif
 
-void *freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
-                          struct allocator *a);
+void *freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size, struct allocator *a);
 
 #endif

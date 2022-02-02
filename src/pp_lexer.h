@@ -126,8 +126,7 @@ typedef struct pp_lexer {
 } pp_lexer;
 
 // Initializes all members of lex to parse given data.
-void pp_lexer_init(pp_lexer *lex, char *data, char *eof, char *tok_buf,
-                   uint32_t tok_buf_size);
+void pp_lexer_init(pp_lexer *lex, char *data, char *eof, char *tok_buf, uint32_t tok_buf_size);
 
 // Generates one new token at writes it in lexer->tok
 bool pp_lexer_parse(pp_lexer *lexer, pp_token *tok);

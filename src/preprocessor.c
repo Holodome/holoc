@@ -11,6 +11,8 @@
 #include "buffer_writer.h"
 #include "c_lang.h"
 #include "c_types.h"
+#include "cond_incl_ast.h"
+#include "error_reporter.h"
 #include "file_storage.h"
 #include "filepath.h"
 #include "freelist.h"
@@ -19,14 +21,12 @@
 #include "pp_lexer.h"
 #include "pp_token_iter.h"
 #include "str.h"
-#include "error_reporter.h"
 
 // NOTE: These can be separate functions, but since they are really wrappers for
 // another function let's not make them that way and keep as macros.
-#define GET_MACROP(_pp, _hash)                                        \
-    (pp_macro **)hash_table_sc_get_u32((_pp)->macro_hash,             \
-                                       ARRAY_SIZE((_pp)->macro_hash), \
-                                       pp_macro, next, name_hash, (_hash))
+#define GET_MACROP(_pp, _hash)                                                                     \
+    (pp_macro **)hash_table_sc_get_u32((_pp)->macro_hash, ARRAY_SIZE((_pp)->macro_hash), pp_macro, \
+                                       next, name_hash, (_hash))
 #define GET_MACRO(_pp, _hash) (*GET_MACROP(_pp, _hash))
 
 #define NEW_MACRO_ARG(_pp) FREELIST_ALLOC(&(_pp)->macro_arg_freelist, (_pp)->a)
@@ -36,16 +36,13 @@
 #define DEL_MACRO(_pp, _macro) FREELIST_FREE((_pp)->macro_freelist, _macro)
 
 #define NEW_COND_INCL(_pp) FREELIST_ALLOC(&(_pp)->cond_incl_freelist, (_pp)->a)
-#define DEL_COND_INCL(_pp, _incl) \
-    FREELIST_FREE((_pp)->cond_incl_freelist, _incl)
+#define DEL_COND_INCL(_pp, _incl) FREELIST_FREE((_pp)->cond_incl_freelist, _incl)
 
 #define NEW_LEXER(_pp) FREELIST_ALLOC(&(_pp)->lex_freelist, (_pp)->a)
 #define DEL_LEXER(_pp, _lex) FREELIST_FREE((_pp)->lex_freelist, _lex)
 
-#define NEW_PARSE_STACK(_pp) \
-    FREELIST_ALLOC(&(_pp)->parse_stack_freelist, (_pp)->a)
-#define DEL_PARSE_STACK(_pp, _entry) \
-    FREELIST_FREE((_pp)->parse_stack_freelist, _entry)
+#define NEW_PARSE_STACK(_pp) FREELIST_ALLOC(&(_pp)->parse_stack_freelist, (_pp)->a)
+#define DEL_PARSE_STACK(_pp, _entry) FREELIST_FREE((_pp)->parse_stack_freelist, _entry)
 
 #define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(&(_pp)->tok_freelist, (_pp)->a)
 #define DEL_PP_TOKEN(_pp, _tok) FREELIST_FREE((_pp)->tok_freelist, _tok)
@@ -83,12 +80,10 @@ copy_pp_token(preprocessor *pp, pp_token *tok) {
 // and forms arguments, that are written to the given macro.
 // Doesn't eat closing paren.
 static void
-get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it,
-                                  pp_macro *macro) {
+get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro *macro) {
     pp_token *tok = ppti_peek(it);
     // If next token is closing parens, don't collect arguments.
-    if (macro->arg_count == 0 && !macro->is_variadic &&
-        !PP_TOK_IS_PUNCT(tok, ')')) {
+    if (macro->arg_count == 0 && !macro->is_variadic && !PP_TOK_IS_PUNCT(tok, ')')) {
         report_error_pp_tok(tok, "Unexpected macro arguments");
     } else {
         // Collect arguments.
@@ -135,11 +130,10 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it,
             // Check if we are finished
             if (PP_TOK_IS_PUNCT(tok, ')')) {
                 if (arg_idx != macro->arg_count && !macro->is_variadic) {
-                    report_error_pp_tok(
-                        tok,
-                        "Incorrect number of arguments in macro invocation "
-                        "(expected %u, got %u)",
-                        macro->arg_count, arg_idx + 1);
+                    report_error_pp_tok(tok,
+                                        "Incorrect number of arguments in macro invocation "
+                                        "(expected %u, got %u)",
+                                        macro->arg_count, arg_idx + 1);
                 }
                 break;
             }
@@ -173,15 +167,13 @@ expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
     get_function_like_macro_arguments(pp, it, macro);
     pp_token *tok = ppti_peek(it);
     if (!PP_TOK_IS_PUNCT(tok, ')')) {
-        report_error_pp_tok(
-            tok, "Missing closing paren in function-like macro invocation");
+        report_error_pp_tok(tok, "Missing closing paren in function-like macro invocation");
     } else {
         ppti_eat(it);
     }
 
     linked_list_constructor def = {0};
-    for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF;
-         temp           = temp->next) {
+    for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF; temp = temp->next) {
         // Check if given token is a macro argument
         if (temp->kind == PP_TOK_ID) {
             pp_macro_arg *arg = get_argument(macro, temp->str);
@@ -247,8 +239,7 @@ expand_macro(preprocessor *pp, pp_token_iter *it) {
             source_loc initial_loc = tok->loc;
 
             linked_list_constructor def = {0};
-            for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF;
-                 temp           = temp->next) {
+            for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF; temp = temp->next) {
                 pp_token *new_token = copy_pp_token(pp, temp);
                 new_token->loc      = initial_loc;
                 LLISTC_ADD_LAST(&def, new_token);
@@ -336,8 +327,7 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
     }
 
     if (tok->at_line_start || !PP_TOK_IS_PUNCT(tok, ')')) {
-        report_error_pp_tok(tok,
-                            "Expected closing paren in function-like macro");
+        report_error_pp_tok(tok, "Expected closing paren in function-like macro");
     } else {
         macro->args = args.first;
     }
@@ -443,12 +433,10 @@ skip_cond_incl(preprocessor *pp) {
             continue;
         }
 
-        if (string_eq(next->str, WRAPZ("if")) ||
-            string_eq(next->str, WRAPZ("ifdef")) ||
+        if (string_eq(next->str, WRAPZ("if")) || string_eq(next->str, WRAPZ("ifdef")) ||
             string_eq(next->str, WRAPZ("ifndef"))) {
             ++depth;
-        } else if (string_eq(next->str, WRAPZ("elif")) ||
-                   string_eq(next->str, WRAPZ("else")) ||
+        } else if (string_eq(next->str, WRAPZ("elif")) || string_eq(next->str, WRAPZ("else")) ||
                    string_eq(next->str, WRAPZ("endif"))) {
             if (!depth) {
                 break;
@@ -510,8 +498,7 @@ eval_pp_expr(preprocessor *pp) {
             tok = tok->next;
             if (has_paren) {
                 if (!PP_TOK_IS_PUNCT(tok, ')')) {
-                    report_error_pp_tok(
-                        tok, "Expected closing parens ')' for defined()");
+                    report_error_pp_tok(tok, "Expected closing parens ')' for defined()");
                 }
                 tok = tok->next;
             }
@@ -524,7 +511,7 @@ eval_pp_expr(preprocessor *pp) {
     // So now in tok we have a list of tokens that form constant expression.
     // Convert these tokens to C ones.
     linked_list_constructor converted = {0};
-    pp_token_iter iter = {.a = pp->a, .token_freelist = &pp->tok_freelist};
+    pp_token_iter iter                = {.a = pp->a, .token_freelist = &pp->tok_freelist};
     ppti_insert_tok_list(&iter, modified.first, modified.last);
     tok = ppti_peek(&iter);
     while (tok) {
@@ -548,8 +535,8 @@ eval_pp_expr(preprocessor *pp) {
         }
 
         token *c_tok = aalloc(pp->a, sizeof(token));
-        if (!convert_pp_token(tok, c_tok, pp->tok_buf, pp->tok_buf_capacity,
-                              &pp->tok_buf_len, pp->a)) {
+        if (!convert_pp_token(tok, c_tok, pp->tok_buf, pp->tok_buf_capacity, &pp->tok_buf_len,
+                              pp->a)) {
             report_error_pp_tok(tok, "Unexpected token");
             break;
         }
@@ -711,8 +698,7 @@ process_pp_directive(preprocessor *pp) {
                         tok = ppti_eat_peek(pp->it);
                     }
 
-                    string filename =
-                        string(filename_buffer, cursor - filename_buffer);
+                    string filename = string(filename_buffer, cursor - filename_buffer);
                     ppti_include_file(pp->it, filename);
                 } else if (tok->kind == PP_TOK_STR) {
                     string filename = tok->str;
@@ -720,12 +706,10 @@ process_pp_directive(preprocessor *pp) {
                     tok = ppti_eat_peek(pp->it);
                     ppti_include_file(pp->it, filename);
                 } else {
-                    report_error_pp_tok(tok,
-                                        "Unexpected token (expected filename)");
+                    report_error_pp_tok(tok, "Unexpected token (expected filename)");
                 }
             } else {
-                report_error_pp_tok(tok,
-                                    "Unexpected preprocessor directive");
+                report_error_pp_tok(tok, "Unexpected preprocessor directive");
             }
         } else {
             NOT_IMPL;
@@ -744,8 +728,7 @@ static void
 predefined_macro(preprocessor *pp, string name, string value) {
     char lexer_buffer[4096];
     pp_lexer lex = {0};
-    pp_lexer_init(&lex, value.data, STRING_END(value), lexer_buffer,
-                  sizeof(lexer_buffer));
+    pp_lexer_init(&lex, value.data, STRING_END(value), lexer_buffer, sizeof(lexer_buffer));
 
     linked_list_constructor tokens = {0};
     for (;;) {
@@ -776,28 +759,25 @@ predefined_macro(preprocessor *pp, string name, string value) {
 static void
 define_common_predefined_macros(preprocessor *pp, string filename) {
     string file_onlyname = path_filename(filename);
-    string file_name = string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len,
-                                        file_onlyname.data);
+    string file_name = string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
     predefined_macro(pp, WRAPZ("__FILE_NAME__"), file_name);
 
-    string base_file =
-        string_memprintf(pp->a, "\"%.*s\"", filename.len, filename.data);
+    string base_file = string_memprintf(pp->a, "\"%.*s\"", filename.len, filename.data);
     predefined_macro(pp, WRAPZ("__BASE_FILE__"), base_file);
 
     time_t now    = time(0);
     struct tm *tm = localtime(&now);
 
     static char *months[] = {
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     };
     assert((unsigned)tm->tm_mon < ARRAY_SIZE(months));
-    string date = string_memprintf(pp->a, "\"%s %2d %d\"", months[tm->tm_mon],
-                                   tm->tm_mday, tm->tm_year + 1900);
+    string date = string_memprintf(pp->a, "\"%s %2d %d\"", months[tm->tm_mon], tm->tm_mday,
+                                   tm->tm_year + 1900);
     predefined_macro(pp, WRAPZ("__DATE__"), date);
 
-    string time = string_memprintf(pp->a, "\"%02d:%02d:%02d\"", tm->tm_hour,
-                                   tm->tm_min, tm->tm_sec);
+    string time =
+        string_memprintf(pp->a, "\"%02d:%02d:%02d\"", tm->tm_hour, tm->tm_min, tm->tm_sec);
     predefined_macro(pp, WRAPZ("__TIME__"), time);
 
     predefined_macro(pp, WRAPZ("__SIZE_TYPE__"), WRAPZ("unsigned long"));
@@ -805,8 +785,7 @@ define_common_predefined_macros(preprocessor *pp, string filename) {
     predefined_macro(pp, WRAPZ("__WCHAR_TYPE__"), WRAPZ("unsigned int"));
     predefined_macro(pp, WRAPZ("__WINT_TYPE__"), WRAPZ("unsigned int"));
     predefined_macro(pp, WRAPZ("__INTMAX_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__UINTMAX_TYPE__"),
-                     WRAPZ("unsigned long long"));
+    predefined_macro(pp, WRAPZ("__UINTMAX_TYPE__"), WRAPZ("unsigned long long"));
     /* predefined_macro(pp, WRAPZ("__SIG_ATOMIC_TYPE__"),
      * WRAPZ("sig_atomic_t")); */
     predefined_macro(pp, WRAPZ("__INT8_TYPE__"), WRAPZ("signed char"));
@@ -822,24 +801,19 @@ define_common_predefined_macros(preprocessor *pp, string filename) {
     predefined_macro(pp, WRAPZ("__INT_LEAST32_TYPE__"), WRAPZ("int"));
     predefined_macro(pp, WRAPZ("__INT_LEAST64_TYPE__"), WRAPZ("long long"));
     predefined_macro(pp, WRAPZ("__UINT_LEAST8_TYPE__"), WRAPZ("unsigned char"));
-    predefined_macro(pp, WRAPZ("__UINT_LEAST16_TYPE__"),
-                     WRAPZ("unsigned short"));
+    predefined_macro(pp, WRAPZ("__UINT_LEAST16_TYPE__"), WRAPZ("unsigned short"));
     predefined_macro(pp, WRAPZ("__UINT_LEAST32_TYPE__"), WRAPZ("unsigned int"));
-    predefined_macro(pp, WRAPZ("__UINT_LEAST64_TYPE__"),
-                     WRAPZ("unsigned long long"));
+    predefined_macro(pp, WRAPZ("__UINT_LEAST64_TYPE__"), WRAPZ("unsigned long long"));
     predefined_macro(pp, WRAPZ("__INT_FAST8_TYPE__"), WRAPZ("signed char"));
     predefined_macro(pp, WRAPZ("__INT_FAST16_TYPE__"), WRAPZ("short"));
     predefined_macro(pp, WRAPZ("__INT_FAST32_TYPE__"), WRAPZ("int"));
     predefined_macro(pp, WRAPZ("__INT_FAST64_TYPE__"), WRAPZ("long long"));
     predefined_macro(pp, WRAPZ("__UINT_FAST8_TYPE__"), WRAPZ("unsigned char"));
-    predefined_macro(pp, WRAPZ("__UINT_FAST16_TYPE__"),
-                     WRAPZ("unsigned short"));
+    predefined_macro(pp, WRAPZ("__UINT_FAST16_TYPE__"), WRAPZ("unsigned short"));
     predefined_macro(pp, WRAPZ("__UINT_FAST32_TYPE__"), WRAPZ("unsigned int"));
-    predefined_macro(pp, WRAPZ("__UINT_FAST64_TYPE__"),
-                     WRAPZ("unsigned long long"));
+    predefined_macro(pp, WRAPZ("__UINT_FAST64_TYPE__"), WRAPZ("unsigned long long"));
     predefined_macro(pp, WRAPZ("__INTPTR_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__UINTPTR_TYPE__"),
-                     WRAPZ("unsigned long long"));
+    predefined_macro(pp, WRAPZ("__UINTPTR_TYPE__"), WRAPZ("unsigned long long"));
 
     predefined_macro(pp, WRAPZ("__CHAR_BIT__"), WRAPZ("8"));
 
@@ -961,8 +935,7 @@ __INTMAX_WIDTH__
 }
 
 void
-init_pp(preprocessor *pp, string filename, char *tok_buf,
-        uint32_t tok_buf_size) {
+init_pp(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size) {
     pp->tok_buf          = tok_buf;
     pp->tok_buf_capacity = tok_buf_size;
 
@@ -995,8 +968,8 @@ pp_parse(preprocessor *pp, struct token *tok) {
             break;
         }
 
-        if (!convert_pp_token(pp_tok, tok, pp->tok_buf, pp->tok_buf_capacity,
-                              &pp->tok_buf_len, pp->a)) {
+        if (!convert_pp_token(pp_tok, tok, pp->tok_buf, pp->tok_buf_capacity, &pp->tok_buf_len,
+                              pp->a)) {
             report_error_pp_tok(pp_tok, "Unexpected token");
             ppti_eat(pp->it);
             continue;

@@ -38,8 +38,8 @@ ppti_include_file(pp_token_iter *it, string filename) {
     ppti_entry *entry = NEW_ENTRY(it);
     entry->f          = f;
     entry->lexer      = NEW_LEXER(it);
-    pp_lexer_init(entry->lexer, f->contents.data, STRING_END(f->contents),
-                  it->tok_buf, it->tok_buf_capacity);
+    pp_lexer_init(entry->lexer, f->contents.data, STRING_END(f->contents), it->tok_buf,
+                  it->tok_buf_capacity);
     LLIST_ADD(it->it, entry);
 }
 
@@ -101,8 +101,7 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
 #if HOLOC_DEBUG
             {
                 char buffer[4096];
-                uint32_t len =
-                    fmt_pp_tok_verbose(buffer, sizeof(buffer), new_tok);
+                uint32_t len     = fmt_pp_tok_verbose(buffer, sizeof(buffer), new_tok);
                 char *debug_info = aalloc(get_debug_allocator(), len + 1);
                 memcpy(debug_info, buffer, len + 1);
                 new_tok->_debug_info = debug_info;

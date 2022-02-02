@@ -64,11 +64,10 @@ static string KEYWORD_STRINGS[] = {
 };
 
 static string PUNCTUATOR_STRINGS[] = {
-    WRAPZ("(unknown)"), WRAPZ(">>="), WRAPZ("<<="), WRAPZ("+="), WRAPZ("-="),
-    WRAPZ("*="),        WRAPZ("/="),  WRAPZ("%="),  WRAPZ("&="), WRAPZ("|="),
-    WRAPZ("^="),        WRAPZ("++"),  WRAPZ("--"),  WRAPZ(">>"), WRAPZ("<<"),
-    WRAPZ("&&"),        WRAPZ("||"),  WRAPZ("=="),  WRAPZ("!="), WRAPZ("<="),
-    WRAPZ(">="),        WRAPZ("...")};
+    WRAPZ("(unknown)"), WRAPZ(">>="), WRAPZ("<<="), WRAPZ("+="), WRAPZ("-="), WRAPZ("*="),
+    WRAPZ("/="),        WRAPZ("%="),  WRAPZ("&="),  WRAPZ("|="), WRAPZ("^="), WRAPZ("++"),
+    WRAPZ("--"),        WRAPZ(">>"),  WRAPZ("<<"),  WRAPZ("&&"), WRAPZ("||"), WRAPZ("=="),
+    WRAPZ("!="),        WRAPZ("<="),  WRAPZ(">="),  WRAPZ("...")};
 
 static string
 get_kw_str(c_keyword_kind kind) {
@@ -175,8 +174,8 @@ get_kw_kind(string test) {
 }
 
 bool
-convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
-                 uint32_t *buf_writtenp, struct allocator *a) {
+convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size, uint32_t *buf_writtenp,
+                 struct allocator *a) {
     bool result         = false;
     tok->at_line_start  = pp_tok->at_line_start;
     tok->has_whitespace = pp_tok->has_whitespace;
@@ -193,8 +192,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
             tok->kw   = kw;
         } else {
             tok->kind     = TOK_ID;
-            *buf_writtenp = snprintf(buf, buf_size, "%.*s", pp_tok->str.len,
-                                     pp_tok->str.data);
+            *buf_writtenp = snprintf(buf, buf_size, "%.*s", pp_tok->str.len, pp_tok->str.data);
             tok->str      = string(buf, pp_tok->str.len);
         }
         result = true;
@@ -333,7 +331,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
 
 void
 fmt_c_numw(fmt_c_num_args args, buffer_writer *w) {
-    if (c_type_is_int(args.type->kind)) {
+    if (c_type_kind_is_int(args.type->kind)) {
         buf_write(w, "%llu", args.uint_value);
         switch (args.type->kind) {
         default:
@@ -347,7 +345,7 @@ fmt_c_numw(fmt_c_num_args args, buffer_writer *w) {
             buf_write(w, "l");
             break;
         }
-        if (c_type_is_int_unsigned(args.type->kind)) {
+        if (c_type_kind_is_int_unsigned(args.type->kind)) {
             buf_write(w, "u");
         }
     } else {
@@ -416,10 +414,10 @@ fmt_tokenw(buffer_writer *w, token *tok) {
         buf_write(w, "%.*s", tok->str.len, tok->str.data);
         break;
     case TOK_NUM:
-        fmt_c_numw((fmt_c_num_args){.uint_value  = tok->uint_value,
-                                    .float_value = tok->float_value,
-                                    .type        = tok->type},
-                   w);
+        fmt_c_numw(
+            (fmt_c_num_args){
+                .uint_value = tok->uint_value, .float_value = tok->float_value, .type = tok->type},
+            w);
         break;
     case TOK_STR:
         fmt_c_strw((fmt_c_str_args){.type = tok->type, .str = tok->str}, w);
@@ -448,8 +446,8 @@ fmt_token(char *buf, uint32_t buf_len, token *tok) {
 
 void
 fmt_token_verbosew(buffer_writer *w, token *tok) {
-    buf_write(w, "%.*s:%u:%u: ", tok->loc.filename.len, tok->loc.filename.data,
-              tok->loc.line, tok->loc.col);
+    buf_write(w, "%.*s:%u:%u: ", tok->loc.filename.len, tok->loc.filename.data, tok->loc.line,
+              tok->loc.col);
     switch (tok->kind) {
         INVALID_DEFAULT_CASE;
     case TOK_EOF:

@@ -69,12 +69,13 @@ typedef struct c_type {
     c_func_arg *func_args;
 } c_type;
 
-bool c_type_is_int(c_type_kind kind);
-bool c_type_is_float(c_type_kind kind);
-bool c_type_is_int_signed(c_type_kind kind);
-bool c_type_is_int_unsigned(c_type_kind kind);
+bool c_type_kind_is_int(c_type_kind kind);
+bool c_type_kind_is_float(c_type_kind kind);
+bool c_type_kind_is_int_signed(c_type_kind kind);
+bool c_type_kind_is_int_unsigned(c_type_kind kind);
 
-bool c_types_are_compatible(c_type *a, c_type *b);
+bool c_type_are_compatible(c_type *a, c_type *b);
+bool c_type_is_int(c_type *type);
 c_type *get_standard_type(c_type_kind kind);
 c_type *make_ptr_type(c_type *base, struct allocator *a);
 c_type *make_array_type(c_type *base, uint32_t size, struct allocator *a);

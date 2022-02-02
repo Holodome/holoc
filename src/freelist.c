@@ -5,8 +5,7 @@
 #include "allocator.h"
 
 void *
-freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size,
-                    allocator *a) {
+freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size, allocator *a) {
     void *result = *flp;
     if (!result) {
         result = aalloc(a, size);

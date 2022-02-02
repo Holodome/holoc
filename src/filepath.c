@@ -123,8 +123,7 @@ path_clean(string path, struct allocator *a) {
     }
 
     for (uint32_t i = 0; i < da_size(its); ++i) {
-        size += snprintf(buffer, sizeof(buffer) - size, "%*s", its[i].len,
-                         its[i].data);
+        size += snprintf(buffer, sizeof(buffer) - size, "%*s", its[i].len, its[i].data);
         if (i != da_size(its) - 1) {
             size += snprintf(buffer, sizeof(buffer) - size, "/");
         }

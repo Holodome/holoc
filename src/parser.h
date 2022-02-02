@@ -18,7 +18,7 @@ typedef struct parser {
 //         | 'sizeof' unary
 //         | '_Alignof' '(' type_name ')'
 //         | '_Alignof' unary
-//         | 'Generic' generic_selection
+//         | '_Generic' generic_selection
 //         | ident
 //         | str
 //         | num
@@ -88,4 +88,4 @@ struct ast *parse_expr_func_call(parser *p);
 
 void parse(parser *p);
 
-#endif 
+#endif

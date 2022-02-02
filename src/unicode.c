@@ -17,9 +17,8 @@
  */
 static void *
 __utf8_decode(void *buf, uint32_t *c, int *e) {
-    static const char lengths[]  = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                   1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
-                                   0, 0, 2, 2, 2, 2, 3, 3, 4, 0};
+    static const char lengths[]  = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                   0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 4, 0};
     static const int masks[]     = {0x00, 0x7f, 0x1f, 0x0f, 0x07};
     static const uint32_t mins[] = {4194304, 0, 128, 2048, 65536};
     static const int shiftc[]    = {0, 18, 12, 6, 0};
@@ -82,15 +81,13 @@ utf8_decode(void *srcv, uint32_t *codepoint_p) {
         }
     } else if ((src[0] & 0xF0) == 0xE0) {
         if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80) {
-            utf32 = ((src[0] & 0x0F) << 12) | ((src[1] & 0x3F) << 6) |
-                    (src[2] & 0x3F);
+            utf32 = ((src[0] & 0x0F) << 12) | ((src[1] & 0x3F) << 6) | (src[2] & 0x3F);
             src += 3;
         }
     } else if ((src[0] & 0xF8) == 0xF0) {
-        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80 &&
-            (src[3] & 0xC0) == 0x80) {
-            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) |
-                    ((src[2] & 0x3F) << 6) | (src[3] & 0x3F);
+        if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80 && (src[3] & 0xC0) == 0x80) {
+            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) | ((src[2] & 0x3F) << 6) |
+                    (src[3] & 0x3F);
             src += 4;
         }
     }

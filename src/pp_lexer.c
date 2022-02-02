@@ -13,11 +13,10 @@
 #define PP_TOK_PUNCT_ADVANCE 0x100
 
 static string PUNCT_STRS[] = {
-    WRAPZ(">>="), WRAPZ("<<="), WRAPZ("..."), WRAPZ("+="), WRAPZ("-="),
-    WRAPZ("*="),  WRAPZ("/="),  WRAPZ("%="),  WRAPZ("&="), WRAPZ("|="),
-    WRAPZ("^="),  WRAPZ("++"),  WRAPZ("--"),  WRAPZ(">>"), WRAPZ("<<"),
-    WRAPZ("&&"),  WRAPZ("||"),  WRAPZ("=="),  WRAPZ("!="), WRAPZ("<="),
-    WRAPZ(">="),  WRAPZ("##"),
+    WRAPZ(">>="), WRAPZ("<<="), WRAPZ("..."), WRAPZ("+="), WRAPZ("-="), WRAPZ("*="),
+    WRAPZ("/="),  WRAPZ("%="),  WRAPZ("&="),  WRAPZ("|="), WRAPZ("^="), WRAPZ("++"),
+    WRAPZ("--"),  WRAPZ(">>"),  WRAPZ("<<"),  WRAPZ("&&"), WRAPZ("||"), WRAPZ("=="),
+    WRAPZ("!="),  WRAPZ("<="),  WRAPZ(">="),  WRAPZ("##"),
 };
 
 static string
@@ -63,8 +62,7 @@ get_str_opener(pp_string_kind kind) {
 static bool
 next_eq(pp_lexer *lex, string lit) {
 #if 1
-    return (lex->cursor + lit.len < lex->eof) &&
-           (memcmp(lex->cursor, lit.data, lit.len) == 0);
+    return (lex->cursor + lit.len < lex->eof) && (memcmp(lex->cursor, lit.data, lit.len) == 0);
 #else
     // In theory memcmp does per-byte compares, so in won't touch uninitialized
     // memory. But it actually may use some form of SIMD so this assumption
@@ -385,8 +383,7 @@ parse_number(pp_lexer *lex, pp_token *tok) {
     char *write_cursor = lex->tok_buf;
     char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
     assert(write_cursor != write_eof);
-    if (isdigit(*lex->cursor) ||
-        (*lex->cursor == '.' && isdigit(lex->cursor[1]))) {
+    if (isdigit(*lex->cursor) || (*lex->cursor == '.' && isdigit(lex->cursor[1]))) {
         result          = true;
         *write_cursor++ = *lex->cursor++;
         for (;;) {
@@ -394,8 +391,7 @@ parse_number(pp_lexer *lex, pp_token *tok) {
                 NOT_IMPL;
                 break;
             }
-            if (isalnum(*lex->cursor) || *lex->cursor == '_' ||
-                *lex->cursor == '\'') {
+            if (isalnum(*lex->cursor) || *lex->cursor == '_' || *lex->cursor == '\'') {
                 *write_cursor++ = *lex->cursor++;
             } else if (*lex->cursor && strchr("eEpP", *lex->cursor) &&
                        strchr("+-", lex->cursor[1])) {
@@ -530,8 +526,7 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
 }
 
 void
-pp_lexer_init(pp_lexer *lex, char *data, char *eof, char *tok_buf,
-              uint32_t tok_buf_size) {
+pp_lexer_init(pp_lexer *lex, char *data, char *eof, char *tok_buf, uint32_t tok_buf_size) {
     lex->tok_buf          = tok_buf;
     lex->tok_buf_capacity = tok_buf_size;
     lex->data             = data;
@@ -581,8 +576,8 @@ fmt_pp_tok(char *buf, uint32_t buf_len, pp_token *tok) {
 
 void
 fmt_pp_tok_verbosew(buffer_writer *w, pp_token *tok) {
-    buf_write(w, "%.*s:%u:%u: ", tok->loc.filename.len, tok->loc.filename.data,
-              tok->loc.line, tok->loc.col);
+    buf_write(w, "%.*s:%u:%u: ", tok->loc.filename.len, tok->loc.filename.data, tok->loc.line,
+              tok->loc.col);
     switch (tok->kind) {
         INVALID_DEFAULT_CASE;
     case PP_TOK_EOF:

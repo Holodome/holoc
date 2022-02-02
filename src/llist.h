@@ -18,19 +18,18 @@
 // Quick and dirty way to append to the end of the linked list
 // doing this in loop is not advised, use linked_list_constructor
 // instead
-#define LLIST_ADD_LAST(_list, _node)                        \
-    do {                                                    \
-        if (!(_list)) {                                     \
-            (_list) = (_node);                              \
-        } else {                                            \
-            for (void *temp = (_list); temp;                \
-                 temp       = _LLIST_GET_NEXT(temp, _node)) {     \
-                if (!_LLIST_GET_NEXT(temp, _node)) {        \
-                    _LLIST_GET_NEXT(temp, _node) = (_node); \
-                    break;                                  \
-                }                                           \
-            }                                               \
-        }                                                   \
+#define LLIST_ADD_LAST(_list, _node)                                                \
+    do {                                                                            \
+        if (!(_list)) {                                                             \
+            (_list) = (_node);                                                      \
+        } else {                                                                    \
+            for (void *temp = (_list); temp; temp = _LLIST_GET_NEXT(temp, _node)) { \
+                if (!_LLIST_GET_NEXT(temp, _node)) {                                \
+                    _LLIST_GET_NEXT(temp, _node) = (_node);                         \
+                    break;                                                          \
+                }                                                                   \
+            }                                                                       \
+        }                                                                           \
     } while (0)
 
 // Pops first element from the linked list

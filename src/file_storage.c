@@ -186,8 +186,8 @@ get_filepath_in_same_dir(string name, string current_path) {
     string result      = {0};
     string current_dir = path_dirname(current_path);
     char buffer[4096];
-    snprintf(buffer, sizeof(buffer), "%.*s/%.*s", current_dir.len,
-             current_dir.data, name.len, name.data);
+    snprintf(buffer, sizeof(buffer), "%.*s/%.*s", current_dir.len, current_dir.data, name.len,
+             name.data);
     if (file_exists(buffer)) {
         result = string_strdup(fs->a, buffer);
     }
@@ -200,8 +200,7 @@ get_filepath_from_include_paths(string name) {
     for (uint32_t i = 0; i < da_size(fs->include_paths); ++i) {
         string dir = fs->include_paths[i];
         char buffer[4096];
-        snprintf(buffer, sizeof(buffer), "%.*s/%.*s", dir.len, dir.data,
-                 name.len, name.data);
+        snprintf(buffer, sizeof(buffer), "%.*s/%.*s", dir.len, dir.data, name.len, name.data);
         if (file_exists(buffer)) {
             result = string_strdup(fs->a, buffer);
         }
@@ -215,8 +214,7 @@ get_filepath_relative(string name) {
     char buffer[4096];
     get_current_dir(buffer, sizeof(buffer));
     uint32_t dir_len = strlen(buffer);
-    snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "/%.*s", name.len,
-             name.data);
+    snprintf(buffer + dir_len, sizeof(buffer) - dir_len, "/%.*s", name.len, name.data);
     if (file_exists(buffer)) {
         result = string_strdup(fs->a, buffer);
     }
@@ -235,8 +233,7 @@ fs_get_file(string name, file *current_file) {
     if (!f) {
         string actual_path = {0};
         if (current_file) {
-            actual_path =
-                get_filepath_in_same_dir(name, current_file->full_path);
+            actual_path = get_filepath_in_same_dir(name, current_file->full_path);
         }
         if (!actual_path.data) {
             actual_path = get_filepath_from_include_paths(name);
@@ -271,4 +268,3 @@ fs_get_file(string name, file *current_file) {
     }
     return f;
 }
-

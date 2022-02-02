@@ -22,9 +22,8 @@ align_forward_pow2(uint64_t value, uint64_t align) {
 
 static bump_allocator_block *
 alloc_block(uint64_t size, uint64_t align) {
-    uint64_t size_to_allocate =
-        align_forward_pow2(size + sizeof(bump_allocator_block), align);
-    void *memory = aligned_alloc(align, size_to_allocate);
+    uint64_t size_to_allocate = align_forward_pow2(size + sizeof(bump_allocator_block), align);
+    void *memory              = aligned_alloc(align, size_to_allocate);
     memset(memory, 0, size_to_allocate);
     bump_allocator_block *block = memory;
 

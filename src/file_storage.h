@@ -20,13 +20,13 @@ typedef struct file {
 } file;
 
 typedef struct file_storage {
-    // Allocator used internally in file storage. 
+    // Allocator used internally in file storage.
     struct allocator *a;
     // Linked list of files.
     // TODO: Should probably be hash table?
     file *files;
 
-    string *include_paths; // da
+    string *include_paths;  // da
 } file_storage;
 
 // file storage is made global. This, most obvoiuslt, prevents asynchronous

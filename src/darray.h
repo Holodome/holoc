@@ -17,8 +17,7 @@ typedef struct {
 } darray_header;
 
 // Returns header for given dynamic array
-#define da_header(_da) \
-    ((darray_header *)((char *)(_da) - sizeof(darray_header)))
+#define da_header(_da) ((darray_header *)((char *)(_da) - sizeof(darray_header)))
 // Returns size of array
 #define da_size(_da) ((_da) ? da_header(_da)->size : 0)
 // Returns size of array in bytes
@@ -39,8 +38,7 @@ typedef struct {
         (_da)[da_header(_da)->size++] = (_it);            \
     } while (0)
 // Frees memory allocated by array
-#define da_free(_da, _a) \
-    ((_da) ? da_free_((_da), sizeof(*(_da)), (_a)) : (void)0)
+#define da_free(_da, _a) ((_da) ? da_free_((_da), sizeof(*(_da)), (_a)) : (void)0)
 // Pops last element and returns it
 #define da_pop(_da) ((_da)[--da_header(_da)->size])
 // Returns pointer to last element

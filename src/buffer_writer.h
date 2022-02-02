@@ -10,8 +10,7 @@ typedef struct buffer_writer {
 
 void buf_writev(buffer_writer *w, char *fmt, va_list args);
 
-__attribute__((format(printf, 2, 3))) void buf_write(buffer_writer *w,
-                                                     char *fmt, ...);
+__attribute__((format(printf, 2, 3))) void buf_write(buffer_writer *w, char *fmt, ...);
 
 // Writes strings wiht replacing special characters as escape sequences
 // and doing decoding.

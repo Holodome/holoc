@@ -59,6 +59,9 @@ typedef enum {
 } c_keyword_kind;
 
 typedef enum {
+    C_PUNCT_I = '=',
+    // TODO: Other punctuators
+
     C_PUNCT_IRSHIFT = 0x101,  // >>=
     C_PUNCT_ILSHIFT = 0x102,  // <<=
     C_PUNCT_IADD    = 0x103,  // +=
@@ -80,6 +83,7 @@ typedef enum {
     C_PUNCT_LEQ     = 0x113,  // <=
     C_PUNCT_GEQ     = 0x114,  // >=
     C_PUNCT_VARARGS = 0x115,  // ... (in functions)
+    C_PUNCT_ARROW   = 0x116,  // ->
 } c_punct_kind;
 
 typedef enum token_kind {
@@ -121,12 +125,10 @@ typedef struct {
     string str;
 } fmt_c_str_args;
 
-bool convert_pp_token(struct pp_token *pp_tok, token *tok, char *buf,
-                      uint32_t buf_size, uint32_t *buf_writtenp,
-                      struct allocator *a);
+bool convert_pp_token(struct pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
+                      uint32_t *buf_writtenp, struct allocator *a);
 #define IS_KW(_tok, _kw) ((_tok)->kind == TOK_KW && (_tok)->kw == (_kw))
-#define IS_PUNCT(_tok, _punct) \
-    ((_tok)->kind == TOK_PUNCT && (_tok)->punct == (_punct))
+#define IS_PUNCT(_tok, _punct) ((_tok)->kind == TOK_PUNCT && (_tok)->punct == (_punct))
 
 void fmt_c_numw(fmt_c_num_args args, struct buffer_writer *w);
 uint32_t fmt_c_num(fmt_c_num_args args, char *buf, uint32_t buf_size);

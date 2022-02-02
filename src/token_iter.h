@@ -19,4 +19,4 @@ void ti_eat_multiple(token_iter *it, uint32_t count);
 void ti_eat(token_iter *it);
 struct token *ti_eat_peek(token_iter *it);
 
-#endif 
+#endif

@@ -38,30 +38,26 @@ static c_type *type_ldouble = MAKE_TYPE(C_TYPE_LDOUBLE, 8);
 static c_type *type_bool = MAKE_TYPE(C_TYPE_BOOL, 1);
 
 bool
-c_type_is_int(c_type_kind kind) {
-    return c_type_is_int_signed(kind) || c_type_is_int_unsigned(kind);
+c_type_kind_is_int(c_type_kind kind) {
+    return c_type_kind_is_int_signed(kind) || c_type_kind_is_int_unsigned(kind);
 }
 
 bool
-c_type_is_float(c_type_kind kind) {
-    return kind == C_TYPE_FLOAT || kind == C_TYPE_DOUBLE ||
-           kind == C_TYPE_LDOUBLE;
+c_type_kind_is_float(c_type_kind kind) {
+    return kind == C_TYPE_FLOAT || kind == C_TYPE_DOUBLE || kind == C_TYPE_LDOUBLE;
 }
 
 bool
-c_type_is_int_signed(c_type_kind kind) {
-    return kind == C_TYPE_SCHAR || kind == C_TYPE_SINT ||
-           kind == C_TYPE_SLINT || kind == C_TYPE_SLLINT ||
-           kind == C_TYPE_SSINT;
+c_type_kind_is_int_signed(c_type_kind kind) {
+    return kind == C_TYPE_SCHAR || kind == C_TYPE_SINT || kind == C_TYPE_SLINT ||
+           kind == C_TYPE_SLLINT || kind == C_TYPE_SSINT;
 }
 
 bool
-c_type_is_int_unsigned(c_type_kind kind) {
-    return kind == C_TYPE_UCHAR || kind == C_TYPE_UINT ||
-           kind == C_TYPE_ULINT || kind == C_TYPE_ULLINT ||
-           kind == C_TYPE_USINT || kind == C_TYPE_CHAR ||
-           kind == C_TYPE_CHAR16 || kind == C_TYPE_CHAR32 ||
-           kind == C_TYPE_BOOL;
+c_type_kind_is_int_unsigned(c_type_kind kind) {
+    return kind == C_TYPE_UCHAR || kind == C_TYPE_UINT || kind == C_TYPE_ULINT ||
+           kind == C_TYPE_ULLINT || kind == C_TYPE_USINT || kind == C_TYPE_CHAR ||
+           kind == C_TYPE_CHAR16 || kind == C_TYPE_CHAR32 || kind == C_TYPE_BOOL;
 }
 
 bool
@@ -70,6 +66,11 @@ c_types_are_compatible(c_type *a, c_type *b) {
     assert(false && a && b);
     // TODO:
     return result;
+}
+
+bool
+c_type_is_int(c_type *type) {
+    return c_type_kind_is_int(type->kind);
 }
 
 c_type *
@@ -274,8 +275,7 @@ convert_c_int(c_number_convert_result *result, char *p) {
     if (*p == '0' && (p[1] == 'x' || p[1] == 'X') && isxdigit(p[2])) {
         p += 2;
         base = 16;
-    } else if (*p == '0' && (p[1] == 'b' || p[1] == 'B') &&
-               (p[2] == '0' || p[2] == '1')) {
+    } else if (*p == '0' && (p[1] == 'b' || p[1] == 'B') && (p[2] == '0' || p[2] == '1')) {
         p += 2;
         base = 2;
     } else if (*p == '0') {
@@ -287,17 +287,16 @@ convert_c_int(c_number_convert_result *result, char *p) {
 
     enum { INT_SUF_L = 0x1, INT_SUF_LL = 0x2, INT_SUF_U = 0x4 };
     uint32_t suf = 0;
-    if (strcmp(p, "LLU") == 0 || strcmp(p, "LLu") == 0 ||
-        strcmp(p, "llU") == 0 || strcmp(p, "llu") == 0 ||
-        strcmp(p, "ULL") == 0 || strcmp(p, "Ull") == 0 ||
+    if (strcmp(p, "LLU") == 0 || strcmp(p, "LLu") == 0 || strcmp(p, "llU") == 0 ||
+        strcmp(p, "llu") == 0 || strcmp(p, "ULL") == 0 || strcmp(p, "Ull") == 0 ||
         strcmp(p, "uLL") == 0 || strcmp(p, "ull") == 0) {
         p += 3;
         suf = INT_SUF_LL | INT_SUF_U;
     } else if (strcmp(p, "ll") == 0 || strcmp(p, "LL") == 0) {
         p += 2;
         suf = INT_SUF_LL;
-    } else if (strcmp(p, "LU") == 0 || strcmp(p, "Lu") == 0 ||
-               strcmp(p, "lU") == 0 || strcmp(p, "lu") == 0) {
+    } else if (strcmp(p, "LU") == 0 || strcmp(p, "Lu") == 0 || strcmp(p, "lU") == 0 ||
+               strcmp(p, "lu") == 0) {
         p += 2;
         suf = INT_SUF_L | INT_SUF_U;
     } else if (strcmp(p, "L") == 0 || strcmp(p, "l") == 0) {

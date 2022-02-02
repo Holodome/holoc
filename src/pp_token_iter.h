@@ -62,8 +62,7 @@ typedef struct pp_token_iter {
 } pp_token_iter;
 
 void ppti_include_file(pp_token_iter *it, string filename);
-void ppti_insert_tok_list(pp_token_iter *it, struct pp_token *first,
-                          struct pp_token *last);
+void ppti_insert_tok_list(pp_token_iter *it, struct pp_token *first, struct pp_token *last);
 
 struct pp_token *ppti_peek_forward(pp_token_iter *it, uint32_t count);
 struct pp_token *ppti_peek(pp_token_iter *it);
