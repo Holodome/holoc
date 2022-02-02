@@ -145,24 +145,24 @@ void
 fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     switch (((ast *)node)->kind) {
     case AST_NONE:
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "NOP\n");
         break;
     case AST_ID: {
         ast_identifier *id = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Id: %s\n", id->ident.data);
     } break;
     case AST_STR: {
         ast_string *str = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Str: ");
         fmt_c_strw((fmt_c_str_args){.type = str->type, .str = str->str}, w);
         buf_write(w, "\n");
     } break;
     case AST_NUM: {
         ast_number *num = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Num: ");
         fmt_c_numw(
             (fmt_c_num_args){
@@ -172,7 +172,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_UN: {
         ast_unary *un = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Unary expr:\n");
         string op_str = AST_UN_STRS[un->un_kind];
         if (un->un_kind == AST_UN_POSTINC || un->un_kind == AST_UN_POSTDEC) {
@@ -185,7 +185,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_BIN: {
         ast_binary *bin = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Binary expr:\n");
         string op_str = AST_BINARY_STRS[bin->bin_kind];
         fmt_ast_verbosew_internal(bin->left, w, depth + 1);
@@ -194,7 +194,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_TER: {
         ast_ternary *ter = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Ternary expr:\n");
         fmt_ast_verbosew_internal(ter->cond, w, depth + 1);
         buf_write(w, "%*c?\n", depth + 1, ' ');
@@ -204,7 +204,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_IF: {
         ast_if *if_ = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "If statement:\n");
         buf_write(w, "%*c", depth + 1, ' ');
         buf_write(w, "Cond:\n");
@@ -222,7 +222,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         ast_for *for_ = node;
         if (for_->cond && !for_->init && !for_->iter) {
             // treat as while
-            buf_write(w, "%*c", depth, ' ');
+            buf_write(w, "%*s", depth, "");
             buf_write(w, "While statement:\n");
             buf_write(w, "%*c", depth + 1, ' ');
             buf_write(w, "Cond:\n");
@@ -232,7 +232,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
             fmt_ast_verbosew_internal(for_->loop, w, depth + 2);
         } else {
             // Treat as some modification of for
-            buf_write(w, "%*c", depth, ' ');
+            buf_write(w, "%*s", depth, "");
             buf_write(w, "For statement:\n");
             buf_write(w, "%*c", depth + 1, ' ');
             buf_write(w, "Init:\n");
@@ -250,7 +250,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_DO: {
         ast_do *do_ = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Do-while statement:\n");
         buf_write(w, "%*c", depth + 1, ' ');
         buf_write(w, "Loop:\n");
@@ -261,7 +261,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_SWITCH: {
         ast_switch *switch_ = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Switch statement:\n");
         buf_write(w, "%*c", depth + 1, ' ');
         buf_write(w, "Expr:\n");
@@ -275,7 +275,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_BLOCK: {
         ast_block *block = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Block:\n");
         buf_write(w, "%*c", depth + 1, ' ');
         buf_write(w, "Statements:\n");
@@ -303,7 +303,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_ENUM: {
         ast_enum_decl *enum_ = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Enum declaration:\n");
         buf_write(w, "%*c", depth + 1, ' ');
         buf_write(w, "Name: %s\n", enum_->name.data);
@@ -315,7 +315,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_ENUM_VALUE: {
         ast_enum_field *field = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Enumerator: %s = %llu\n", field->name.data, field->value);
     } break;
     case AST_DECL: {
@@ -326,9 +326,9 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     } break;
     case AST_TYPEDEF: {
         ast_typedef *td = node;
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Typedef: %s\n", td->name.data);
-        buf_write(w, "%*c", depth, ' ');
+        buf_write(w, "%*s", depth, "");
         buf_write(w, "Type:\n");
         fmt_ast_verbosew_internal(td->underlying, w, depth + 1);
     } break;
