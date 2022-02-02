@@ -13,6 +13,8 @@ typedef struct token_iter {
     struct preprocessor *pp;
 } token_iter;
 
+void ti_init(token_iter *it, string filename);
+
 struct token *ti_peek_forward(token_iter *it, uint32_t count);
 struct token *ti_peek(token_iter *it);
 void ti_eat_multiple(token_iter *it, uint32_t count);

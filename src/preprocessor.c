@@ -935,7 +935,7 @@ __INTMAX_WIDTH__
 }
 
 void
-init_pp(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size) {
+pp_init(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size) {
     pp->tok_buf          = tok_buf;
     pp->tok_buf_capacity = tok_buf_size;
 

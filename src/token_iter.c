@@ -3,6 +3,17 @@
 #include <assert.h>
 
 #include "c_lang.h"
+#include "allocator.h"
+#include "preprocessor.h"
+
+static char tok_buf[4096];
+
+void
+ti_init(token_iter *it, string filename) {
+    it->pp = aalloc(it->a, sizeof(preprocessor));
+    it->pp->a = it->a;
+    pp_init(it->pp, filename, tok_buf, sizeof(tok_buf));
+}
 
 token *
 ti_peek_forward(token_iter *it, uint32_t count) {

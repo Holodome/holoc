@@ -94,7 +94,7 @@ typedef struct preprocessor {
     struct pp_lexer *lex_freelist;
 } preprocessor;
 
-void init_pp(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size);
+void pp_init(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size);
 bool pp_parse(preprocessor *pp, struct token *tok);
 
 #endif
