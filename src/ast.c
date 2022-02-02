@@ -189,7 +189,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         buf_write(w, "Binary expr:\n");
         string op_str = AST_BINARY_STRS[bin->bin_kind];
         fmt_ast_verbosew_internal(bin->left, w, depth + 1);
-        buf_write(w, "%*c%s", depth + 1, ' ', op_str.data);
+        buf_write(w, "%*c%s\n", depth + 1, ' ', op_str.data);
         fmt_ast_verbosew_internal(bin->right, w, depth + 1);
     } break;
     case AST_TER: {
@@ -365,6 +365,15 @@ make_ast_num_int(struct allocator *a, source_loc loc, uint64_t value, struct c_t
     num->uint_value = value;
     num->type       = type;
     assert(c_type_is_int(type));
+    return (ast *)num;
+}
+
+ast *
+make_ast_num_flt(struct allocator *a, source_loc loc, double value, struct c_type *type) {
+    ast_number *num  = make_ast(a, AST_NUM, loc);
+    num->float_value = value;
+    num->type        = type;
+    assert(!c_type_is_int(type));
     return (ast *)num;
 }
 

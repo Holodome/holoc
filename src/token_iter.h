@@ -11,6 +11,8 @@ typedef struct token_iter {
     struct allocator *a;
     struct token *token_list;
     struct preprocessor *pp;
+
+    string filename;
 } token_iter;
 
 void ti_init(token_iter *it, string filename);

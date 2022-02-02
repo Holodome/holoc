@@ -1,3 +1,4 @@
+#if 0
 /* add.c
  * a simple C program
  */
@@ -23,4 +24,7 @@ int main()
     return 0;
 }
 
+#else 
 
+2 + 3 * 4
+#endif 

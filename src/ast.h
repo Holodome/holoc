@@ -247,6 +247,7 @@ uint32_t fmt_ast_verbose(void *ast, char *buf, uint32_t buf_size);
 // and sets kind.
 void *make_ast(struct allocator *a, ast_kind kind, source_loc loc);
 ast *make_ast_num_int(struct allocator *a, source_loc loc, uint64_t value, struct c_type *type);
+ast *make_ast_num_flt(struct allocator *a, source_loc loc, double value, struct c_type *type);
 ast *make_ast_unary(struct allocator *a, source_loc loc, ast_unary_kind kind, ast *expr);
 // NOTE: Takes loc from 'left'
 ast *make_ast_binary(struct allocator *a, ast_binary_kind kind, ast *left, ast *right);

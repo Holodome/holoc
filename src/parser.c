@@ -114,11 +114,16 @@ parse_expr_primary(parser *p) {
     } else if (tok->kind == TOK_ID) {
         NOT_IMPL;
     } else if (tok->kind == TOK_NUM) {
-        NOT_IMPL;
+        if (c_type_is_int(tok->type)) {
+            node = make_ast_num_int(p->a, tok->loc, tok->uint_value, tok->type);
+        } else {
+            node = make_ast_num_flt(p->a, tok->loc, tok->float_value, tok->type);
+        }
+        ti_eat(p->it);
     } else if (tok->kind == TOK_STR) {
         NOT_IMPL;
-    } else {
-        report_error_token(tok, "Expected expression");
+    /* } else { */
+    /*     report_error_token(tok, "Expected expression"); */
     }
     return node;
 }
@@ -163,6 +168,7 @@ parse_expr_postfix(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -281,6 +287,7 @@ parse_expr_mul(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -302,6 +309,7 @@ parse_expr_add(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -323,6 +331,7 @@ parse_expr_shift(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -352,6 +361,7 @@ parse_expr_rel(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -373,6 +383,7 @@ parse_expr_eq(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -407,6 +418,7 @@ parse_expr_xor(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -441,6 +453,7 @@ parse_expr_land(parser *p) {
         } else {
             break;
         }
+        tok = ti_peek(p->it);
     }
     return node;
 }
@@ -555,7 +568,7 @@ parse(parser *p) {
         }
 
         char buffer[4096];
-        fmt_ast(expr, buffer, sizeof(buffer));
+        fmt_ast_verbose(expr, buffer, sizeof(buffer));
         printf("%s\n", buffer);
     }
 }
