@@ -28,7 +28,9 @@ er_print_final_stats(void) {
         }
         fprintf(stderr, "%u warnings", er->warning_count);
     }
-    fprintf(stderr, " generated.\n");
+    if (er->error_count || er->warning_count) {
+        fprintf(stderr, " generated.\n");
+    }
 }
 
 void
@@ -57,20 +59,20 @@ report_message_internalv(string file_contents, source_loc loc, string message_ki
         ++utf8_col_counter;
     }
 
-    fprintf(stderr, "\033[1m%.*s:%u:%u: %.*s: ", loc.filename.len, loc.filename.data, loc.line,
+    fprintf(stderr, "\033[1m%.*s:%u:%u: %.*s: \033[1m", loc.filename.len, loc.filename.data, loc.line,
             utf8_col_counter, message_kind.len, message_kind.data);
     vfprintf(stderr, msg, args);
     fprintf(stderr, "\033[0m\n%.*s\n", (int)(line_end - line_start), line_start);
     if (utf8_col_counter != 1) {
         fprintf(stderr, "%*c", utf8_col_counter - 1, ' ');
     }
-    fprintf(stderr, "\033[32;1m^\033[0m");
+    fprintf(stderr, "\033[32;1m^\033[0m\n");
 }
 
 void
 report_errorv(source_loc loc, char *fmt, va_list args) {
     file *f = fs_get_file(loc.filename, 0);
-    report_message_internalv(f->contents, loc, WRAPZ("\033[31;1merror\033[1m"), fmt, args);
+    report_message_internalv(f->contents, loc, WRAPZ("\033[31;1merror\033[0m"), fmt, args);
     ++get_error_reporter()->error_count;
 }
 
@@ -84,7 +86,7 @@ report_error(source_loc loc, char *fmt, ...) {
 void
 report_warningv(source_loc loc, char *fmt, va_list args) {
     file *f = fs_get_file(loc.filename, 0);
-    report_message_internalv(f->contents, loc, WRAPZ("\033[35;1mwarning\033[1m"), fmt, args);
+    report_message_internalv(f->contents, loc, WRAPZ("\033[35;1mwarning\033[0m"), fmt, args);
     ++get_error_reporter()->warning_count;
 }
 
