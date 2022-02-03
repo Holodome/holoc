@@ -124,9 +124,9 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro 
             if (PP_TOK_IS_PUNCT(tok, ')')) {
                 if (arg_idx != macro->arg_count && !macro->is_variadic) {
                     report_error_pp_token(tok,
-                                        "Incorrect number of arguments in macro invocation "
-                                        "(expected %u, got %u)",
-                                        macro->arg_count, arg_idx + 1);
+                                          "Incorrect number of arguments in macro invocation "
+                                          "(expected %u, got %u)",
+                                          macro->arg_count, arg_idx + 1);
                 }
                 break;
             }
@@ -184,8 +184,8 @@ expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
             pp_macro_arg *arg = get_argument(macro, temp->str);
             if (!arg) {
                 report_error_pp_token(tok,
-                                    "Expected macro argument after "
-                                    "stringification operator '#'");
+                                      "Expected macro argument after "
+                                      "stringification operator '#'");
                 continue;
             }
 
@@ -627,29 +627,29 @@ process_pp_directive(preprocessor *pp) {
                     DEL_COND_INCL(pp, incl);
                 }
             } else if (string_eq(tok->str, WRAPZ("ifdef"))) {
-                /* report_error_pp_token(pp, tok, "DBG: IFDEF"); */
+                tok = ppti_eat_peek(pp->it);
                 if (tok->kind != PP_TOK_ID) {
                     report_error_pp_token(tok, "Expected identifier");
                 }
-
-                tok = ppti_eat_peek(pp->it);
 
                 uint32_t macro_name_hash = hash_string(tok->str);
                 bool is_defined          = GET_MACRO(pp, macro_name_hash) != 0;
                 push_cond_incl(pp, is_defined);
+                tok = ppti_eat_peek(pp->it);
                 if (!is_defined) {
                     skip_cond_incl(pp);
                 }
             } else if (string_eq(tok->str, WRAPZ("ifndef"))) {
-                /* report_error_pp_token(pp, tok, "DBG: IFNDEF"); */
+                tok = ppti_eat_peek(pp->it);
+
                 if (tok->kind != PP_TOK_ID) {
                     report_error_pp_token(tok, "Expected identifier");
                 }
 
-                tok                      = ppti_eat_peek(pp->it);
                 uint32_t macro_name_hash = hash_string(tok->str);
                 bool is_defined          = GET_MACRO(pp, macro_name_hash) != 0;
                 push_cond_incl(pp, !is_defined);
+                tok = ppti_eat_peek(pp->it);
                 if (is_defined) {
                     skip_cond_incl(pp);
                 }
@@ -658,16 +658,29 @@ process_pp_directive(preprocessor *pp) {
             } else if (string_eq(tok->str, WRAPZ("pragma"))) {
                 NOT_IMPL;
             } else if (string_eq(tok->str, WRAPZ("error"))) {
+                source_loc error_loc = tok->loc;
+
                 tok = ppti_eat_peek(pp->it);
                 char buffer[4096];
                 buffer_writer w = {buffer, buffer + sizeof(buffer)};
                 while (!tok->at_line_start) {
                     fmt_pp_tokw(&w, tok);
+                    buf_write(&w, " ");
                     tok = ppti_eat_peek(pp->it);
                 }
-                report_error_pp_token(tok, "%s", buffer);
+                report_error(error_loc, "%s", buffer);
             } else if (string_eq(tok->str, WRAPZ("warning"))) {
-                // TODO:
+                source_loc error_loc = tok->loc;
+
+                tok = ppti_eat_peek(pp->it);
+                char buffer[4096];
+                buffer_writer w = {buffer, buffer + sizeof(buffer)};
+                while (!tok->at_line_start) {
+                    fmt_pp_tokw(&w, tok);
+                    buf_write(&w, " ");
+                    tok = ppti_eat_peek(pp->it);
+                }
+                report_warning(error_loc, "%s", buffer);
             } else if (string_eq(tok->str, WRAPZ("include"))) {
                 tok = ppti_eat_peek(pp->it);
 
