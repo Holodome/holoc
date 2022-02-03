@@ -10,6 +10,14 @@
 #include "error_reporter.h"
 #include "token_iter.h"
 
+typedef enum {
+    STORAGE_TYPEDEF_BIT      = 0x1,   // typedef
+    STORAGE_STATIC_BIT       = 0x2,   // static
+    STORAGE_EXTERN_BIT       = 0x4,   // extern
+    STORAGE_INLINE_BIT       = 0x8,   // inline
+    STORAGE_THREAD_LOCAL_BIT = 0x10,  // _Thread_local
+} storage_class_specifier_flags;
+
 static c_type *
 find_typedef(parser *p, string name) {
     c_type *type = NULL;
@@ -20,7 +28,15 @@ find_typedef(parser *p, string name) {
 }
 
 static c_type *
-parse_type(parser *p) {
+parse_enum_decl(parser *p) {
+    c_type *type = NULL;
+    (void)p;
+    NOT_IMPL;
+    return type;
+}
+
+static c_type *
+parse_struct_decl(parser *p) {
     c_type *type = NULL;
     (void)p;
     NOT_IMPL;
@@ -70,6 +86,275 @@ token_is_typename(parser *p, token *tok) {
         result = find_typedef(p, tok->str) != 0;
     }
     return result;
+}
+
+// TODO: Pointer for storage_class_flags is ugly, put it into return struct
+c_type *
+deslspec(parser *p, uint32_t *storage_class_flags) {
+    enum {
+        TYPE_VOID_BIT  = 0x1,   // 1 void
+        TYPE_BOOL_BIT  = 0x2,   // 1 _Bool
+        TYPE_CHAR_BIT  = 0x4,   // 1 char
+        TYPE_SHORT_BIT = 0x8,   // 1 short
+        TYPE_INT_BIT   = 0x10,  // 1 int
+        TYPE_LONG_BIT  = 0x20,  // 2 long
+        /* reserved for long */
+        TYPE_FLOAT_BIT    = 0x80,   // 1 float
+        TYPE_DOUBLE_BIT   = 0x100,  // 1 double
+        TYPE_OTHER_BIT    = 0x200,  // 1 non-builtin type
+        TYPE_SIGNED_BIT   = 0x400,  // 1 signed
+        TYPE_UNSIGNED_BIT = 0x800   // 1 unsigned
+    };
+
+    c_type *type = get_standard_type(C_TYPE_SINT);
+
+    uint32_t type_flags = 0;
+
+    token *tok = ti_peek(p->it);
+    while (token_is_typename(p, tok)) {
+        if (IS_KW(tok, C_KW_TYPEDEF) || IS_KW(tok, C_KW_STATIC) || IS_KW(tok, C_KW_INLINE) ||
+            IS_KW(tok, C_KW_EXTERN) || IS_KW(tok, C_KW_THREAD_LOCAL)) {
+            if (!storage_class_flags) {
+                report_error_token(tok, "Declaration specifier is unexpected in this context");
+                tok = ti_eat_peek(p->it);
+                continue;
+            }
+
+            switch (tok->kw) {
+                INVALID_DEFAULT_CASE;
+            case C_KW_TYPEDEF:
+                if (*storage_class_flags & STORAGE_TYPEDEF_BIT) {
+                    report_error_token(tok, "Duplicate 'typedef' declaration specifier");
+                }
+                *storage_class_flags |= STORAGE_TYPEDEF_BIT;
+                break;
+            case C_KW_STATIC:
+                if (*storage_class_flags & STORAGE_STATIC_BIT) {
+                    report_error_token(tok, "Duplicate 'static' declaration specifier");
+                }
+                *storage_class_flags |= STORAGE_STATIC_BIT;
+                break;
+            case C_KW_INLINE:
+                if (*storage_class_flags & STORAGE_INLINE_BIT) {
+                    report_error_token(tok, "Duplicate 'inline' declaration specifier");
+                }
+                *storage_class_flags |= STORAGE_INLINE_BIT;
+                break;
+            case C_KW_EXTERN:
+                if (*storage_class_flags & STORAGE_EXTERN_BIT) {
+                    report_error_token(tok, "Duplicate 'extern' declaration specifier");
+                }
+                *storage_class_flags |= STORAGE_EXTERN_BIT;
+                break;
+            case C_KW_THREAD_LOCAL:
+                if (*storage_class_flags & STORAGE_THREAD_LOCAL_BIT) {
+                    report_error_token(tok, "Duplicate '_Thread_local' declaration specifier");
+                }
+                *storage_class_flags |= STORAGE_THREAD_LOCAL_BIT;
+                break;
+            }
+
+            if ((*storage_class_flags & STORAGE_TYPEDEF_BIT) &&
+                (*storage_class_flags & ~STORAGE_TYPEDEF_BIT)) {
+                report_error_token(tok,
+                                   "Declaration specifier 'typedef' can not be used with 'static', "
+                                   "'inline', 'extern', '_Thread_local'");
+            }
+
+            tok = ti_eat_peek(p->it);
+            continue;
+        }
+
+        if (IS_KW(tok, C_KW_CONST) || IS_KW(tok, C_KW_VOLATILE) || IS_KW(tok, C_KW_AUTO) ||
+            IS_KW(tok, C_KW_REGISTER) || IS_KW(tok, C_KW_RESTRICT) || IS_KW(tok, C_KW_NORETURN)) {
+            // TODO: do something
+            tok = ti_eat_peek(p->it);
+            continue;
+        }
+
+        if (IS_KW(tok, C_KW_STRUCT) || IS_KW(tok, C_KW_UNION)) {
+            if (type_flags & TYPE_OTHER_BIT) {
+                report_error_token(tok, "Duplicate non-builtin type");
+            } else {
+                type_flags |= TYPE_OTHER_BIT;
+            }
+
+            type = parse_struct_decl(p);
+            tok  = ti_peek(p->it);
+            continue;
+        }
+
+        if (IS_KW(tok, C_KW_ENUM)) {
+            if (type_flags & TYPE_OTHER_BIT) {
+                report_error_token(tok, "Duplicate non-builtin type");
+            } else {
+                type_flags |= TYPE_OTHER_BIT;
+            }
+            type = parse_enum_decl(p);
+            tok  = ti_peek(p->it);
+            continue;
+        }
+
+        if (tok->kind == TOK_ID) {
+            if (type_flags & TYPE_OTHER_BIT) {
+                report_error_token(tok, "Duplicate non-builtin type");
+            } else {
+                type_flags |= TYPE_OTHER_BIT;
+            }
+
+            c_type *id_type = find_typedef(p, tok->str);
+            if (!id_type) {
+                report_error_token(tok, "Undefined identifier");
+            } else {
+                type = id_type;
+            }
+            tok = ti_peek(p->it);
+        }
+
+        if (IS_KW(tok, C_KW_VOID)) {
+            if (type_flags & TYPE_VOID_BIT) {
+                report_error_token(tok, "Duplicate 'void' declaration specifier");
+            } else {
+                type_flags |= TYPE_VOID_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_BOOL)) {
+            if (type_flags & TYPE_BOOL_BIT) {
+                report_error_token(tok, "Duplicate '_Bool' declaration specifier");
+            } else {
+                type_flags |= TYPE_BOOL_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_CHAR)) {
+            if (type_flags & TYPE_CHAR_BIT) {
+                report_error_token(tok, "Duplicate 'char' declaration specifier");
+            } else {
+                type_flags |= TYPE_CHAR_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_SHORT)) {
+            if (type_flags & TYPE_SHORT_BIT) {
+                report_error_token(tok, "Duplicate 'short' declaration specifier");
+            } else {
+                type_flags |= TYPE_SHORT_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_INT)) {
+            if (type_flags & TYPE_INT_BIT) {
+                report_error_token(tok, "Duplicate 'int' declaration specifier");
+            } else {
+                type_flags |= TYPE_INT_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_LONG)) {
+            if (type_flags & (TYPE_LONG_BIT << 1)) {
+                report_error_token(tok, "Excess 'long' declaration specifier");
+            } else {
+                type_flags |= TYPE_LONG_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_FLOAT)) {
+            if (type_flags & TYPE_FLOAT_BIT) {
+                report_error_token(tok, "Duplicate 'float' declaration specifier");
+            } else {
+                type_flags |= TYPE_FLOAT_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_DOUBLE)) {
+            if (type_flags & TYPE_DOUBLE_BIT) {
+                report_error_token(tok, "Duplicate 'double' declaration specifier");
+            } else {
+                type_flags |= TYPE_DOUBLE_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_SIGNED)) {
+            if (type_flags & TYPE_SIGNED_BIT) {
+                report_error_token(tok, "Duplicate 'signed' declaration specifier");
+            } else {
+                type_flags |= TYPE_SIGNED_BIT;
+            }
+        } else if (IS_KW(tok, C_KW_UNSIGNED)) {
+            if (type_flags & TYPE_UNSIGNED_BIT) {
+                report_error_token(tok, "Duplicate 'unsigned' declaration specifier");
+            } else {
+                type_flags |= TYPE_UNSIGNED_BIT;
+            }
+        } else {
+            UNREACHABLE;
+        }
+
+        switch (type_flags) {
+        default:
+            report_error_token(tok, "Invalid type");
+        case TYPE_VOID_BIT:
+            type = get_standard_type(C_TYPE_VOID);
+            break;
+        case TYPE_BOOL_BIT:
+            type = get_standard_type(C_TYPE_BOOL);
+            break;
+        case TYPE_CHAR_BIT:
+            type = get_standard_type(C_TYPE_CHAR);
+            break;
+        case TYPE_CHAR_BIT + TYPE_SIGNED_BIT:
+            type = get_standard_type(C_TYPE_SCHAR);
+            break;
+        case TYPE_CHAR_BIT + TYPE_UNSIGNED_BIT:
+            type = get_standard_type(C_TYPE_UCHAR);
+            break;
+        case TYPE_SHORT_BIT:
+        case TYPE_SHORT_BIT + TYPE_INT_BIT:
+        case TYPE_SIGNED_BIT + TYPE_SHORT_BIT:
+        case TYPE_SIGNED_BIT + TYPE_SHORT_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_SSINT);
+            break;
+        case TYPE_UNSIGNED_BIT + TYPE_SHORT_BIT:
+        case TYPE_UNSIGNED_BIT + TYPE_SHORT_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_USINT);
+            break;
+        case TYPE_INT_BIT:
+        case TYPE_SIGNED_BIT:
+        case TYPE_SIGNED_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_SINT);
+            break;
+        case TYPE_UNSIGNED_BIT:
+        case TYPE_UNSIGNED_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_UINT);
+            break;
+        case TYPE_LONG_BIT:
+        case TYPE_LONG_BIT + TYPE_INT_BIT:
+        case TYPE_SIGNED_BIT + TYPE_LONG_BIT:
+        case TYPE_SIGNED_BIT + TYPE_LONG_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_SLINT);
+            break;
+        case TYPE_UNSIGNED_BIT + TYPE_LONG_BIT:
+        case TYPE_UNSIGNED_BIT + TYPE_LONG_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_ULINT);
+            break;
+        case TYPE_LONG_BIT + TYPE_LONG_BIT:
+        case TYPE_LONG_BIT + TYPE_LONG_BIT + TYPE_INT_BIT:
+        case TYPE_SIGNED_BIT + TYPE_LONG_BIT + TYPE_LONG_BIT:
+        case TYPE_SIGNED_BIT + TYPE_LONG_BIT + TYPE_LONG_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_SLLINT);
+            break;
+        case TYPE_UNSIGNED_BIT + TYPE_LONG_BIT + TYPE_LONG_BIT:
+        case TYPE_UNSIGNED_BIT + TYPE_LONG_BIT + TYPE_LONG_BIT + TYPE_INT_BIT:
+            type = get_standard_type(C_TYPE_ULLINT);
+            break;
+        case TYPE_FLOAT_BIT:
+            type = get_standard_type(C_TYPE_FLOAT);
+            break;
+        case TYPE_DOUBLE_BIT:
+            type = get_standard_type(C_TYPE_DOUBLE);
+            break;
+        case TYPE_LONG_BIT + TYPE_DOUBLE_BIT:
+            type = get_standard_type(C_TYPE_LDOUBLE);
+            break;
+        }
+
+        tok = ti_eat_peek(p->it);
+    }
+
+    return type;
+}
+
+static c_type *
+parse_type(parser *p) {
+    c_type *type = NULL;
+    (void)p;
+    NOT_IMPL;
+    return type;
 }
 
 uint64_t
@@ -122,8 +407,8 @@ parse_expr_primary(parser *p) {
         ti_eat(p->it);
     } else if (tok->kind == TOK_STR) {
         NOT_IMPL;
-    /* } else { */
-    /*     report_error_token(tok, "Expected expression"); */
+        /* } else { */
+        /*     report_error_token(tok, "Expected expression"); */
     }
     return node;
 }
