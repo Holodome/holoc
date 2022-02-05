@@ -30,8 +30,26 @@ find_typedef(parser *p, string name) {
 static c_type *
 parse_enum_decl(parser *p) {
     c_type *type = NULL;
-    (void)p;
-    NOT_IMPL;
+
+    token *tok = ti_peek(p->it);
+    if (!IS_KW(tok, C_KW_ENUM)) {
+        goto out;
+    }
+    tok = ti_eat_peek(p->it);
+
+    string tag = {0};
+    if (tok->kind == TOK_ID) {
+        tag = tok->str;
+        tok = ti_eat_peek(p->it);
+    }
+
+    if (IS_PUNCT(tok, '{')) {
+        tok = ti_eat_peek(p->it);
+
+        uint64_t auto_value = 0;
+        
+    }
+out:
     return type;
 }
 

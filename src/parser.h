@@ -3,9 +3,46 @@
 
 #include "types.h"
 
+#define PARSER_SCOPE_VAR_HASH_SIZE 1024
+#define PARSER_SCOPE_TAG_HASH_SIZE 1024
+
 struct allocator;
 struct token_iter;
 struct ast;
+
+typedef enum {
+    PARSER_DECL_TYPEDEF  = 0x1,
+    PARSER_DECL_VAR      = 0x2,
+    PARSER_DECL_FUNC     = 0x3,
+    PARSER_DECL_ENUM_VAL = 0x4,
+} parser_decl_kind;
+
+typedef struct parser_decl {
+    struct parser_decl *next;
+
+    string name;
+    uint32_t name_hash;
+
+    parser_decl_kind kind;
+    struct c_type *type;
+    uint64_t enum_val;
+
+} parser_decl;
+
+typedef struct parser_tag_decl {
+    struct parser_tag_decl *next;
+
+    string name;
+    uint32_t name_hash;
+    struct c_type *type;
+} parser_tag_decl;
+
+typedef struct parser_scope {
+    struct parser_scope *next;
+
+    parser_decl *var_hash[PARSER_SCOPE_VAR_HASH_SIZE];
+    parser_tag_decl *tag_hash[PARSER_SCOPE_TAG_HASH_SIZE];
+} parser_scope;
 
 typedef struct parser {
     struct allocator *a;
