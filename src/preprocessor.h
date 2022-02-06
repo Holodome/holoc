@@ -66,9 +66,6 @@ typedef struct pp_conditional_include {
 } pp_conditional_include;
 
 typedef struct preprocessor {
-    // Allocator used for allocating objects needed for parsing.
-    // Preprocessor is designed in a way that thries to minimize number of
-    // deallocations.
     struct allocator *a;
 
     struct pp_token_iter *it;

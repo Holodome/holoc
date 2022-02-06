@@ -4,11 +4,22 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "allocator.h"
 #include "ast.h"
 #include "c_lang.h"
 #include "c_types.h"
 #include "error_reporter.h"
+#include "hashing.h"
+#include "llist.h"
 #include "token_iter.h"
+
+#define GET_DECLP(_scope, _hash)                                                             \
+    hash_table_sc_get_u32((_scope)->decl_hash, ARRAY_SIZE((_scope)->decl_hash), parser_decl, \
+                          next, name_hash, (_hash))
+
+#define GET_TAGP(_scope, _hash)                                               \
+    hash_table_sc_get_u32((_scope)->tag_hash, ARRAY_SIZE((_scope)->tag_hash), \
+                          parser_tag_decl, next, name_hash, (_hash))
 
 typedef enum {
     STORAGE_TYPEDEF_BIT      = 0x1,   // typedef
@@ -18,6 +29,45 @@ typedef enum {
     STORAGE_THREAD_LOCAL_BIT = 0x10,  // _Thread_local
 } storage_class_specifier_flags;
 
+static parser_decl *
+get_new_decl_scoped(parser *p, string name) {
+    uint32_t name_hash = hash_string(name);
+    assert(p->scope);
+    parser_decl **declp = GET_DECLP(p->scope, name_hash);
+    if (!*declp) {
+        parser_decl *decl = aalloc(p->a, sizeof(parser_decl));
+        *declp            = decl;
+    } else {
+        NOT_IMPL;
+    }
+
+    parser_decl *decl = *declp;
+    assert(decl);
+    decl->name      = name;
+    decl->name_hash = name_hash;
+    return decl;
+}
+
+static void
+push_tag_scoped(parser *p, string tag, c_type *type) {
+    uint32_t tag_hash = hash_string(tag);
+    assert(p->scope);
+
+    parser_tag_decl **declp = GET_TAGP(p->scope, tag_hash);
+    if (!*declp) {
+        parser_tag_decl *decl = aalloc(p->a, sizeof(parser_tag_decl));
+        *declp                = decl;
+    } else {
+        NOT_IMPL;
+    }
+
+    parser_tag_decl *decl = *declp;
+    assert(decl);
+    decl->name      = tag;
+    decl->name_hash = tag_hash;
+    decl->type      = type;
+}
+
 static c_type *
 find_typedef(parser *p, string name) {
     c_type *type = NULL;
@@ -25,6 +75,13 @@ find_typedef(parser *p, string name) {
     (void)name;
     NOT_IMPL;
     return type;
+}
+
+static int64_t
+eval_const_expr(parser *p) {
+    (void)p;
+    NOT_IMPL;
+    return 0;
 }
 
 static c_type *
@@ -46,8 +103,35 @@ parse_enum_decl(parser *p) {
     if (IS_PUNCT(tok, '{')) {
         tok = ti_eat_peek(p->it);
 
-        /* uint64_t auto_value = 0; */
-        
+        uint64_t auto_value = 0;
+
+        while (tok->kind != TOK_EOF && !IS_PUNCT(tok, '}')) {
+            if (tok->kind != TOK_ID) {
+                report_error_token(tok, "Expected identifier");
+                tok = ti_eat_peek(p->it);
+                continue;
+            }
+
+            string value_name = tok->str;
+
+            tok            = ti_eat_peek(p->it);
+            uint64_t value = auto_value;
+            if (IS_PUNCT(tok, '=')) {
+                tok   = ti_eat_peek(p->it);
+                value = eval_const_expr(p);
+            }
+            auto_value = value + 1;
+
+            parser_decl *decl = get_new_decl_scoped(p, value_name);
+            decl->enum_val    = value;
+
+            // TODO: Store enum values in type definition so we can do static analysis better
+            // (like missing branches in switch statements)
+        }
+    }
+
+    if (tag.data) {
+        push_tag_scoped(p, tag, type);
     }
 out:
     return type;
@@ -174,9 +258,10 @@ deslspec(parser *p, uint32_t *storage_class_flags) {
 
             if ((*storage_class_flags & STORAGE_TYPEDEF_BIT) &&
                 (*storage_class_flags & ~STORAGE_TYPEDEF_BIT)) {
-                report_error_token(tok,
-                                   "Declaration specifier 'typedef' can not be used with 'static', "
-                                   "'inline', 'extern', '_Thread_local'");
+                report_error_token(
+                    tok,
+                    "Declaration specifier 'typedef' can not be used with 'static', "
+                    "'inline', 'extern', '_Thread_local'");
             }
 
             tok = ti_eat_peek(p->it);
@@ -184,7 +269,8 @@ deslspec(parser *p, uint32_t *storage_class_flags) {
         }
 
         if (IS_KW(tok, C_KW_CONST) || IS_KW(tok, C_KW_VOLATILE) || IS_KW(tok, C_KW_AUTO) ||
-            IS_KW(tok, C_KW_REGISTER) || IS_KW(tok, C_KW_RESTRICT) || IS_KW(tok, C_KW_NORETURN)) {
+            IS_KW(tok, C_KW_REGISTER) || IS_KW(tok, C_KW_RESTRICT) ||
+            IS_KW(tok, C_KW_NORETURN)) {
             // TODO: do something
             tok = ti_eat_peek(p->it);
             continue;

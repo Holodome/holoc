@@ -210,14 +210,8 @@ typedef struct ast_struct_decl {
 typedef struct ast_enum_field {
     _AST_FIELDS;
     string name;
-    uint64_t value;
+    int64_t value;
 } ast_enum_field;
-
-typedef struct ast_enum_decl {
-    _AST_FIELDS;
-    string name;
-    ast_enum_field *fields;
-} ast_enum_decl;
 
 typedef struct ast_decl {
     _AST_FIELDS;
@@ -253,5 +247,6 @@ ast *make_ast_unary(struct allocator *a, source_loc loc, ast_unary_kind kind, as
 ast *make_ast_binary(struct allocator *a, ast_binary_kind kind, ast *left, ast *right);
 ast *make_ast_cast(struct allocator *a, source_loc loc, ast *expr, struct c_type *type);
 ast *make_ast_ternary(struct allocator *a, ast *cond, ast *cond_true, ast *cond_false);
+ast *make_ast_enum_field(struct allocator *a, string name, int64_t value);
 
 #endif

@@ -26,7 +26,6 @@ typedef struct parser_decl {
     parser_decl_kind kind;
     struct c_type *type;
     uint64_t enum_val;
-
 } parser_decl;
 
 typedef struct parser_tag_decl {
@@ -40,7 +39,7 @@ typedef struct parser_tag_decl {
 typedef struct parser_scope {
     struct parser_scope *next;
 
-    parser_decl *var_hash[PARSER_SCOPE_VAR_HASH_SIZE];
+    parser_decl *decl_hash[PARSER_SCOPE_VAR_HASH_SIZE];
     parser_tag_decl *tag_hash[PARSER_SCOPE_TAG_HASH_SIZE];
 } parser_scope;
 
@@ -48,6 +47,8 @@ typedef struct parser {
     struct allocator *a;
 
     struct token_iter *it;
+
+    parser_scope *scope;
 } parser;
 
 // primary = '(' expr ')'
