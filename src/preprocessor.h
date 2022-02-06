@@ -69,13 +69,6 @@ typedef struct preprocessor {
     struct allocator *a;
 
     struct pp_token_iter *it;
-    // Buffer where strings and other normally heap-allocated string-like data
-    // is written. Because we want to simplify preprocessor structure a bit, we
-    // don't request for a specific allocator. Instead, strings are written to
-    // this buffer and user may decide how to use it.
-    char *tok_buf;
-    uint32_t tok_buf_capacity;
-    uint32_t tok_buf_len;
     // Value for __COUNTER__
     uint32_t counter_value;
     // Stack of conditional includes. Pointer because default level is not an
@@ -85,7 +78,7 @@ typedef struct preprocessor {
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
 } preprocessor;
 
-void pp_init(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size);
-bool pp_parse(preprocessor *pp, struct token *tok);
+void pp_init(preprocessor *pp, string filename);
+bool pp_parse(preprocessor *pp, struct token *tok, char *buf, uint32_t buf_size, uint32_t *buf_writtenp);
 
 #endif

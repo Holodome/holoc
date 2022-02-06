@@ -159,6 +159,15 @@ make_array_type(c_type *base, uint32_t len, struct allocator *a) {
     return type;
 }
 
+c_type *
+make_c_type_struct(struct allocator *a, string name, c_struct_member *members) {
+    c_type *type = aalloc(a, sizeof(c_type));
+    type->kind = C_TYPE_STRUCT;
+    type->name = name;
+    type->struct_members = members;
+    return type;
+}
+
 void
 fmt_c_typew(c_type *type, buffer_writer *w) {
     switch (type->kind) {

@@ -176,7 +176,7 @@ parse_struct_decl(parser *p) {
 
             tok = ti_peek(p->it);
             // Anonymous struct member
-            if ((type->kind == C_TYPE_STRUCT || type->kind == C_TYPE_UNION) &&
+            if ((decl_type->kind == C_TYPE_STRUCT || decl_type->kind == C_TYPE_UNION) &&
                 IS_PUNCT(tok, ';')) {
                 c_struct_member *member = aalloc(p->a, sizeof(c_struct_member));
                 member->type            = decl_type;

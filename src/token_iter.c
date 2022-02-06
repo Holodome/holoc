@@ -2,17 +2,16 @@
 
 #include <assert.h>
 
+#include "str.h"
 #include "allocator.h"
 #include "c_lang.h"
 #include "preprocessor.h"
-
-static char tok_buf[4096];
 
 void
 ti_init(token_iter *it, string filename) {
     it->pp    = aalloc(it->a, sizeof(preprocessor));
     it->pp->a = it->a;
-    pp_init(it->pp, filename, tok_buf, sizeof(tok_buf));
+    pp_init(it->pp, filename);
 }
 
 token *
@@ -26,7 +25,12 @@ ti_peek_forward(token_iter *it, uint32_t count) {
 
     while (idx != count || !*tokp) {
         token *tok = aalloc(it->a, sizeof(token));
-        pp_parse(it->pp, tok);
+        char buf[4096];
+        uint32_t buf_size = 0;
+        pp_parse(it->pp, tok, buf, sizeof(buf), &buf_size);
+        if (buf_size) {
+            tok->str = string_dup(it->a, string(buf, buf_size));
+        }
         if (*tokp) {
             (*tokp)->next = tok;
             tokp          = &(*tokp)->next;

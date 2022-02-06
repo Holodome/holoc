@@ -48,10 +48,6 @@ typedef struct ppti_entry {
 typedef struct pp_token_iter {
     struct allocator *a;
 
-    char *tok_buf;
-    uint32_t tok_buf_capacity;
-    uint32_t tok_buf_len;
-
     ppti_entry *it;
 
     struct pp_token *eof_token;

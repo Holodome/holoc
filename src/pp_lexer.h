@@ -1,5 +1,6 @@
-// Defines lexer for c language. Lexer generates preprocessor tokens, which are different from ones used in language parsing.
-// For definition of language tokens see c_lang.h. For generation of language tokens see preprocessor.h
+// Defines lexer for c language. Lexer generates preprocessor tokens, which are different from
+// ones used in language parsing. For definition of language tokens see c_lang.h. For
+// generation of language tokens see preprocessor.h
 #ifndef PP_LEXER_H
 #define PP_LEXER_H
 
@@ -107,8 +108,8 @@ typedef struct pp_lexer {
     struct pp_lexer *next;
     // Start of data that we parse
     char *data;
-    // End of data, so range checking is always done in pointers and not with
-    // start-size
+    // End of data. A pointer instead of size is used so range checking is always done in
+    // pointers and not with start-size
     char *eof;
     // Current byte
     char *cursor;
@@ -119,19 +120,14 @@ typedef struct pp_lexer {
     char *tok_start;
     // Line number
     uint32_t line;
-    // External buffer used for writing token strings to it
-    char *tok_buf;
-    // Size of tok_buf
-    uint32_t tok_buf_capacity;
-    // Occupied size if tok_buf
-    uint32_t tok_buf_len;
 } pp_lexer;
 
 // Initializes all members of lex to parse given data.
-void pp_lexer_init(pp_lexer *lex, char *data, char *eof, char *tok_buf, uint32_t tok_buf_size);
+void pp_lexer_init(pp_lexer *lex, char *data, char *eof);
 
 // Generates one new token at writes it in lexer->tok
-bool pp_lexer_parse(pp_lexer *lexer, pp_token *tok);
+bool pp_lexer_parse(pp_lexer *lexer, pp_token *tok, char *buf, uint32_t buf_size,
+                    uint32_t *buf_writtenp);
 // Formats token like it is seen in code
 void fmt_pp_tokw(struct buffer_writer *w, pp_token *tok);
 uint32_t fmt_pp_tok(char *buf, uint32_t buf_len, pp_token *tok);

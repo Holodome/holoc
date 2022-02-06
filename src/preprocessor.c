@@ -23,9 +23,9 @@
 
 // NOTE: These can be separate functions, but since they are really wrappers for
 // another function let's not make them that way and keep as macros.
-#define GET_MACROP(_pp, _hash)                                                                     \
-    (pp_macro **)hash_table_sc_get_u32((_pp)->macro_hash, ARRAY_SIZE((_pp)->macro_hash), pp_macro, \
-                                       next, name_hash, (_hash))
+#define GET_MACROP(_pp, _hash)                                                           \
+    (pp_macro **)hash_table_sc_get_u32((_pp)->macro_hash, ARRAY_SIZE((_pp)->macro_hash), \
+                                       pp_macro, next, name_hash, (_hash))
 #define GET_MACRO(_pp, _hash) (*GET_MACROP(_pp, _hash))
 
 // Frees macro arguments and adds them to freelist.
@@ -33,8 +33,8 @@
 static void
 free_macro_data(preprocessor *pp, pp_macro *macro) {
     while (macro->args) {
-        pp_macro_arg *arg      = macro->args;
-        macro->args            = arg->next;
+        pp_macro_arg *arg = macro->args;
+        macro->args       = arg->next;
         afree(pp->a, arg, sizeof(pp_macro_arg));
     }
 }
@@ -212,7 +212,8 @@ expand_macro(preprocessor *pp, pp_token_iter *it) {
             source_loc initial_loc = tok->loc;
 
             linked_list_constructor def = {0};
-            for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF; temp = temp->next) {
+            for (pp_token *temp = macro->definition; temp->kind != PP_TOK_EOF;
+                 temp           = temp->next) {
                 pp_token *new_token = copy_pp_token(pp, temp);
                 new_token->loc      = initial_loc;
                 LLISTC_ADD_LAST(&def, new_token);
@@ -409,7 +410,8 @@ skip_cond_incl(preprocessor *pp) {
         if (string_eq(next->str, WRAPZ("if")) || string_eq(next->str, WRAPZ("ifdef")) ||
             string_eq(next->str, WRAPZ("ifndef"))) {
             ++depth;
-        } else if (string_eq(next->str, WRAPZ("elif")) || string_eq(next->str, WRAPZ("else")) ||
+        } else if (string_eq(next->str, WRAPZ("elif")) ||
+                   string_eq(next->str, WRAPZ("else")) ||
                    string_eq(next->str, WRAPZ("endif"))) {
             if (!depth) {
                 break;
@@ -484,7 +486,7 @@ eval_pp_expr(preprocessor *pp) {
     // So now in tok we have a list of tokens that form constant expression.
     // Convert these tokens to C ones.
     linked_list_constructor converted = {0};
-    pp_token_iter iter                = {.a = pp->a };
+    pp_token_iter iter                = {.a = pp->a};
     ppti_insert_tok_list(&iter, modified.first, modified.last);
     tok = ppti_peek(&iter);
     while (tok) {
@@ -508,12 +510,14 @@ eval_pp_expr(preprocessor *pp) {
         }
 
         token *c_tok = aalloc(pp->a, sizeof(token));
-        if (!convert_pp_token(tok, c_tok, pp->tok_buf, pp->tok_buf_capacity, &pp->tok_buf_len,
-                              pp->a)) {
+        char buf[4096];
+        uint32_t buf_len = 0;
+        if (!convert_pp_token(tok, c_tok, buf, sizeof(buf), &buf_len, pp->a)) {
             report_error_pp_token(tok, "Unexpected token");
             break;
         }
-        if (c_tok->str.data) {
+
+        if (buf_len) {
             c_tok->str = string_dup(pp->a, c_tok->str);
         }
         LLISTC_ADD_LAST(&converted, c_tok);
@@ -715,14 +719,16 @@ process_pp_directive(preprocessor *pp) {
 
 static void
 predefined_macro(preprocessor *pp, string name, string value) {
-    char lexer_buffer[4096];
     pp_lexer lex = {0};
-    pp_lexer_init(&lex, value.data, STRING_END(value), lexer_buffer, sizeof(lexer_buffer));
+    pp_lexer_init(&lex, value.data, STRING_END(value));
 
     linked_list_constructor tokens = {0};
     for (;;) {
+        char buf[4096];
+        uint32_t buf_len = 0;
+
         pp_token *tok        = aalloc(pp->a, sizeof(pp_token));
-        bool should_continue = pp_lexer_parse(&lex, tok);
+        bool should_continue = pp_lexer_parse(&lex, tok, buf, sizeof(buf), &buf_len);
         tok->loc.filename    = WRAPZ("BUILTIN");
         if (tok->str.data) {
             tok->str = string_dup(pp->a, tok->str);
@@ -748,7 +754,8 @@ predefined_macro(preprocessor *pp, string name, string value) {
 static void
 define_common_predefined_macros(preprocessor *pp, string filename) {
     string file_onlyname = path_filename(filename);
-    string file_name = string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
+    string file_name =
+        string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
     predefined_macro(pp, WRAPZ("__FILE_NAME__"), file_name);
 
     string base_file = string_memprintf(pp->a, "\"%.*s\"", filename.len, filename.data);
@@ -924,23 +931,19 @@ __INTMAX_WIDTH__
 }
 
 void
-pp_init(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size) {
-    pp->tok_buf          = tok_buf;
-    pp->tok_buf_capacity = tok_buf_size;
-
+pp_init(preprocessor *pp, string filename) {
     define_common_predefined_macros(pp, filename);
 
-    pp->it                   = aalloc(pp->a, sizeof(pp_token_iter));
-    pp->it->a                = pp->a;
-    pp->it->tok_buf          = tok_buf;
-    pp->it->tok_buf_capacity = tok_buf_size;
-    pp->it->eof_token        = aalloc(pp->a, sizeof(pp_token));
-    pp->it->eof_token->kind  = PP_TOK_EOF;
+    pp->it                  = aalloc(pp->a, sizeof(pp_token_iter));
+    pp->it->a               = pp->a;
+    pp->it->eof_token       = aalloc(pp->a, sizeof(pp_token));
+    pp->it->eof_token->kind = PP_TOK_EOF;
     ppti_include_file(pp->it, filename);
 }
 
 bool
-pp_parse(preprocessor *pp, struct token *tok) {
+pp_parse(preprocessor *pp, struct token *tok, char *buf, uint32_t buf_size,
+         uint32_t *buf_writtenp) {
     for (;;) {
         if (expand_macro(pp, pp->it)) {
             continue;
@@ -955,7 +958,7 @@ pp_parse(preprocessor *pp, struct token *tok) {
             break;
         }
 
-        if (!convert_pp_token(pp_tok, tok, pp->tok_buf, pp->tok_buf_capacity, &pp->tok_buf_len,
+        if (!convert_pp_token(pp_tok, tok, buf, buf_size, buf_writtenp,
                               pp->a)) {
             report_error_pp_token(pp_tok, "Unexpected token");
             ppti_eat(pp->it);

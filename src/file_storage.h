@@ -7,13 +7,13 @@ struct allocator;
 
 typedef struct file {
     struct file *next;
-    // typically name inside #include
+    // typically, name inside #include
     string name;
     // full system path
     string full_path;
-    // Initial buffer for file contents
+    // Initial buffer for file contents.
     string contents_init;
-    // Shrinked buffer with file contents
+    // Sub buffer of contents_init with file contents.
     string contents;
 
     bool has_pragma_once;
@@ -29,7 +29,7 @@ typedef struct file_storage {
     string *include_paths;  // da
 } file_storage;
 
-// file storage is made global. This, most obvoiuslt, prevents asynchronous
+// file storage is made global. This, most obviously, disables asynchronous
 // lock-free file reads. But it has been decided to be unimportant.
 file_storage *get_file_storage(void);
 void fs_add_default_include_paths(void);

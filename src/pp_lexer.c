@@ -240,9 +240,10 @@ read_escaped_char(pp_lexer *lex) {
 }
 
 static void
-read_utf8_string_literal(pp_lexer *lex, char terminator) {
-    char *write_cursor = lex->tok_buf;
-    char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
+read_utf8_string_literal(pp_lexer *lex, char terminator, char *buf, uint32_t buf_size,
+                         uint32_t *buf_writtenp) {
+    char *write_cursor = buf;
+    char *write_eof    = buf + buf_size;
     assert(write_cursor != write_eof);
     for (;;) {
         // Make sure buffer is always terminated
@@ -271,9 +272,9 @@ read_utf8_string_literal(pp_lexer *lex, char terminator) {
         memcpy(write_cursor, utf8, cp_len);
         write_cursor += cp_len;
     }
-    *write_cursor    = 0;
-    lex->tok_buf_len = write_cursor - lex->tok_buf;
-    assert(lex->tok_buf_len < lex->tok_buf_capacity);
+    *write_cursor = 0;
+    *buf_writtenp = write_cursor - buf;
+    assert(*buf_writtenp < buf_size);
 }
 
 #if 0
@@ -323,7 +324,8 @@ read_utf32_string_literal(pp_lexer *lex, char terminator) {
 #endif
 
 static bool
-parse_string_literal(pp_lexer *lex, pp_token *tok) {
+parse_string_literal(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
+                     uint32_t *buf_writtenp) {
     bool result             = false;
     char *test_cursor       = lex->cursor;
     pp_string_kind str_kind = PP_TOK_STR_SCHAR;
@@ -348,7 +350,7 @@ parse_string_literal(pp_lexer *lex, pp_token *tok) {
         lex->cursor     = test_cursor;
         result          = true;
 
-        read_utf8_string_literal(lex, terminator);
+        read_utf8_string_literal(lex, terminator, buf, buf_size, buf_writtenp);
 #if 0
         switch (str_kind) {
         default:
@@ -371,17 +373,18 @@ parse_string_literal(pp_lexer *lex, pp_token *tok) {
         }
         tok->kind     = PP_TOK_STR;
         tok->str_kind = str_kind;
-        tok->str      = string(lex->tok_buf, lex->tok_buf_len);
+        tok->str      = string(buf, *buf_writtenp);
     }
 
     return result;
 }
 
 static bool
-parse_number(pp_lexer *lex, pp_token *tok) {
+parse_number(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
+             uint32_t *buf_writtenp) {
     bool result        = false;
-    char *write_cursor = lex->tok_buf;
-    char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
+    char *write_cursor = buf;
+    char *write_eof    = buf + buf_size;
     assert(write_cursor != write_eof);
     if (isdigit(*lex->cursor) || (*lex->cursor == '.' && isdigit(lex->cursor[1]))) {
         result          = true;
@@ -401,11 +404,11 @@ parse_number(pp_lexer *lex, pp_token *tok) {
                 break;
             }
         }
-        *write_cursor    = 0;
-        lex->tok_buf_len = write_cursor - lex->tok_buf;
-        assert(lex->tok_buf_len < lex->tok_buf_capacity);
+        *write_cursor = 0;
+        *buf_writtenp = write_cursor - buf;
+        tok->str      = string(buf, *buf_writtenp);
+        assert(*buf_writtenp < buf_size);
         tok->kind = PP_TOK_NUM;
-        tok->str  = string(lex->tok_buf, lex->tok_buf_len);
     }
 
     return result;
@@ -440,11 +443,12 @@ parse_punctuator(pp_lexer *lex, pp_token *tok) {
 }
 
 static bool
-parse_ident(pp_lexer *lex, pp_token *tok) {
+parse_ident(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
+            uint32_t *buf_writtenp) {
     bool result = false;
     if (isalpha(*lex->cursor) || *lex->cursor == '_') {
-        char *write_cursor = lex->tok_buf;
-        char *write_eof    = lex->tok_buf + lex->tok_buf_capacity;
+        char *write_cursor = buf;
+        char *write_eof    = buf + buf_size;
         assert(write_cursor != write_eof);
         *write_cursor++ = *lex->cursor++;
 
@@ -457,10 +461,10 @@ parse_ident(pp_lexer *lex, pp_token *tok) {
         }
         *write_cursor = 0;
 
-        lex->tok_buf_len = write_cursor - lex->tok_buf;
-        assert(lex->tok_buf_len < lex->tok_buf_capacity);
+        *buf_writtenp = write_cursor - buf;
+        assert(*buf_writtenp < buf_size);
+        tok->str  = string(buf, *buf_writtenp);
         tok->kind = PP_TOK_ID;
-        tok->str  = string(lex->tok_buf, lex->tok_buf_len);
 
         result = true;
     }
@@ -468,8 +472,8 @@ parse_ident(pp_lexer *lex, pp_token *tok) {
 }
 
 bool
-pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
-    lex->tok_buf_len = 0;
+pp_lexer_parse(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
+               uint32_t *buf_writtenp) {
     if (lex->cursor != lex->data) {
         tok->at_line_start = false;
     } else {
@@ -486,12 +490,12 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
             } else if (cp & 0x80) {
                 lex->tok_start = lex->cursor;
                 uint32_t t;
-                lex->cursor      = utf8_decode(lex->cursor, &t);
-                tok->kind        = PP_TOK_OTHER;
-                lex->tok_buf[0]  = cp;
-                lex->tok_buf[1]  = 0;
-                lex->tok_buf_len = 1;
-                tok->str         = string(lex->tok_buf, lex->tok_buf_len);
+                lex->cursor   = utf8_decode(lex->cursor, &t);
+                tok->kind     = PP_TOK_OTHER;
+                buf[0]        = cp;
+                buf[1]        = 0;
+                *buf_writtenp = 1;
+                tok->str      = string(buf, *buf_writtenp);
                 break;
             }
         }
@@ -501,15 +505,15 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
         }
 
         lex->tok_start = lex->cursor;
-        if (parse_string_literal(lex, tok)) {
+        if (parse_string_literal(lex, tok, buf, buf_size, buf_writtenp)) {
             break;
         }
 
-        if (parse_number(lex, tok)) {
+        if (parse_number(lex, tok, buf, buf_size, buf_writtenp)) {
             break;
         }
 
-        if (parse_ident(lex, tok)) {
+        if (parse_ident(lex, tok, buf, buf_size, buf_writtenp)) {
             break;
         }
 
@@ -526,14 +530,12 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok) {
 }
 
 void
-pp_lexer_init(pp_lexer *lex, char *data, char *eof, char *tok_buf, uint32_t tok_buf_size) {
-    lex->tok_buf          = tok_buf;
-    lex->tok_buf_capacity = tok_buf_size;
-    lex->data             = data;
-    lex->eof              = eof;
-    lex->cursor           = data;
-    lex->line             = 1;
-    lex->last_line_start  = data;
+pp_lexer_init(pp_lexer *lex, char *data, char *eof) {
+    lex->data            = data;
+    lex->eof             = eof;
+    lex->cursor          = data;
+    lex->line            = 1;
+    lex->last_line_start = data;
 }
 
 void

@@ -28,8 +28,7 @@ ppti_include_file(pp_token_iter *it, string filename) {
     ppti_entry *entry = aalloc(it->a, sizeof(ppti_entry));
     entry->f          = f;
     entry->lexer      = aalloc(it->a, sizeof(pp_lexer));
-    pp_lexer_init(entry->lexer, f->contents.data, STRING_END(f->contents), it->tok_buf,
-                  it->tok_buf_capacity);
+    pp_lexer_init(entry->lexer, f->contents.data, STRING_END(f->contents));
     LLIST_ADD(it->it, entry);
 }
 
@@ -69,9 +68,11 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
                 break;
             }
 
+            char buf[4096];
+            uint32_t buf_len = 0;
             // Try to use lexer.
             pp_token local_tok = {0};
-            bool not_eof       = pp_lexer_parse(e->lexer, &local_tok);
+            bool not_eof       = pp_lexer_parse(e->lexer, &local_tok, buf, sizeof(buf), &buf_len);
             // If lexer produces eof, meaning it has reached its end, we must
             // skip to the next stack entry.
             if (!not_eof) {
@@ -85,9 +86,10 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
             pp_token *new_tok = aalloc(it->a, sizeof(pp_token));
             memcpy(new_tok, &local_tok, sizeof(pp_token));
             new_tok->loc.filename = e->f->name;
-            if (new_tok->str.data) {
+            if (buf_len) {
                 new_tok->str = string_dup(it->a, new_tok->str);
             }
+
 #if HOLOC_DEBUG
             {
                 char buffer[4096];
@@ -142,7 +144,7 @@ ppti_eat(pp_token_iter *it) {
             afree(it->a, tok, sizeof(pp_token));
         } else {
             if (e->lexer) {
-                afree(it->a, e->lexer, sizeof(pp_token));
+                afree(it->a, e->lexer, sizeof(pp_lexer));
             }
             it->it = e->next;
             afree(it->a, e, sizeof(ppti_entry));

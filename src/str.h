@@ -16,12 +16,12 @@ typedef struct {
     uint32_t idx;
 } string_find_result;
 
-// Wrapper for string creation call
+// Wrapper for string creation
 #define string(_data, _len) ((string){.data = _data, .len = _len})
 // Construct string from string literal
 // TODO: this fails in gcc because compound literals are not considered const by it.
 // What we can do here is lose the (string) part, and leave { _data, _len } when initializing.
-// But that is another forma of initialization that would required additional macro, so let's not do
+// But that is another form of initialization that would required additional macro, so let's not do
 // it for now and stick with clang.
 #define WRAPZ(_z) string(_z, sizeof(_z) - 1)
 // Construct string from null-terminated string

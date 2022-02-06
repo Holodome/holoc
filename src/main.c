@@ -9,11 +9,11 @@
 #include "darray.h"
 #include "error_reporter.h"
 #include "file_storage.h"
+#include "parser.h"
 #include "pp_lexer.h"
 #include "preprocessor.h"
 #include "str.h"
 #include "token_iter.h"
-#include "parser.h"
 
 typedef enum {
     // print preprocessing tokens verbose, its on its own line
@@ -80,15 +80,15 @@ mptv(string filename) {
 
     file *f = fs_get_file(filename, 0);
 
-    char token_buffer[4096];
+    char token_buf[4096];
     pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
-    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents), token_buffer,
-                  sizeof(token_buffer));
+    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents));
     pp_token tok = {0};
-    while (pp_lexer_parse(lex, &tok)) {
-        char buffer[4096];
-        fmt_pp_tok_verbose(buffer, sizeof(buffer), &tok);
-        printf("%s\n", buffer);
+    uint32_t _;
+    while (pp_lexer_parse(lex, &tok, token_buf, sizeof(token_buf), &_)) {
+        char buf[4096];
+        fmt_pp_tok_verbose(buf, sizeof(buf), &tok);
+        printf("%s\n", buf);
         memset(&tok, 0, sizeof(tok));
     }
 }
@@ -100,20 +100,20 @@ mptf(string filename) {
 
     file *f = fs_get_file(filename, 0);
 
-    char token_buffer[4096];
+    char token_buf[4096];
     pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
-    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents), token_buffer,
-                  sizeof(token_buffer));
+    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents));
     pp_token tok = {0};
-    while (pp_lexer_parse(lex, &tok)) {
-        char buffer[4096];
-        fmt_pp_tok(buffer, sizeof(buffer), &tok);
+    uint32_t _;
+    while (pp_lexer_parse(lex, &tok, token_buf, sizeof(token_buf), &_)) {
+        char buf[4096];
+        fmt_pp_tok(buf, sizeof(buf), &tok);
         if (tok.at_line_start) {
             printf("\n");
         } else if (tok.has_whitespace) {
             printf(" ");
         }
-        printf("%s", buffer);
+        printf("%s", buf);
         memset(&tok, 0, sizeof(tok));
     }
     printf("\n");
@@ -126,15 +126,15 @@ mpt(string filename) {
 
     file *f = fs_get_file(filename, 0);
 
-    char token_buffer[4096];
+    char token_buf[4096];
     pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
-    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents), token_buffer,
-                  sizeof(token_buffer));
+    pp_lexer_init(lex, f->contents.data, STRING_END(f->contents));
     pp_token tok = {0};
-    while (pp_lexer_parse(lex, &tok)) {
-        char buffer[4096];
-        fmt_pp_tok(buffer, sizeof(buffer), &tok);
-        printf("%s\n", buffer);
+    uint32_t _;
+    while (pp_lexer_parse(lex, &tok, token_buf, sizeof(token_buf), &_)) {
+        char buf[4096];
+        fmt_pp_tok(buf, sizeof(buf), &tok);
+        printf("%s\n", buf);
         memset(&tok, 0, sizeof(tok));
     }
 }
@@ -145,16 +145,17 @@ mtp(string filename) {
 
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    char pp_buf[4096];
     preprocessor *pp = aalloc(a, sizeof(preprocessor));
     pp->a            = a;
-    pp_init(pp, filename, pp_buf, sizeof(pp_buf));
+    pp_init(pp, filename);
 
+    char buf[4096];
+    uint32_t _;
     token tok = {0};
-    while (pp_parse(pp, &tok)) {
-        char buffer[4096];
-        fmt_token(buffer, sizeof(buffer), &tok);
-        printf("%s\n", buffer);
+    while (pp_parse(pp, &tok, buf, sizeof(buf), &_)) {
+        char fmt_buf[4096];
+        fmt_token(fmt_buf, sizeof(fmt_buf), &tok);
+        printf("%s\n", buf);
     }
 }
 
@@ -163,16 +164,17 @@ mtpv(string filename) {
     allocator *a = get_system_allocator();
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    char pp_buf[4096];
     preprocessor *pp = aalloc(a, sizeof(preprocessor));
     pp->a            = a;
-    pp_init(pp, filename, pp_buf, sizeof(pp_buf));
+    pp_init(pp, filename);
 
+    char buf[4096];
+    uint32_t _;
     token tok = {0};
-    while (pp_parse(pp, &tok)) {
-        char buffer[4096];
-        fmt_token_verbose(buffer, sizeof(buffer), &tok);
-        printf("%s\n", buffer);
+    while (pp_parse(pp, &tok, buf, sizeof(buf), &_)) {
+        char fmt_buf[4096];
+        fmt_token_verbose(fmt_buf, sizeof(fmt_buf), &tok);
+        printf("%s\n", fmt_buf);
     }
 }
 
@@ -182,21 +184,22 @@ mtpf(string filename) {
 
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    char pp_buf[4096];
     preprocessor *pp = aalloc(a, sizeof(preprocessor));
     pp->a            = a;
-    pp_init(pp, filename, pp_buf, sizeof(pp_buf));
+    pp_init(pp, filename);
 
+    char buf[4096];
+    uint32_t _;
     token tok = {0};
-    while (pp_parse(pp, &tok)) {
-        char buffer[4096];
-        fmt_token(buffer, sizeof(buffer), &tok);
+    while (pp_parse(pp, &tok, buf, sizeof(buf), &_)) {
+        char fmt_buf[4096];
+        fmt_token(fmt_buf, sizeof(fmt_buf), &tok);
         if (tok.at_line_start) {
             printf("\n");
         } else if (tok.has_whitespace) {
             printf(" ");
         }
-        printf("%s", buffer);
+        printf("%s", fmt_buf);
     }
     printf("\n");
 }
@@ -206,12 +209,12 @@ mast(string filename) {
     allocator *a = get_system_allocator();
 
     token_iter *it = aalloc(a, sizeof(token_iter));
-    it->a = a;
+    it->a          = a;
     ti_init(it, filename);
 
     parser *p = aalloc(a, sizeof(parser));
-    p->a = a;
-    p->it = it;
+    p->a      = a;
+    p->it     = it;
     parse(p);
 }
 
@@ -255,7 +258,8 @@ main(int argc, char **argv) {
         return 1;
     }
 
-    for (uint32_t filename_idx = 0; filename_idx < da_size(settings.filenames); filename_idx++) {
+    for (uint32_t filename_idx = 0; filename_idx < da_size(settings.filenames);
+         filename_idx++) {
         string filename = settings.filenames[filename_idx];
         process_file(filename);
     }
