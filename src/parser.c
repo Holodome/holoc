@@ -29,6 +29,8 @@ typedef enum {
     STORAGE_THREAD_LOCAL_BIT = 0x10,  // _Thread_local
 } storage_class_specifier_flags;
 
+c_type *parse_declspec(parser *p, uint32_t *storage_class_flags);
+
 static parser_decl *
 get_new_decl_scoped(parser *p, string name) {
     uint32_t name_hash = hash_string(name);
@@ -70,10 +72,15 @@ push_tag_scoped(parser *p, string tag, c_type *type) {
 
 static c_type *
 find_typedef(parser *p, string name) {
-    c_type *type = NULL;
-    (void)p;
-    (void)name;
-    NOT_IMPL;
+    c_type *type       = NULL;
+    uint32_t name_hash = hash_string(name);
+    for (parser_scope *scope = p->scope; scope; scope = scope->next) {
+        parser_tag_decl *decl = *GET_TAGP(scope, name_hash);
+        if (decl) {
+            type = decl->type;
+            break;
+        }
+    }
     return type;
 }
 
@@ -128,11 +135,14 @@ parse_enum_decl(parser *p) {
             // TODO: Store enum values in type definition so we can do static analysis better
             // (like missing branches in switch statements)
         }
+
+        if (tag.data) {
+            push_tag_scoped(p, tag, type);
+        }
+    } else {
+        NOT_IMPL;
     }
 
-    if (tag.data) {
-        push_tag_scoped(p, tag, type);
-    }
 out:
     return type;
 }
@@ -140,8 +150,80 @@ out:
 static c_type *
 parse_struct_decl(parser *p) {
     c_type *type = NULL;
-    (void)p;
-    NOT_IMPL;
+
+    token *tok = ti_peek(p->it);
+    if (!IS_KW(tok, C_KW_STRUCT) && !IS_KW(tok, C_KW_UNION)) {
+        goto out;
+    }
+    tok = ti_eat_peek(p->it);
+
+    string tag = {0};
+    if (tok->kind == TOK_ID) {
+        tag = tok->str;
+        tok = ti_eat_peek(p->it);
+    }
+
+    if (IS_PUNCT(tok, '{')) {
+        linked_list_constructor members = {0};
+
+        uint32_t idx = 0;
+
+        while (tok->kind != TOK_EOF && !IS_PUNCT(tok, '}')) {
+            uint32_t storage_class_flags = 0;
+
+            c_type *decl_type  = parse_declspec(p, &storage_class_flags);
+            bool first_in_decl = true;
+
+            tok = ti_peek(p->it);
+            // Anonymous struct member
+            if ((type->kind == C_TYPE_STRUCT || type->kind == C_TYPE_UNION) &&
+                IS_PUNCT(tok, ';')) {
+                c_struct_member *member = aalloc(p->a, sizeof(c_struct_member));
+                member->type            = decl_type;
+                member->idx             = idx++;
+                LLISTC_ADD_LAST(&members, member);
+
+                tok = ti_eat_peek(p->it);
+                continue;
+            }
+
+            while (tok->kind != TOK_EOF && !IS_PUNCT(tok, ';')) {
+                if (!first_in_decl) {
+                    if (!IS_PUNCT(tok, ',')) {
+                        report_error_token(tok, "Expected either ',' or ';'");
+                    } else {
+                        tok = ti_eat_peek(p->it);
+                    }
+                }
+                first_in_decl = false;
+
+                if (tok->kind != TOK_ID) {
+                    report_error_token(tok, "Expected identifier");
+                    tok = ti_eat_peek(p->it);
+                    continue;
+                }
+                string name = tok->str;
+                
+                tok = ti_eat_peek(p->it);
+
+                c_struct_member *member = aalloc(p->a, sizeof(c_struct_member));
+                member->type = decl_type;
+                member->name = name;
+                member->idx = idx++;
+                LLISTC_ADD_LAST(&members, member);
+            }
+        }
+
+        type = make_c_type_struct(p->a, tag, members.first);
+
+        if (tag.data) {
+            push_tag_scoped(p, tag, type);
+        }
+    } else {
+        NOT_IMPL;
+    }
+
+out:
     return type;
 }
 
@@ -192,7 +274,7 @@ token_is_typename(parser *p, token *tok) {
 
 // TODO: Pointer for storage_class_flags is ugly, put it into return struct
 c_type *
-deslspec(parser *p, uint32_t *storage_class_flags) {
+parse_declspec(parser *p, uint32_t *storage_class_flags) {
     enum {
         TYPE_VOID_BIT  = 0x1,   // 1 void
         TYPE_BOOL_BIT  = 0x2,   // 1 _Bool

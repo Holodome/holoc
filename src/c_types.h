@@ -62,6 +62,8 @@ typedef struct c_type {
     c_type_kind kind;
     uint64_t size;
 
+    string name;
+
     c_struct_member *struct_members;
     struct c_type *ptr_to;
     uint32_t arr_len;
@@ -79,6 +81,7 @@ bool c_type_is_int(c_type *type);
 c_type *get_standard_type(c_type_kind kind);
 c_type *make_ptr_type(c_type *base, struct allocator *a);
 c_type *make_array_type(c_type *base, uint32_t size, struct allocator *a);
+c_type *make_c_type_struct(struct allocator *a, string name, c_struct_member *members);
 
 void fmt_c_typew(c_type *type, struct buffer_writer *w);
 uint32_t fmt_c_type(c_type *type, char *buf, uint32_t buf_size);
