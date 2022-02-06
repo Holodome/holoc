@@ -1,7 +1,7 @@
 #ifndef C_TYPES_H
 #define C_TYPES_H
 
-#include "types.h"
+#include "general.h"
 
 struct c_type;
 struct allocator;

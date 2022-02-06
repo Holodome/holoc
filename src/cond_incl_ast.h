@@ -1,7 +1,7 @@
 #ifndef COND_INCL_AST
 #define COND_INCL_AST
 
-#include "types.h"
+#include "general.h"
 
 struct ast;
 struct allocator;

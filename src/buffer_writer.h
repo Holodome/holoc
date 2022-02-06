@@ -1,7 +1,7 @@
 #ifndef BUFFER_WRITER_H
 #define BUFFER_WRITER_H
 
-#include "types.h"
+#include "general.h"
 
 typedef struct buffer_writer {
     char *cursor;

@@ -1,7 +1,7 @@
 #ifndef AST_H
 #define AST_H
 
-#include "types.h"
+#include "general.h"
 
 struct c_type;
 struct buffer_writer;
@@ -29,13 +29,9 @@ typedef enum {
     AST_MEMB      = 0x11,  // a.x
     AST_RETURN    = 0x12,  // return;
 
-    AST_STRUCT     = 0x13,  // struct x { int x; };
-    AST_ENUM       = 0x14,  // enum x { A, B, C };
-    AST_ENUM_VALUE = 0x15,
     AST_DECL       = 0x16,  // int x;
     AST_FUNC       = 0x17,
     AST_TYPEDEF    = 0x18,
-    AST_TYPE       = 0x19,
 } ast_kind;
 
 typedef enum {
@@ -203,20 +199,6 @@ typedef struct ast_return {
     ast *expr;
 } ast_return;
 
-typedef struct ast_struct_decl {
-    _AST_FIELDS;
-} ast_struct_decl;
-
-typedef struct ast_enum_field {
-    _AST_FIELDS;
-    string name;
-    int64_t value;
-} ast_enum_field;
-
-typedef struct ast_decl {
-    _AST_FIELDS;
-} ast_decl;
-
 typedef struct ast_func {
     _AST_FIELDS;
 } ast_func;
@@ -226,11 +208,6 @@ typedef struct ast_typedef {
     struct ast *underlying;
     string name;
 } ast_typedef;
-
-typedef struct ast_type {
-    _AST_FIELDS;
-    struct c_type *type;
-} ast_type;
 
 void fmt_astw(void *ast, struct buffer_writer *w);
 uint32_t fmt_ast(void *ast, char *buf, uint32_t buf_size);

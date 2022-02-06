@@ -56,6 +56,7 @@ void
 ti_eat(token_iter *it) {
     token *tok = it->token_list;
     if (tok) {
+        afree(it->a, tok, sizeof(token));
         it->token_list = tok->next;
     }
 }

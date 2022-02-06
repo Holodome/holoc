@@ -1,7 +1,7 @@
 #ifndef BUMP_ALLOCATOR
 #define BUMP_ALLOCATOR
 
-#include "types.h"
+#include "general.h"
 
 // allocator.h
 struct allocator;

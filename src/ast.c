@@ -14,9 +14,9 @@ static uint64_t AST_STRUCT_SIZES[] = {
     sizeof(ast_unary),     sizeof(ast_binary),     sizeof(ast_ternary), sizeof(ast_if),
     sizeof(ast_for),       sizeof(ast_do),         sizeof(ast_switch),  sizeof(ast_case),
     sizeof(ast_block),     sizeof(ast_goto),       sizeof(ast_label),   sizeof(ast_func_call),
-    sizeof(ast_cast),      sizeof(ast_member),     sizeof(ast_return),  sizeof(ast_struct_decl),
-    sizeof(ast_enum_decl), sizeof(ast_enum_field), sizeof(ast_decl),    sizeof(ast_func),
-    sizeof(ast_typedef),   sizeof(ast_type)};
+    sizeof(ast_cast),      sizeof(ast_member),     sizeof(ast_return),
+    sizeof(ast_func),
+    sizeof(ast_typedef) };
 
 static string AST_BINARY_STRS[] = {
     WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),   WRAPZ("*"),  WRAPZ("/"),  WRAPZ("%"),
@@ -298,26 +298,6 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
     case AST_RETURN: {
         NOT_IMPL;
     } break;
-    case AST_STRUCT: {
-        NOT_IMPL;
-    } break;
-    case AST_ENUM: {
-        ast_enum_decl *enum_ = node;
-        buf_write(w, "%*s", depth, "");
-        buf_write(w, "Enum declaration:\n");
-        buf_write(w, "%*c", depth + 1, ' ');
-        buf_write(w, "Name: %s\n", enum_->name.data);
-        buf_write(w, "%*c", depth + 1, ' ');
-        buf_write(w, "Enumerators: %s\n", enum_->name.data);
-        for (ast_enum_field *field = enum_->fields; field; field = (void *)field->next) {
-            fmt_ast_verbosew_internal(field, w, depth + 2);
-        }
-    } break;
-    case AST_ENUM_VALUE: {
-        ast_enum_field *field = node;
-        buf_write(w, "%*s", depth, "");
-        buf_write(w, "Enumerator: %s = %llu\n", field->name.data, field->value);
-    } break;
     case AST_DECL: {
         NOT_IMPL;
     } break;
@@ -331,9 +311,6 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         buf_write(w, "%*s", depth, "");
         buf_write(w, "Type:\n");
         fmt_ast_verbosew_internal(td->underlying, w, depth + 1);
-    } break;
-    case AST_TYPE: {
-        NOT_IMPL;
     } break;
     }
 }

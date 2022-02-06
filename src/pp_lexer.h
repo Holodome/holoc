@@ -1,7 +1,9 @@
-#ifndef LEXER_H
-#define LEXER_H
+// Defines lexer for c language. Lexer generates preprocessor tokens, which are different from ones used in language parsing.
+// For definition of language tokens see c_lang.h. For generation of language tokens see preprocessor.h
+#ifndef PP_LEXER_H
+#define PP_LEXER_H
 
-#include "types.h"
+#include "general.h"
 
 struct buffer_writer;
 
@@ -17,7 +19,7 @@ typedef enum {
     PP_TOK_STR = 0x3,
     // Punctuator
     PP_TOK_PUNCT = 0x4,
-    // Typically non-utf8 characters encountered in invalid locations (ike
+    // Typically, non-utf8 characters encountered in invalid locations (like
     // inside non-expanded #if)
     PP_TOK_OTHER = 0x5
 } pp_token_kind;
@@ -39,9 +41,9 @@ typedef enum {
     PP_TOK_STR_CWIDE  = 0x15,  // L''
 } pp_string_kind;
 
-// Kind of punctuator. Multisymbol puncutators start from 256, reserving
+// Kind of punctuator. Multi symbol puncutators start from 256, reserving
 // lower enum values for ASCII ones. This enum may be completely the same as C
-// one, but they made different to fully differentiate betweeen C and
+// one, but they made different to fully differentiate between C and
 // Preprocessor tokens. In reality only two punctuators that are allowed in
 // preprocessor are not allowed in language: # and ##.
 typedef enum {

@@ -7,7 +7,7 @@ Version: 0
 #ifndef HASHING_H
 #define HASHING_H
 
-#include "types.h"
+#include "general.h"
 
 // Returns element of internal chaining hash table, given list of entries and
 // hash value

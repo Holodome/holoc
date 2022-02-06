@@ -1,7 +1,7 @@
 #ifndef C_LANG_H
 #define C_LANG_H
 
-#include "types.h"
+#include "general.h"
 
 struct pp_token;
 struct allocator;

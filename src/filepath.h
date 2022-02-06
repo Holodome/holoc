@@ -1,7 +1,7 @@
 #ifndef FILEPATH_H
 #define FILEPATH_H
 
-#include "types.h"
+#include "general.h"
 
 struct allocator;
 

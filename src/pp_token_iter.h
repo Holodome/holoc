@@ -25,7 +25,7 @@
 #ifndef PP_TOKEN_ITERATOR_H
 #define PP_TOKEN_ITERATOR_H
 
-#include "types.h"
+#include "general.h"
 
 struct pp_token;
 struct pp_lexer;

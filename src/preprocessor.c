@@ -15,7 +15,6 @@
 #include "error_reporter.h"
 #include "file_storage.h"
 #include "filepath.h"
-#include "freelist.h"
 #include "hashing.h"
 #include "llist.h"
 #include "pp_lexer.h"

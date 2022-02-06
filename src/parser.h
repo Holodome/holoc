@@ -1,7 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "types.h"
+#include "general.h"
 
 #define PARSER_SCOPE_VAR_HASH_SIZE 1024
 #define PARSER_SCOPE_TAG_HASH_SIZE 1024

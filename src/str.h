@@ -7,7 +7,7 @@ Version: 0
 #ifndef STRING_H
 #define STRING_H
 
-#include "types.h"
+#include "general.h"
 
 struct allocator;
 

@@ -1,7 +1,7 @@
 #ifndef ERROR_REPORTER_H
 #define ERROR_REPORTER_H
 
-#include "types.h"
+#include "general.h"
 
 typedef struct error_reporter {
     uint32_t error_count;

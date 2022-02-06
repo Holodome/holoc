@@ -1,7 +1,7 @@
 #ifndef FILE_STORAGE_H
 #define FILE_STORAGE_H
 
-#include "types.h"
+#include "general.h"
 
 struct allocator;
 

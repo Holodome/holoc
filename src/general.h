@@ -4,8 +4,8 @@ Date: 21.11.2021
 File: src/types.h
 Version: 0
 */
-#ifndef TYPES_H
-#define TYPES_H
+#ifndef GENERAL_H
+#define GENERAL_H
 
 // Include headers that provide necessary types
 #include <stdarg.h>

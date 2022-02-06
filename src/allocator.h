@@ -1,7 +1,7 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#include "types.h"
+#include "general.h"
 
 // Signature of the realloc function used in allocator
 #define ALLOCATOR_REALLOC(_name) \

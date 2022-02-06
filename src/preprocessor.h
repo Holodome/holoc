@@ -1,7 +1,7 @@
 #ifndef PREPROCESSOR_H
 #define PREPROCESSOR_H
 
-#include "types.h"
+#include "general.h"
 
 struct pp_lexer;
 struct bump_allocator;
