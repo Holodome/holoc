@@ -59,8 +59,8 @@ report_message_internalv(string file_contents, source_loc loc, string message_ki
         ++utf8_col_counter;
     }
 
-    fprintf(stderr, "\033[1m%.*s:%u:%u: %.*s: \033[1m", loc.filename.len, loc.filename.data, loc.line,
-            utf8_col_counter, message_kind.len, message_kind.data);
+    fprintf(stderr, "\033[1m%.*s:%u:%u: %.*s: \033[1m", loc.filename.len, loc.filename.data,
+            loc.line, utf8_col_counter, message_kind.len, message_kind.data);
     vfprintf(stderr, msg, args);
     fprintf(stderr, "\033[0m\n%.*s\n", (int)(line_end - line_start), line_start);
     if (utf8_col_counter != 1) {

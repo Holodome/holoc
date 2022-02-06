@@ -29,9 +29,9 @@ typedef enum {
     AST_MEMB      = 0x11,  // a.x
     AST_RETURN    = 0x12,  // return;
 
-    AST_DECL       = 0x16,  // int x;
-    AST_FUNC       = 0x17,
-    AST_TYPEDEF    = 0x18,
+    AST_DECL    = 0x16,  // int x;
+    AST_FUNC    = 0x17,
+    AST_TYPEDEF = 0x18,
 } ast_kind;
 
 typedef enum {
@@ -217,7 +217,8 @@ uint32_t fmt_ast_verbose(void *ast, char *buf, uint32_t buf_size);
 // Creates ast of given kind. Allocates memory needed for structure of that kind
 // and sets kind.
 void *make_ast(struct allocator *a, ast_kind kind, source_loc loc);
-ast *make_ast_num_int(struct allocator *a, source_loc loc, uint64_t value, struct c_type *type);
+ast *make_ast_num_int(struct allocator *a, source_loc loc, uint64_t value,
+                      struct c_type *type);
 ast *make_ast_num_flt(struct allocator *a, source_loc loc, double value, struct c_type *type);
 ast *make_ast_unary(struct allocator *a, source_loc loc, ast_unary_kind kind, ast *expr);
 // NOTE: Takes loc from 'left'

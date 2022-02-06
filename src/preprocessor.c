@@ -958,8 +958,7 @@ pp_parse(preprocessor *pp, struct token *tok, char *buf, uint32_t buf_size,
             break;
         }
 
-        if (!convert_pp_token(pp_tok, tok, buf, buf_size, buf_writtenp,
-                              pp->a)) {
+        if (!convert_pp_token(pp_tok, tok, buf, buf_size, buf_writtenp, pp->a)) {
             report_error_pp_token(pp_tok, "Unexpected token");
             ppti_eat(pp->it);
             continue;

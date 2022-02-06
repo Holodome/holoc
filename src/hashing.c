@@ -4,8 +4,8 @@
 #include <stddef.h>
 
 void *
-hash_table_oa_get_u32(void *entries, uint32_t entry_count, uintptr_t stride, uintptr_t hash_offset,
-                      uint32_t hash, bool or_zero) {
+hash_table_oa_get_u32(void *entries, uint32_t entry_count, uintptr_t stride,
+                      uintptr_t hash_offset, uint32_t hash, bool or_zero) {
     void *result       = NULL;
     uint32_t hash_mask = entry_count - 1;
     assert(!(hash_mask & entry_count));

@@ -21,8 +21,8 @@ typedef struct {
 // Construct string from string literal
 // TODO: this fails in gcc because compound literals are not considered const by it.
 // What we can do here is lose the (string) part, and leave { _data, _len } when initializing.
-// But that is another form of initialization that would required additional macro, so let's not do
-// it for now and stick with clang.
+// But that is another form of initialization that would required additional macro, so let's
+// not do it for now and stick with clang.
 #define WRAPZ(_z) string(_z, sizeof(_z) - 1)
 // Construct string from null-terminated string
 #define stringz(_string) string(_string, strlen(_string))

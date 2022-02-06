@@ -203,13 +203,13 @@ parse_struct_decl(parser *p) {
                     continue;
                 }
                 string name = tok->str;
-                
+
                 tok = ti_eat_peek(p->it);
 
                 c_struct_member *member = aalloc(p->a, sizeof(c_struct_member));
-                member->type = decl_type;
-                member->name = name;
-                member->idx = idx++;
+                member->type            = decl_type;
+                member->name            = name;
+                member->idx             = idx++;
                 LLISTC_ADD_LAST(&members, member);
             }
         }

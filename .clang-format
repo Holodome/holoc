@@ -13,4 +13,4 @@ AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 
-ColumnLimit: 100
+ColumnLimit: 95

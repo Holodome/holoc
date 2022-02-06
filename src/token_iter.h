@@ -1,8 +1,8 @@
 // Defines tool used for iterating tokens in parser. Tokens are generated with preprocessor.
-// Tokens are processed on demand of peek() function. To peek next token, last one must be eaten
-// with eat() function.
-// Tokens that are eaten have their memory freed and become unavailable for future use.
-// If any information about token must persist, it should be read and stored elsewhere before eating.
+// Tokens are processed on demand of peek() function. To peek next token, last one must be
+// eaten with eat() function. Tokens that are eaten have their memory freed and become
+// unavailable for future use. If any information about token must persist, it should be read
+// and stored elsewhere before eating.
 #ifndef TOKEN_ITER_H
 #define TOKEN_ITER_H
 

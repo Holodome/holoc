@@ -10,13 +10,12 @@
 #include "str.h"
 
 static uint64_t AST_STRUCT_SIZES[] = {
-    sizeof(ast),           sizeof(ast_identifier), sizeof(ast_string),  sizeof(ast_number),
-    sizeof(ast_unary),     sizeof(ast_binary),     sizeof(ast_ternary), sizeof(ast_if),
-    sizeof(ast_for),       sizeof(ast_do),         sizeof(ast_switch),  sizeof(ast_case),
-    sizeof(ast_block),     sizeof(ast_goto),       sizeof(ast_label),   sizeof(ast_func_call),
-    sizeof(ast_cast),      sizeof(ast_member),     sizeof(ast_return),
-    sizeof(ast_func),
-    sizeof(ast_typedef) };
+    sizeof(ast),        sizeof(ast_identifier), sizeof(ast_string),  sizeof(ast_number),
+    sizeof(ast_unary),  sizeof(ast_binary),     sizeof(ast_ternary), sizeof(ast_if),
+    sizeof(ast_for),    sizeof(ast_do),         sizeof(ast_switch),  sizeof(ast_case),
+    sizeof(ast_block),  sizeof(ast_goto),       sizeof(ast_label),   sizeof(ast_func_call),
+    sizeof(ast_cast),   sizeof(ast_member),     sizeof(ast_return),  sizeof(ast_func),
+    sizeof(ast_typedef)};
 
 static string AST_BINARY_STRS[] = {
     WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),   WRAPZ("*"),  WRAPZ("/"),  WRAPZ("%"),
@@ -47,10 +46,10 @@ fmt_astw(void *node, buffer_writer *w) {
     } break;
     case AST_NUM: {
         ast_number *num = node;
-        fmt_c_numw(
-            (fmt_c_num_args){
-                .uint_value = num->uint_value, .float_value = num->float_value, .type = num->type},
-            w);
+        fmt_c_numw((fmt_c_num_args){.uint_value  = num->uint_value,
+                                    .float_value = num->float_value,
+                                    .type        = num->type},
+                   w);
     } break;
     case AST_UN: {
         ast_unary *un = node;
@@ -164,10 +163,10 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         ast_number *num = node;
         buf_write(w, "%*s", depth, "");
         buf_write(w, "Num: ");
-        fmt_c_numw(
-            (fmt_c_num_args){
-                .uint_value = num->uint_value, .float_value = num->float_value, .type = num->type},
-            w);
+        fmt_c_numw((fmt_c_num_args){.uint_value  = num->uint_value,
+                                    .float_value = num->float_value,
+                                    .type        = num->type},
+                   w);
         buf_write(w, "\n");
     } break;
     case AST_UN: {

@@ -26,9 +26,10 @@ void *hash_table_oa_get_u32(void *entries, uint32_t entry_count, uintptr_t strid
 // value pointed to is zero, no element with given hash was found, but it could
 // be created and written to returned location. Entry count should be power of
 // two
-#define hash_table_sc_get_u32(_entries, _entry_count, _struct, _chain_name, _hash_name, _hash) \
-    (_struct **)hash_table_sc_get_u32_((void **)(_entries), _entry_count,                      \
-                                       offsetof(_struct, _chain_name),                         \
+#define hash_table_sc_get_u32(_entries, _entry_count, _struct, _chain_name, _hash_name, \
+                              _hash)                                                    \
+    (_struct **)hash_table_sc_get_u32_((void **)(_entries), _entry_count,               \
+                                       offsetof(_struct, _chain_name),                  \
                                        offsetof(_struct, _hash_name), _hash)
 
 void **hash_table_sc_get_u32_(void **entries, uint32_t entry_count, uintptr_t chain_offset,

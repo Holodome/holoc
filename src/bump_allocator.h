@@ -51,7 +51,8 @@ void bump_init(bump_allocator *allocator, uint64_t align, uint64_t minimal_block
 __attribute__((malloc)) void *bump_alloc(bump_allocator *allocator, uint64_t size);
 
 #define bump_bootstrap_(_offset, _size) bump_bootstrap__(_offset, _size)
-#define bump_bootstrap(_struct, _field) bump_bootstrap_(offsetof(_struct, _field), sizeof(_struct))
+#define bump_bootstrap(_struct, _field) \
+    bump_bootstrap_(offsetof(_struct, _field), sizeof(_struct))
 void *bump_bootstrap__(uintptr_t offset, uint64_t size);
 // Clears the allocator - frees all memory
 void bump_clear(bump_allocator *allocator);

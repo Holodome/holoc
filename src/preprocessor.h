@@ -79,6 +79,7 @@ typedef struct preprocessor {
 } preprocessor;
 
 void pp_init(preprocessor *pp, string filename);
-bool pp_parse(preprocessor *pp, struct token *tok, char *buf, uint32_t buf_size, uint32_t *buf_writtenp);
+bool pp_parse(preprocessor *pp, struct token *tok, char *buf, uint32_t buf_size,
+              uint32_t *buf_writtenp);
 
 #endif

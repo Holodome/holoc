@@ -85,8 +85,8 @@ utf8_decode(void *srcv, uint32_t *codepoint_p) {
         src += 3;
     } else if ((src[0] & 0xF8) == 0xF0) {
         if ((src[1] & 0xC0) == 0x80 && (src[2] & 0xC0) == 0x80 && (src[3] & 0xC0) == 0x80) {
-            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) | ((src[2] & 0x3F) << 6) |
-                    (src[3] & 0x3F);
+            utf32 = ((src[0] & 0x03) << 18) | ((src[1] & 0x3F) << 12) |
+                    ((src[2] & 0x3F) << 6) | (src[3] & 0x3F);
         }
         src += 4;
     }

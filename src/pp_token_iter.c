@@ -72,7 +72,7 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
             uint32_t buf_len = 0;
             // Try to use lexer.
             pp_token local_tok = {0};
-            bool not_eof       = pp_lexer_parse(e->lexer, &local_tok, buf, sizeof(buf), &buf_len);
+            bool not_eof = pp_lexer_parse(e->lexer, &local_tok, buf, sizeof(buf), &buf_len);
             // If lexer produces eof, meaning it has reached its end, we must
             // skip to the next stack entry.
             if (!not_eof) {

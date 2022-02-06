@@ -174,8 +174,8 @@ get_kw_kind(string test) {
 }
 
 bool
-convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size, uint32_t *buf_writtenp,
-                 allocator *a) {
+convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
+                 uint32_t *buf_writtenp, allocator *a) {
     bool result         = false;
     tok->at_line_start  = pp_tok->at_line_start;
     tok->has_whitespace = pp_tok->has_whitespace;
@@ -414,10 +414,10 @@ fmt_tokenw(buffer_writer *w, token *tok) {
         buf_write(w, "%.*s", tok->str.len, tok->str.data);
         break;
     case TOK_NUM:
-        fmt_c_numw(
-            (fmt_c_num_args){
-                .uint_value = tok->uint_value, .float_value = tok->float_value, .type = tok->type},
-            w);
+        fmt_c_numw((fmt_c_num_args){.uint_value  = tok->uint_value,
+                                    .float_value = tok->float_value,
+                                    .type        = tok->type},
+                   w);
         break;
     case TOK_STR:
         fmt_c_strw((fmt_c_str_args){.type = tok->type, .str = tok->str}, w);

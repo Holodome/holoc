@@ -2,10 +2,10 @@
 
 #include <assert.h>
 
-#include "str.h"
 #include "allocator.h"
 #include "c_lang.h"
 #include "preprocessor.h"
+#include "str.h"
 
 void
 ti_init(token_iter *it, string filename) {
