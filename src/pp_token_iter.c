@@ -11,15 +11,6 @@
 #include "pp_lexer.h"
 #include "str.h"
 
-#define NEW_LEXER(_it) FREELIST_ALLOC((_it)->lexer_freelist, (_it)->a)
-#define DEL_LEXER(_it, _lex) FREELIST_FREE(*((_it)->lexer_freelist), _lex)
-
-#define NEW_ENTRY(_it) FREELIST_ALLOC(&(_it)->it_freelist, (_it)->a)
-#define DEL_ENTRY(_it, _entry) FREELIST_FREE(((_it)->it_freelist), _entry)
-
-#define NEW_PP_TOKEN(_it) FREELIST_ALLOC(((_it)->token_freelist), (_it)->a)
-#define DEL_PP_TOKEN(_it, _tok) FREELIST_FREE(*((_it)->token_freelist), _tok)
-
 void
 ppti_include_file(pp_token_iter *it, string filename) {
     file *current_file = NULL;
@@ -35,9 +26,9 @@ ppti_include_file(pp_token_iter *it, string filename) {
         NOT_IMPL;
     }
 
-    ppti_entry *entry = NEW_ENTRY(it);
+    ppti_entry *entry = aalloc(it->a, sizeof(ppti_entry));
     entry->f          = f;
-    entry->lexer      = NEW_LEXER(it);
+    entry->lexer      = aalloc(it->a, sizeof(pp_lexer));
     pp_lexer_init(entry->lexer, f->contents.data, STRING_END(f->contents), it->tok_buf,
                   it->tok_buf_capacity);
     LLIST_ADD(it->it, entry);
@@ -49,7 +40,7 @@ ppti_insert_tok_list(pp_token_iter *it, pp_token *first, pp_token *last) {
 
     ppti_entry *e = it->it;
     if (!e) {
-        e = NEW_ENTRY(it);
+        e = aalloc(it->a, sizeof(ppti_entry));
         LLIST_ADD(it->it, e);
     }
 
@@ -92,7 +83,7 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
                 continue;
             }
 
-            pp_token *new_tok = NEW_PP_TOKEN(it);
+            pp_token *new_tok = aalloc(it->a, sizeof(pp_token));
             memcpy(new_tok, &local_tok, sizeof(pp_token));
             new_tok->loc.filename = e->f->name;
             if (new_tok->str.data) {
@@ -149,13 +140,13 @@ ppti_eat(pp_token_iter *it) {
         pp_token *tok = e->token_list;
         if (tok) {
             LLIST_POP(e->token_list);
-            DEL_PP_TOKEN(it, tok);
+            afree(it->a, tok, sizeof(pp_token));
         } else {
             if (e->lexer) {
-                DEL_LEXER(it, e->lexer);
+                afree(it->a, e->lexer, sizeof(pp_token));
             }
             it->it = e->next;
-            DEL_ENTRY(it, e);
+            afree(it->a, e, sizeof(ppti_entry));
             ppti_eat(it);
         }
     }

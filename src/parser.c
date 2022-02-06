@@ -46,7 +46,7 @@ parse_enum_decl(parser *p) {
     if (IS_PUNCT(tok, '{')) {
         tok = ti_eat_peek(p->it);
 
-        uint64_t auto_value = 0;
+        /* uint64_t auto_value = 0; */
         
     }
 out:

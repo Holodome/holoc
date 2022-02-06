@@ -29,24 +29,6 @@
                                        next, name_hash, (_hash))
 #define GET_MACRO(_pp, _hash) (*GET_MACROP(_pp, _hash))
 
-#define NEW_MACRO_ARG(_pp) FREELIST_ALLOC(&(_pp)->macro_arg_freelist, (_pp)->a)
-#define DEL_MACRO_ARG(_pp, _arg) FREELIST_FREE((_pp)->macro_arg_freelist, _arg)
-
-#define NEW_MACRO(_pp) FREELIST_ALLOC(&(_pp)->macro_freelist, (_pp)->a)
-#define DEL_MACRO(_pp, _macro) FREELIST_FREE((_pp)->macro_freelist, _macro)
-
-#define NEW_COND_INCL(_pp) FREELIST_ALLOC(&(_pp)->cond_incl_freelist, (_pp)->a)
-#define DEL_COND_INCL(_pp, _incl) FREELIST_FREE((_pp)->cond_incl_freelist, _incl)
-
-#define NEW_LEXER(_pp) FREELIST_ALLOC(&(_pp)->lex_freelist, (_pp)->a)
-#define DEL_LEXER(_pp, _lex) FREELIST_FREE((_pp)->lex_freelist, _lex)
-
-#define NEW_PARSE_STACK(_pp) FREELIST_ALLOC(&(_pp)->parse_stack_freelist, (_pp)->a)
-#define DEL_PARSE_STACK(_pp, _entry) FREELIST_FREE((_pp)->parse_stack_freelist, _entry)
-
-#define NEW_PP_TOKEN(_pp) FREELIST_ALLOC(&(_pp)->tok_freelist, (_pp)->a)
-#define DEL_PP_TOKEN(_pp, _tok) FREELIST_FREE((_pp)->tok_freelist, _tok)
-
 // Frees macro arguments and adds them to freelist.
 // TODO: Free tokens too.
 static void
@@ -54,8 +36,7 @@ free_macro_data(preprocessor *pp, pp_macro *macro) {
     while (macro->args) {
         pp_macro_arg *arg      = macro->args;
         macro->args            = arg->next;
-        arg->next              = pp->macro_arg_freelist;
-        pp->macro_arg_freelist = arg;
+        afree(pp->a, arg, sizeof(pp_macro_arg));
     }
 }
 
@@ -63,7 +44,7 @@ free_macro_data(preprocessor *pp, pp_macro *macro) {
 // making a copy.
 static pp_token *
 copy_pp_token(preprocessor *pp, pp_token *tok) {
-    pp_token *new = NEW_PP_TOKEN(pp);
+    pp_token *new = aalloc(pp->a, sizeof(pp_token));
     memcpy(new, tok, sizeof(pp_token));
     new->next = 0;
     return new;
@@ -112,7 +93,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro 
                 tok = ppti_eat_peek(it);
             }
             // Add eof to the end
-            pp_token *eof = NEW_PP_TOKEN(pp);
+            pp_token *eof = aalloc(pp->a, sizeof(pp_token));
             eof->kind     = PP_TOK_EOF;
             LLISTC_ADD_LAST(&macro_tokens, eof);
 
@@ -196,7 +177,7 @@ expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
                 fmt_pp_tokw(&w, arg_tok);
             }
 
-            pp_token *new_token = NEW_PP_TOKEN(pp);
+            pp_token *new_token = aalloc(pp->a, sizeof(pp_token));
             new_token->kind     = PP_TOK_STR;
             new_token->str      = string_strdup(pp->a, buffer);
             new_token->str_kind = PP_TOK_STR_SCHAR;
@@ -290,7 +271,7 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
             }
 
             macro->is_variadic = true;
-            pp_macro_arg *arg  = NEW_MACRO_ARG(pp);
+            pp_macro_arg *arg  = aalloc(pp->a, sizeof(pp_macro_arg));
             arg->name          = WRAPZ("__VA_ARGS__");
             LLISTC_ADD_LAST(&args, arg);
 
@@ -303,7 +284,7 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
                 report_error_pp_token(tok, "Argument after varargs");
             }
 
-            pp_macro_arg *arg = NEW_MACRO_ARG(pp);
+            pp_macro_arg *arg = aalloc(pp->a, sizeof(pp_macro_arg));
             arg->name         = tok->str;
             LLISTC_ADD_LAST(&args, arg);
             ++macro->arg_count;
@@ -341,7 +322,7 @@ define_macro(preprocessor *pp) {
     if (*macrop) {
         report_error_pp_token(tok, "#define on already defined macro");
     } else {
-        pp_macro *macro = NEW_MACRO(pp);
+        pp_macro *macro = aalloc(pp->a, sizeof(pp_macro));
         LLIST_ADD(*macrop, macro);
     }
 
@@ -378,7 +359,7 @@ define_macro(preprocessor *pp) {
         tok = ppti_eat_peek(pp->it);
     }
 
-    pp_token *eof = NEW_PP_TOKEN(pp);
+    pp_token *eof = aalloc(pp->a, sizeof(pp_token));
     eof->kind     = PP_TOK_EOF;
     LLISTC_ADD_LAST(&def, eof);
     macro->definition = def.first;
@@ -398,13 +379,13 @@ undef_macro(preprocessor *pp) {
         pp_macro *macro = *macrop;
         free_macro_data(pp, macro);
         *macrop = macro->next;
-        LLIST_ADD(pp->macro_freelist, macro);
+        afree(pp->a, macro, sizeof(pp_macro));
     }
 }
 
 static void
 push_cond_incl(preprocessor *pp, bool is_included) {
-    pp_conditional_include *incl = NEW_COND_INCL(pp);
+    pp_conditional_include *incl = aalloc(pp->a, sizeof(pp_conditional_include));
     incl->is_included            = is_included;
     LLIST_ADD(pp->cond_incl_stack, incl);
 }
@@ -458,7 +439,7 @@ eval_pp_expr(preprocessor *pp) {
         LLISTC_ADD_LAST(&copied, new_tok);
         tok = ppti_eat_peek(pp->it);
     }
-    pp_token *eof = NEW_PP_TOKEN(pp);
+    pp_token *eof = aalloc(pp->a, sizeof(pp_token));
     eof->kind     = PP_TOK_EOF;
     LLISTC_ADD_LAST(&copied, eof);
 
@@ -482,7 +463,7 @@ eval_pp_expr(preprocessor *pp) {
             uint32_t macro_name_hash = hash_string(tok->str);
             pp_macro *macro          = GET_MACRO(pp, macro_name_hash);
 
-            pp_token *new_token = NEW_PP_TOKEN(pp);
+            pp_token *new_token = aalloc(pp->a, sizeof(pp_token));
             new_token->kind     = PP_TOK_NUM;
             new_token->str      = (macro != 0) ? WRAPZ("1") : WRAPZ("0");
 
@@ -504,7 +485,7 @@ eval_pp_expr(preprocessor *pp) {
     // So now in tok we have a list of tokens that form constant expression.
     // Convert these tokens to C ones.
     linked_list_constructor converted = {0};
-    pp_token_iter iter                = {.a = pp->a, .token_freelist = &pp->tok_freelist};
+    pp_token_iter iter                = {.a = pp->a };
     ppti_insert_tok_list(&iter, modified.first, modified.last);
     tok = ppti_peek(&iter);
     while (tok) {
@@ -624,7 +605,7 @@ process_pp_directive(preprocessor *pp) {
                     /* report_error_pp_token(pp, tok, "DBG: ENDIF"); */
                     tok = ppti_eat_peek(pp->it);
                     LLIST_POP(pp->cond_incl_stack);
-                    DEL_COND_INCL(pp, incl);
+                    afree(pp->a, incl, sizeof(pp_conditional_include));
                 }
             } else if (string_eq(tok->str, WRAPZ("ifdef"))) {
                 tok = ppti_eat_peek(pp->it);
@@ -741,7 +722,7 @@ predefined_macro(preprocessor *pp, string name, string value) {
 
     linked_list_constructor tokens = {0};
     for (;;) {
-        pp_token *tok        = NEW_PP_TOKEN(pp);
+        pp_token *tok        = aalloc(pp->a, sizeof(pp_token));
         bool should_continue = pp_lexer_parse(&lex, tok);
         tok->loc.filename    = WRAPZ("BUILTIN");
         if (tok->str.data) {
@@ -756,7 +737,7 @@ predefined_macro(preprocessor *pp, string name, string value) {
     uint32_t name_hash = hash_string(name);
     pp_macro **macrop  = GET_MACROP(pp, name_hash);
     assert(!*macrop);
-    pp_macro *macro = NEW_MACRO(pp);
+    pp_macro *macro = aalloc(pp->a, sizeof(pp_token));
     *macrop         = macro;
 
     macro->name       = name;
@@ -954,9 +935,7 @@ pp_init(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size)
     pp->it->a                = pp->a;
     pp->it->tok_buf          = tok_buf;
     pp->it->tok_buf_capacity = tok_buf_size;
-    pp->it->lexer_freelist   = &pp->lex_freelist;
-    pp->it->token_freelist   = &pp->tok_freelist;
-    pp->it->eof_token        = NEW_PP_TOKEN(pp);
+    pp->it->eof_token        = aalloc(pp->a, sizeof(pp_token));
     pp->it->eof_token->kind  = PP_TOK_EOF;
     ppti_include_file(pp->it, filename);
 }

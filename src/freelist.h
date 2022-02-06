@@ -1,3 +1,4 @@
+#if 0
 // This file defines macros used when working with freelist-based allocator.
 // The core concept is that a linked list of objects is stored somewhere, which
 // is called freelist. When object of that type needs to be allocated, it can
@@ -37,4 +38,5 @@ struct allocator;
 
 void *freelist_alloc_impl(void **flp, uintptr_t next_offset, uintptr_t size, struct allocator *a);
 
+#endif
 #endif

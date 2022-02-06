@@ -86,12 +86,6 @@ typedef struct preprocessor {
     pp_conditional_include *cond_incl_stack;
     // Macro hash table
     pp_macro *macro_hash[PREPROCESSOR_MACRO_HASH_SIZE];
-
-    pp_macro *macro_freelist;
-    pp_macro_arg *macro_arg_freelist;
-    pp_conditional_include *cond_incl_freelist;
-    struct pp_token *tok_freelist;
-    struct pp_lexer *lex_freelist;
 } preprocessor;
 
 void pp_init(preprocessor *pp, string filename, char *tok_buf, uint32_t tok_buf_size);
