@@ -103,7 +103,8 @@ parse_whitespaces(pp_lexer *lex, pp_token *tok) {
     }
 
     // Skip multi-line comments
-    if (next_eq(lex, (string)WRAPZ("/*"))) {
+    string com = WRAPZ("/*");
+    if (next_eq(lex, com)) {
         result = true;
         while (*lex->cursor && !next_eq(lex, (string)WRAPZ("*/"))) {
             if (*lex->cursor == '\n') {

@@ -15,7 +15,7 @@ typedef struct {
 } string_find_result;
 
 #define WRAPZ(_z) \
-    { (_z), sizeof(_z) }
+    { (_z), sizeof(_z) - 1 }
 
 // Return true if two strings are equal
 bool string_eq(string a, string b);
