@@ -9,12 +9,9 @@
 #include "general.h"
 
 struct token;
-struct allocator;
 struct preprocessor;
 
 typedef struct token_iter {
-    struct allocator *a;
-
     struct token *token_list;
     struct preprocessor *pp;
 

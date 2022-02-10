@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-struct allocator;
-
 #define DARRAY_DEFAULT_SIZE 10
 
 // Structure allocated with dynamic array and placed before it in memory
@@ -30,24 +28,24 @@ typedef struct {
 #define da_reserve(_type, _size) da_reserve_(sizeof(_type), _size)
 // Pushes 1 element
 // _it must be the same type as array element (not pointer to it)
-#define da_push(_da, _it, _a)                             \
-    do {                                                  \
-        if (da_is_full(_da)) {                            \
-            (_da) = da_grow((_da), sizeof(*(_da)), (_a)); \
-        }                                                 \
-        (_da)[da_header(_da)->size++] = (_it);            \
+#define da_push(_da, _it)                           \
+    do {                                            \
+        if (da_is_full(_da)) {                      \
+            (_da) = da_grow((_da), sizeof(*(_da))); \
+        }                                           \
+        (_da)[da_header(_da)->size++] = (_it);      \
     } while (0)
 // Frees memory allocated by array
-#define da_free(_da, _a) ((_da) ? da_free_((_da), sizeof(*(_da)), (_a)) : (void)0)
+#define da_free(_da) ((_da) ? da_free_((_da), sizeof(*(_da))) : (void)0)
 // Pops last element and returns it
 #define da_pop(_da) ((_da)[--da_header(_da)->size])
 // Returns pointer to last element
 #define da_last(_da) ((_da) ? ((_da) + da_size(_da) - 1) : 0)
 
 // Grows array geomentrically or creates new
-void *da_grow(void *da, uintptr_t stride, struct allocator *a);
+void *da_grow(void *da, uintptr_t stride);
 // Internal use functions
-void *da_reserve_(uintptr_t stride, uint32_t size, struct allocator *a);
-void da_free_(void *da, uintptr_t stride, struct allocator *a);
+void *da_reserve_(uintptr_t stride, uint32_t size);
+void da_free_(void *da, uintptr_t stride);
 
 #endif

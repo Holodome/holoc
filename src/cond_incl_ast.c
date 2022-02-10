@@ -3,18 +3,17 @@
 #include <assert.h>
 #include <stddef.h>
 
-#include "allocator.h"
 #include "ast.h"
 #include "c_lang.h"
 #include "c_types.h"
 
 ast *
-ast_cond_incl_expr_primary(allocator *a, token **tokp) {
+ast_cond_incl_expr_primary(token **tokp) {
     ast *node  = NULL;
     token *tok = *tokp;
     if (IS_PUNCT(tok, '(')) {
         tok  = tok->next;
-        node = ast_cond_incl_expr(a, &tok);
+        node = ast_cond_incl_expr(&tok);
         if (!IS_PUNCT(tok, ')')) {
             NOT_IMPL;
         } else {
@@ -24,7 +23,7 @@ ast_cond_incl_expr_primary(allocator *a, token **tokp) {
         if (!c_type_kind_is_int(tok->type->kind)) {
             NOT_IMPL;
         } else {
-            ast_number *num = make_ast(a, AST_NUM, tok->loc);
+            ast_number *num = make_ast(AST_NUM, tok->loc);
             num->uint_value = tok->uint_value;
             num->type       = tok->type;
             node            = (ast *)num;
@@ -38,67 +37,67 @@ ast_cond_incl_expr_primary(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_unary(allocator *a, token **tokp) {
+ast_cond_incl_expr_unary(token **tokp) {
     ast *node  = NULL;
     token *tok = *tokp;
     if (IS_PUNCT(tok, '+')) {
         tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN, tok->loc);
+        ast_unary *un = make_ast(AST_UN, tok->loc);
         un->un_kind   = AST_UN_PLUS;
-        un->expr      = ast_cond_incl_expr_primary(a, &tok);
+        un->expr      = ast_cond_incl_expr_primary(&tok);
         node          = (ast *)un;
     } else if (IS_PUNCT(tok, '-')) {
         tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN, tok->loc);
+        ast_unary *un = make_ast(AST_UN, tok->loc);
         un->un_kind   = AST_UN_MINUS;
-        un->expr      = ast_cond_incl_expr_primary(a, &tok);
+        un->expr      = ast_cond_incl_expr_primary(&tok);
         node          = (ast *)un;
     } else if (IS_PUNCT(tok, '!')) {
         tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN, tok->loc);
+        ast_unary *un = make_ast(AST_UN, tok->loc);
         un->un_kind   = AST_UN_LNOT;
-        un->expr      = ast_cond_incl_expr_primary(a, &tok);
+        un->expr      = ast_cond_incl_expr_primary(&tok);
         node          = (ast *)un;
     } else if (IS_PUNCT(tok, '~')) {
         tok           = tok->next;
-        ast_unary *un = make_ast(a, AST_UN, tok->loc);
+        ast_unary *un = make_ast(AST_UN, tok->loc);
         un->un_kind   = AST_UN_NOT;
-        un->expr      = ast_cond_incl_expr_primary(a, &tok);
+        un->expr      = ast_cond_incl_expr_primary(&tok);
         node          = (ast *)un;
     } else {
-        node = ast_cond_incl_expr_primary(a, &tok);
+        node = ast_cond_incl_expr_primary(&tok);
     }
     *tokp = tok;
     return node;
 }
 
 ast *
-ast_cond_incl_expr_mul(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_unary(a, tokp);
+ast_cond_incl_expr_mul(token **tokp) {
+    ast *node  = ast_cond_incl_expr_unary(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, '*')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_MUL;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_unary(a, &tok);
+            bin->right      = ast_cond_incl_expr_unary(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, '/')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_DIV;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_unary(a, &tok);
+            bin->right      = ast_cond_incl_expr_unary(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, '%')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_MOD;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_unary(a, &tok);
+            bin->right      = ast_cond_incl_expr_unary(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -110,24 +109,24 @@ ast_cond_incl_expr_mul(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_add(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_mul(a, tokp);
+ast_cond_incl_expr_add(token **tokp) {
+    ast *node  = ast_cond_incl_expr_mul(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, '+')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_ADD;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_mul(a, &tok);
+            bin->right      = ast_cond_incl_expr_mul(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, '-')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_SUB;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_mul(a, &tok);
+            bin->right      = ast_cond_incl_expr_mul(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -139,24 +138,24 @@ ast_cond_incl_expr_add(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_shift(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_add(a, tokp);
+ast_cond_incl_expr_shift(token **tokp) {
+    ast *node  = ast_cond_incl_expr_add(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, C_PUNCT_LSHIFT)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_LSHIFT;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_add(a, &tok);
+            bin->right      = ast_cond_incl_expr_add(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, C_PUNCT_RSHIFT)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_RSHIFT;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_add(a, &tok);
+            bin->right      = ast_cond_incl_expr_add(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -168,40 +167,40 @@ ast_cond_incl_expr_shift(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_rel(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_shift(a, tokp);
+ast_cond_incl_expr_rel(token **tokp) {
+    ast *node  = ast_cond_incl_expr_shift(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, '<')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_L;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_shift(a, &tok);
+            bin->right      = ast_cond_incl_expr_shift(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, '>')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_G;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_shift(a, &tok);
+            bin->right      = ast_cond_incl_expr_shift(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, C_PUNCT_LEQ)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_LE;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_shift(a, &tok);
+            bin->right      = ast_cond_incl_expr_shift(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, C_PUNCT_GEQ)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_GE;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_shift(a, &tok);
+            bin->right      = ast_cond_incl_expr_shift(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -213,24 +212,24 @@ ast_cond_incl_expr_rel(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_eq(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_rel(a, tokp);
+ast_cond_incl_expr_eq(token **tokp) {
+    ast *node  = ast_cond_incl_expr_rel(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, C_PUNCT_EQ)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_EQ;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_rel(a, &tok);
+            bin->right      = ast_cond_incl_expr_rel(&tok);
             node            = (ast *)bin;
             continue;
         } else if (IS_PUNCT(tok, C_PUNCT_NEQ)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_NEQ;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_rel(a, &tok);
+            bin->right      = ast_cond_incl_expr_rel(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -242,16 +241,16 @@ ast_cond_incl_expr_eq(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_and(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_eq(a, tokp);
+ast_cond_incl_expr_and(token **tokp) {
+    ast *node  = ast_cond_incl_expr_eq(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, '&')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_AND;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_eq(a, &tok);
+            bin->right      = ast_cond_incl_expr_eq(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -263,16 +262,16 @@ ast_cond_incl_expr_and(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_xor(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_and(a, tokp);
+ast_cond_incl_expr_xor(token **tokp) {
+    ast *node  = ast_cond_incl_expr_and(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, '^')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_XOR;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_and(a, &tok);
+            bin->right      = ast_cond_incl_expr_and(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -284,16 +283,16 @@ ast_cond_incl_expr_xor(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_or(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_xor(a, tokp);
+ast_cond_incl_expr_or(token **tokp) {
+    ast *node  = ast_cond_incl_expr_xor(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, '|')) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_OR;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_xor(a, &tok);
+            bin->right      = ast_cond_incl_expr_xor(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -305,16 +304,16 @@ ast_cond_incl_expr_or(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_land(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_or(a, tokp);
+ast_cond_incl_expr_land(token **tokp) {
+    ast *node  = ast_cond_incl_expr_or(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, C_PUNCT_LAND)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_LAND;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_or(a, &tok);
+            bin->right      = ast_cond_incl_expr_or(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -326,16 +325,16 @@ ast_cond_incl_expr_land(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_lor(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_land(a, tokp);
+ast_cond_incl_expr_lor(token **tokp) {
+    ast *node  = ast_cond_incl_expr_land(tokp);
     token *tok = *tokp;
     for (;;) {
         if (IS_PUNCT(tok, C_PUNCT_LOR)) {
             tok             = tok->next;
-            ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+            ast_binary *bin = make_ast(AST_BIN, tok->loc);
             bin->bin_kind   = AST_BIN_LOR;
             bin->left       = node;
-            bin->right      = ast_cond_incl_expr_land(a, &tok);
+            bin->right      = ast_cond_incl_expr_land(&tok);
             node            = (ast *)bin;
             continue;
         }
@@ -347,16 +346,16 @@ ast_cond_incl_expr_lor(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr_ternary(allocator *a, token **tokp) {
+ast_cond_incl_expr_ternary(token **tokp) {
     token *tok = *tokp;
-    ast *node  = ast_cond_incl_expr_lor(a, &tok);
+    ast *node  = ast_cond_incl_expr_lor(&tok);
     if (IS_PUNCT(tok, '?')) {
-        ast_ternary *ter = make_ast(a, AST_TER, tok->loc);
+        ast_ternary *ter = make_ast(AST_TER, tok->loc);
         ter->cond        = node;
-        ter->cond_true   = ast_cond_incl_expr(a, &tok);
+        ter->cond_true   = ast_cond_incl_expr(&tok);
         if (IS_PUNCT(tok, ':')) {
             tok             = tok->next;
-            ter->cond_false = ast_cond_incl_expr_ternary(a, &tok);
+            ter->cond_false = ast_cond_incl_expr_ternary(&tok);
             node            = (ast *)ter;
         } else {
             NOT_IMPL;
@@ -367,15 +366,15 @@ ast_cond_incl_expr_ternary(allocator *a, token **tokp) {
 }
 
 ast *
-ast_cond_incl_expr(allocator *a, token **tokp) {
-    ast *node  = ast_cond_incl_expr_ternary(a, tokp);
+ast_cond_incl_expr(token **tokp) {
+    ast *node  = ast_cond_incl_expr_ternary(tokp);
     token *tok = *tokp;
     if (IS_PUNCT(tok, ',')) {
         tok             = tok->next;
-        ast_binary *bin = make_ast(a, AST_BIN, tok->loc);
+        ast_binary *bin = make_ast(AST_BIN, tok->loc);
         bin->bin_kind   = AST_BIN_COMMA;
         bin->left       = node;
-        bin->right      = ast_cond_incl_expr(a, &tok);
+        bin->right      = ast_cond_incl_expr(&tok);
         *tokp           = tok;
     }
     return node;

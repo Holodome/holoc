@@ -4,7 +4,6 @@
 #include "general.h"
 
 struct c_type;
-struct allocator;
 struct buffer_writer;
 
 typedef enum {
@@ -79,9 +78,9 @@ bool c_type_kind_is_int_unsigned(c_type_kind kind);
 bool c_type_are_compatible(c_type *a, c_type *b);
 bool c_type_is_int(c_type *type);
 c_type *get_standard_type(c_type_kind kind);
-c_type *make_ptr_type(c_type *base, struct allocator *a);
-c_type *make_array_type(c_type *base, uint32_t size, struct allocator *a);
-c_type *make_c_type_struct(struct allocator *a, string name, c_struct_member *members);
+c_type *make_ptr_type(c_type *base);
+c_type *make_array_type(c_type *base, uint32_t size);
+c_type *make_c_type_struct(string name, c_struct_member *members);
 
 void fmt_c_typew(c_type *type, struct buffer_writer *w);
 uint32_t fmt_c_type(c_type *type, char *buf, uint32_t buf_size);

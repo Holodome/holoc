@@ -2,9 +2,9 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "allocator.h"
 #include "file_storage.h"
 #include "llist.h"
 #include "pp_lexer.h"
@@ -25,9 +25,9 @@ ppti_include_file(pp_token_iter *it, string filename) {
         NOT_IMPL;
     }
 
-    ppti_entry *entry = aalloc(it->a, sizeof(ppti_entry));
+    ppti_entry *entry = calloc(1, sizeof(ppti_entry));
     entry->f          = f;
-    entry->lexer      = aalloc(it->a, sizeof(pp_lexer));
+    entry->lexer      = calloc(1, sizeof(pp_lexer));
     pp_lexer_init(entry->lexer, f->contents.data, STRING_END(f->contents));
     LLIST_ADD(it->it, entry);
 }
@@ -38,7 +38,7 @@ ppti_insert_tok_list(pp_token_iter *it, pp_token *first, pp_token *last) {
 
     ppti_entry *e = it->it;
     if (!e) {
-        e = aalloc(it->a, sizeof(ppti_entry));
+        e = calloc(1, sizeof(ppti_entry));
         LLIST_ADD(it->it, e);
     }
 
@@ -83,18 +83,18 @@ ppti_peek_forward(pp_token_iter *it, uint32_t count) {
                 continue;
             }
 
-            pp_token *new_tok = aalloc(it->a, sizeof(pp_token));
+            pp_token *new_tok = calloc(1, sizeof(pp_token));
             memcpy(new_tok, &local_tok, sizeof(pp_token));
             new_tok->loc.filename = e->f->name;
             if (buf_len) {
-                new_tok->str = string_dup(it->a, new_tok->str);
+                new_tok->str = string_dup(new_tok->str);
             }
 
 #if HOLOC_DEBUG
             {
                 char buffer[4096];
                 uint32_t len     = fmt_pp_tok_verbose(buffer, sizeof(buffer), new_tok);
-                char *debug_info = aalloc(get_debug_allocator(), len + 1);
+                char *debug_info = malloc(len + 1);
                 memcpy(debug_info, buffer, len + 1);
                 new_tok->_debug_info = debug_info;
             }
@@ -141,13 +141,13 @@ ppti_eat(pp_token_iter *it) {
         pp_token *tok = e->token_list;
         if (tok) {
             LLIST_POP(e->token_list);
-            afree(it->a, tok, sizeof(pp_token));
+            free(tok);
         } else {
             if (e->lexer) {
-                afree(it->a, e->lexer, sizeof(pp_lexer));
+                free(e->lexer);
             }
             it->it = e->next;
-            afree(it->a, e, sizeof(ppti_entry));
+            free(e);
             ppti_eat(it);
         }
     }

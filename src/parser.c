@@ -3,8 +3,8 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "allocator.h"
 #include "ast.h"
 #include "c_lang.h"
 #include "c_types.h"
@@ -37,7 +37,7 @@ get_new_decl_scoped(parser *p, string name) {
     assert(p->scope);
     parser_decl **declp = GET_DECLP(p->scope, name_hash);
     if (!*declp) {
-        parser_decl *decl = aalloc(p->a, sizeof(parser_decl));
+        parser_decl *decl = calloc(1, sizeof(parser_decl));
         *declp            = decl;
     } else {
         NOT_IMPL;
@@ -57,7 +57,7 @@ push_tag_scoped(parser *p, string tag, c_type *type) {
 
     parser_tag_decl **declp = GET_TAGP(p->scope, tag_hash);
     if (!*declp) {
-        parser_tag_decl *decl = aalloc(p->a, sizeof(parser_tag_decl));
+        parser_tag_decl *decl = calloc(1, sizeof(parser_tag_decl));
         *declp                = decl;
     } else {
         NOT_IMPL;
@@ -178,7 +178,7 @@ parse_struct_decl(parser *p) {
             // Anonymous struct member
             if ((decl_type->kind == C_TYPE_STRUCT || decl_type->kind == C_TYPE_UNION) &&
                 IS_PUNCT(tok, ';')) {
-                c_struct_member *member = aalloc(p->a, sizeof(c_struct_member));
+                c_struct_member *member = calloc(1, sizeof(c_struct_member));
                 member->type            = decl_type;
                 member->idx             = idx++;
                 LLISTC_ADD_LAST(&members, member);
@@ -206,7 +206,7 @@ parse_struct_decl(parser *p) {
 
                 tok = ti_eat_peek(p->it);
 
-                c_struct_member *member = aalloc(p->a, sizeof(c_struct_member));
+                c_struct_member *member = calloc(1, sizeof(c_struct_member));
                 member->type            = decl_type;
                 member->name            = name;
                 member->idx             = idx++;
@@ -214,7 +214,7 @@ parse_struct_decl(parser *p) {
             }
         }
 
-        type = make_c_type_struct(p->a, tag, members.first);
+        type = make_c_type_struct(tag, members.first);
 
         if (tag.data) {
             push_tag_scoped(p, tag, type);
@@ -464,6 +464,7 @@ parse_declspec(parser *p, uint32_t *storage_class_flags) {
         switch (type_flags) {
         default:
             report_error_token(tok, "Invalid type");
+            break;
         case TYPE_VOID_BIT:
             type = get_standard_type(C_TYPE_VOID);
             break;
@@ -577,7 +578,7 @@ parse_expr_primary(parser *p) {
 
         uint64_t sizeof_value = evaluate_sizeof(p);
 
-        node = make_ast_num_int(p->a, loc, sizeof_value, get_standard_type(C_TYPE_ULLINT));
+        node = make_ast_num_int(loc, sizeof_value, get_standard_type(C_TYPE_ULLINT));
     } else if (IS_KW(tok, C_KW_ALIGNOF)) {
         NOT_IMPL;
     } else if (IS_KW(tok, C_KW_GENERIC)) {
@@ -586,9 +587,9 @@ parse_expr_primary(parser *p) {
         NOT_IMPL;
     } else if (tok->kind == TOK_NUM) {
         if (c_type_is_int(tok->type)) {
-            node = make_ast_num_int(p->a, tok->loc, tok->uint_value, tok->type);
+            node = make_ast_num_int(tok->loc, tok->uint_value, tok->type);
         } else {
-            node = make_ast_num_flt(p->a, tok->loc, tok->float_value, tok->type);
+            node = make_ast_num_flt(tok->loc, tok->float_value, tok->type);
         }
         ti_eat(p->it);
     } else if (tok->kind == TOK_STR) {
@@ -611,8 +612,8 @@ parse_expr_postfix(parser *p) {
             // a[b] is alias for *(a + b)
             ti_eat(p->it);
             ast *idx = parse_expr(p);
-            ast *add = make_ast_binary(p->a, AST_BIN_ADD, node, idx);
-            node     = make_ast_unary(p->a, node->loc, AST_UN_DEREF, add);
+            ast *add = make_ast_binary(AST_BIN_ADD, node, idx);
+            node     = make_ast_unary(node->loc, AST_UN_DEREF, add);
 
             tok = ti_peek(p->it);
             if (!IS_PUNCT(tok, ']')) {
@@ -627,13 +628,13 @@ parse_expr_postfix(parser *p) {
         } else if (IS_PUNCT(tok, C_PUNCT_INC)) {
             ti_eat(p->it);
 
-            node = make_ast_unary(p->a, node->loc, AST_UN_POSTINC, node);
+            node = make_ast_unary(node->loc, AST_UN_POSTINC, node);
 
             tok = ti_peek(p->it);
         } else if (IS_PUNCT(tok, C_PUNCT_DEC)) {
             ti_eat(p->it);
 
-            node = make_ast_unary(p->a, node->loc, AST_UN_POSTDEC, node);
+            node = make_ast_unary(node->loc, AST_UN_POSTDEC, node);
 
             tok = ti_peek(p->it);
         } else {
@@ -654,49 +655,49 @@ parse_expr_unary(parser *p) {
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_PLUS, expr);
+        node      = make_ast_unary(loc, AST_UN_PLUS, expr);
     } else if (IS_PUNCT(tok, '-')) {
         source_loc loc = tok->loc;
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_MINUS, expr);
+        node      = make_ast_unary(loc, AST_UN_MINUS, expr);
     } else if (IS_PUNCT(tok, '!')) {
         source_loc loc = tok->loc;
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_LNOT, expr);
+        node      = make_ast_unary(loc, AST_UN_LNOT, expr);
     } else if (IS_PUNCT(tok, '~')) {
         source_loc loc = tok->loc;
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_NOT, expr);
+        node      = make_ast_unary(loc, AST_UN_NOT, expr);
     } else if (IS_PUNCT(tok, '&')) {
         source_loc loc = tok->loc;
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_DEREF, expr);
+        node      = make_ast_unary(loc, AST_UN_DEREF, expr);
     } else if (IS_PUNCT(tok, '*')) {
         source_loc loc = tok->loc;
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_ADDR, expr);
+        node      = make_ast_unary(loc, AST_UN_ADDR, expr);
     } else if (IS_PUNCT(tok, C_PUNCT_INC)) {
         source_loc loc = tok->loc;
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_PREINC, expr);
+        node      = make_ast_unary(loc, AST_UN_PREINC, expr);
     } else if (IS_PUNCT(tok, C_PUNCT_DEC)) {
         source_loc loc = tok->loc;
         ti_eat(p->it);
 
         ast *expr = parse_expr_cast(p);
-        node      = make_ast_unary(p->a, loc, AST_UN_PREDEC, expr);
+        node      = make_ast_unary(loc, AST_UN_PREDEC, expr);
     } else {
         node = parse_expr_postfix(p);
     }
@@ -726,7 +727,7 @@ parse_expr_cast(parser *p) {
             }
 
             ast *expr = parse_expr_cast(p);
-            node      = make_ast_cast(p->a, loc, expr, type);
+            node      = make_ast_cast(loc, expr, type);
         }
     }
 
@@ -746,15 +747,15 @@ parse_expr_mul(parser *p) {
         if (IS_PUNCT(tok, '*')) {
             ti_eat(p->it);
             ast *right = parse_expr_unary(p);
-            node       = make_ast_binary(p->a, AST_BIN_MUL, node, right);
+            node       = make_ast_binary(AST_BIN_MUL, node, right);
         } else if (IS_PUNCT(tok, '/')) {
             ti_eat(p->it);
             ast *right = parse_expr_unary(p);
-            node       = make_ast_binary(p->a, AST_BIN_DIV, node, right);
+            node       = make_ast_binary(AST_BIN_DIV, node, right);
         } else if (IS_PUNCT(tok, '%')) {
             ti_eat(p->it);
             ast *right = parse_expr_unary(p);
-            node       = make_ast_binary(p->a, AST_BIN_MOD, node, right);
+            node       = make_ast_binary(AST_BIN_MOD, node, right);
         } else {
             break;
         }
@@ -772,11 +773,11 @@ parse_expr_add(parser *p) {
         if (IS_PUNCT(tok, '+')) {
             ti_eat(p->it);
             ast *right = parse_expr_mul(p);
-            node       = make_ast_binary(p->a, AST_BIN_ADD, node, right);
+            node       = make_ast_binary(AST_BIN_ADD, node, right);
         } else if (IS_PUNCT(tok, '-')) {
             ti_eat(p->it);
             ast *right = parse_expr_mul(p);
-            node       = make_ast_binary(p->a, AST_BIN_SUB, node, right);
+            node       = make_ast_binary(AST_BIN_SUB, node, right);
         } else {
             break;
         }
@@ -794,11 +795,11 @@ parse_expr_shift(parser *p) {
         if (IS_PUNCT(tok, C_PUNCT_LSHIFT)) {
             ti_eat(p->it);
             ast *right = parse_expr_add(p);
-            node       = make_ast_binary(p->a, AST_BIN_LSHIFT, node, right);
+            node       = make_ast_binary(AST_BIN_LSHIFT, node, right);
         } else if (IS_PUNCT(tok, C_PUNCT_RSHIFT)) {
             ti_eat(p->it);
             ast *right = parse_expr_add(p);
-            node       = make_ast_binary(p->a, AST_BIN_RSHIFT, node, right);
+            node       = make_ast_binary(AST_BIN_RSHIFT, node, right);
         } else {
             break;
         }
@@ -816,19 +817,19 @@ parse_expr_rel(parser *p) {
         if (IS_PUNCT(tok, '<')) {
             ti_eat(p->it);
             ast *right = parse_expr_shift(p);
-            node       = make_ast_binary(p->a, AST_BIN_L, node, right);
+            node       = make_ast_binary(AST_BIN_L, node, right);
         } else if (IS_PUNCT(tok, '>')) {
             ti_eat(p->it);
             ast *right = parse_expr_shift(p);
-            node       = make_ast_binary(p->a, AST_BIN_G, node, right);
+            node       = make_ast_binary(AST_BIN_G, node, right);
         } else if (IS_PUNCT(tok, C_PUNCT_LEQ)) {
             ti_eat(p->it);
             ast *right = parse_expr_shift(p);
-            node       = make_ast_binary(p->a, AST_BIN_LE, node, right);
+            node       = make_ast_binary(AST_BIN_LE, node, right);
         } else if (IS_PUNCT(tok, C_PUNCT_GEQ)) {
             ti_eat(p->it);
             ast *right = parse_expr_shift(p);
-            node       = make_ast_binary(p->a, AST_BIN_GE, node, right);
+            node       = make_ast_binary(AST_BIN_GE, node, right);
         } else {
             break;
         }
@@ -846,11 +847,11 @@ parse_expr_eq(parser *p) {
         if (IS_PUNCT(tok, C_PUNCT_EQ)) {
             ti_eat(p->it);
             ast *right = parse_expr_rel(p);
-            node       = make_ast_binary(p->a, AST_BIN_EQ, node, right);
+            node       = make_ast_binary(AST_BIN_EQ, node, right);
         } else if (IS_PUNCT(tok, C_PUNCT_NEQ)) {
             ti_eat(p->it);
             ast *right = parse_expr_rel(p);
-            node       = make_ast_binary(p->a, AST_BIN_NEQ, node, right);
+            node       = make_ast_binary(AST_BIN_NEQ, node, right);
         } else {
             break;
         }
@@ -868,7 +869,7 @@ parse_expr_and(parser *p) {
         if (IS_PUNCT(tok, '&')) {
             ti_eat(p->it);
             ast *right = parse_expr_eq(p);
-            node       = make_ast_binary(p->a, AST_BIN_AND, node, right);
+            node       = make_ast_binary(AST_BIN_AND, node, right);
         } else {
             break;
         }
@@ -885,7 +886,7 @@ parse_expr_xor(parser *p) {
         if (IS_PUNCT(tok, '^')) {
             ti_eat(p->it);
             ast *right = parse_expr_and(p);
-            node       = make_ast_binary(p->a, AST_BIN_XOR, node, right);
+            node       = make_ast_binary(AST_BIN_XOR, node, right);
         } else {
             break;
         }
@@ -903,7 +904,7 @@ parse_expr_or(parser *p) {
         if (IS_PUNCT(tok, '|')) {
             ti_eat(p->it);
             ast *right = parse_expr_xor(p);
-            node       = make_ast_binary(p->a, AST_BIN_OR, node, right);
+            node       = make_ast_binary(AST_BIN_OR, node, right);
         } else {
             break;
         }
@@ -920,7 +921,7 @@ parse_expr_land(parser *p) {
         if (IS_PUNCT(tok, C_PUNCT_LAND)) {
             ti_eat(p->it);
             ast *right = parse_expr_or(p);
-            node       = make_ast_binary(p->a, AST_BIN_LAND, node, right);
+            node       = make_ast_binary(AST_BIN_LAND, node, right);
         } else {
             break;
         }
@@ -938,7 +939,7 @@ parse_expr_lor(parser *p) {
         if (IS_PUNCT(tok, C_PUNCT_LOR)) {
             ti_eat(p->it);
             ast *right = parse_expr_land(p);
-            node       = make_ast_binary(p->a, AST_BIN_LOR, node, right);
+            node       = make_ast_binary(AST_BIN_LOR, node, right);
         } else {
             break;
         }
@@ -965,7 +966,7 @@ parse_expr_cond(parser *p) {
 
         ast *cond_false = parse_expr_cond(p);
 
-        node = make_ast_ternary(p->a, node, cond_true, cond_false);
+        node = make_ast_ternary(node, cond_true, cond_false);
     }
     return node;
 }
@@ -980,37 +981,37 @@ parse_expr_assign(parser *p) {
         default:
             break;
         case '=':
-            node = make_ast_binary(p->a, AST_BIN_A, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_A, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IRSHIFT:
-            node = make_ast_binary(p->a, AST_BIN_RSHIFTA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_RSHIFTA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_ILSHIFT:
-            node = make_ast_binary(p->a, AST_BIN_LSHIFTA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_LSHIFTA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IADD:
-            node = make_ast_binary(p->a, AST_BIN_ADDA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_ADDA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_ISUB:
-            node = make_ast_binary(p->a, AST_BIN_SUBA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_SUBA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IMUL:
-            node = make_ast_binary(p->a, AST_BIN_MULA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_MULA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IDIV:
-            node = make_ast_binary(p->a, AST_BIN_DIVA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_DIVA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IMOD:
-            node = make_ast_binary(p->a, AST_BIN_MODA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_MODA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IAND:
-            node = make_ast_binary(p->a, AST_BIN_ANDA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_ANDA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IOR:
-            node = make_ast_binary(p->a, AST_BIN_ORA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_ORA, node, parse_expr_assign(p));
             break;
         case C_PUNCT_IXOR:
-            node = make_ast_binary(p->a, AST_BIN_XORA, node, parse_expr_assign(p));
+            node = make_ast_binary(AST_BIN_XORA, node, parse_expr_assign(p));
             break;
         }
     }
@@ -1024,7 +1025,7 @@ parse_expr(parser *p) {
 
     token *tok = ti_peek(p->it);
     if (IS_PUNCT(tok, ',')) {
-        node = make_ast_binary(p->a, AST_BIN_COMMA, node, parse_expr(p));
+        node = make_ast_binary(AST_BIN_COMMA, node, parse_expr(p));
     }
 
     return node;

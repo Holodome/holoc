@@ -9,23 +9,13 @@ Version: 0
 
 #include "general.h"
 
-struct allocator;
-
 typedef struct {
     bool is_found;
     uint32_t idx;
 } string_find_result;
 
-// Wrapper for string creation
-#define string(_data, _len) ((string){.data = _data, .len = _len})
-// Construct string from string literal
-// TODO: this fails in gcc because compound literals are not considered const by it.
-// What we can do here is lose the (string) part, and leave { _data, _len } when initializing.
-// But that is another form of initialization that would required additional macro, so let's
-// not do it for now and stick with clang.
-#define WRAPZ(_z) string(_z, sizeof(_z) - 1)
-// Construct string from null-terminated string
-#define stringz(_string) string(_string, strlen(_string))
+#define WRAPZ(_z) \
+    { (_z), sizeof(_z) }
 
 // Return true if two strings are equal
 bool string_eq(string a, string b);
@@ -47,11 +37,11 @@ string string_rstrip(string str, string symbs);
 string string_strip(string str, string symbs);
 
 // Does printf and allocates that string.
-string string_memprintf(struct allocator *a, char *format, ...);
+string string_memprintf(char *format, ...);
 // Works similar to strdup function, but returns string.
-string string_strdup(struct allocator *a, char *data);
+string string_strdup(char *data);
 // Duplicates string.
-string string_dup(struct allocator *a, string str);
+string string_dup(string str);
 // Evaluates to pointer to string end. Useful while parsing, where pointer
 // arithmetic is used, since this value can be used for direct comparison,
 // without fallback to length.

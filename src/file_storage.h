@@ -3,8 +3,6 @@
 
 #include "general.h"
 
-struct allocator;
-
 typedef struct file {
     struct file *next;
     // typically, name inside #include
@@ -20,8 +18,6 @@ typedef struct file {
 } file;
 
 typedef struct file_storage {
-    // Allocator used internally in file storage.
-    struct allocator *a;
     // Linked list of files.
     // TODO: Should probably be hash table?
     file *files;

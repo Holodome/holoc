@@ -30,7 +30,6 @@
 struct pp_token;
 struct pp_lexer;
 struct file;
-struct allocator;
 
 // Entry of preprocessor parse stack.
 typedef struct ppti_entry {
@@ -46,8 +45,6 @@ typedef struct ppti_entry {
 
 // Structure holding state information about token parsing.
 typedef struct pp_token_iter {
-    struct allocator *a;
-
     ppti_entry *it;
 
     struct pp_token *eof_token;

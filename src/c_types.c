@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "allocator.h"
 #include "buffer_writer.h"
 
 #define MAKE_TYPE(_kind, _size)      \
@@ -141,8 +140,8 @@ get_standard_type(c_type_kind kind) {
 }
 
 c_type *
-make_ptr_type(c_type *base, struct allocator *a) {
-    c_type *type = aalloc(a, sizeof(c_type));
+make_ptr_type(c_type *base) {
+    c_type *type = calloc(1, sizeof(c_type));
     type->size   = sizeof(void *);
     type->ptr_to = base;
     type->kind   = C_TYPE_PTR;
@@ -150,8 +149,8 @@ make_ptr_type(c_type *base, struct allocator *a) {
 }
 
 c_type *
-make_array_type(c_type *base, uint32_t len, struct allocator *a) {
-    c_type *type  = aalloc(a, sizeof(c_type));
+make_array_type(c_type *base, uint32_t len) {
+    c_type *type  = calloc(1, sizeof(c_type));
     type->size    = len * base->size;
     type->ptr_to  = base;
     type->arr_len = len;
@@ -160,8 +159,8 @@ make_array_type(c_type *base, uint32_t len, struct allocator *a) {
 }
 
 c_type *
-make_c_type_struct(struct allocator *a, string name, c_struct_member *members) {
-    c_type *type         = aalloc(a, sizeof(c_type));
+make_c_type_struct(string name, c_struct_member *members) {
+    c_type *type         = calloc(1, sizeof(c_type));
     type->kind           = C_TYPE_STRUCT;
     type->name           = name;
     type->struct_members = members;

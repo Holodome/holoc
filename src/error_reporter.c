@@ -71,8 +71,9 @@ report_message_internalv(string file_contents, source_loc loc, string message_ki
 
 void
 report_errorv(source_loc loc, char *fmt, va_list args) {
-    file *f = fs_get_file(loc.filename, 0);
-    report_message_internalv(f->contents, loc, WRAPZ("\033[31;1merror\033[0m"), fmt, args);
+    file *f              = fs_get_file(loc.filename, 0);
+    string error_colored = WRAPZ("\033[31;1merror\033[0m");
+    report_message_internalv(f->contents, loc, error_colored, fmt, args);
     ++get_error_reporter()->error_count;
 }
 
@@ -85,8 +86,9 @@ report_error(source_loc loc, char *fmt, ...) {
 
 void
 report_warningv(source_loc loc, char *fmt, va_list args) {
-    file *f = fs_get_file(loc.filename, 0);
-    report_message_internalv(f->contents, loc, WRAPZ("\033[35;1mwarning\033[0m"), fmt, args);
+    file *f                = fs_get_file(loc.filename, 0);
+    string warning_colored = WRAPZ("\033[35;1mwarning\033[0m");
+    report_message_internalv(f->contents, loc, warning_colored, fmt, args);
     ++get_error_reporter()->warning_count;
 }
 
@@ -99,8 +101,9 @@ report_warning(source_loc loc, char *fmt, ...) {
 
 void
 report_notev(source_loc loc, char *fmt, va_list args) {
-    file *f = fs_get_file(loc.filename, 0);
-    report_message_internalv(f->contents, loc, WRAPZ("\033[90;1mnote\033[1m"), fmt, args);
+    file *f             = fs_get_file(loc.filename, 0);
+    string note_colored = WRAPZ("\033[90;1mnote\033[1m");
+    report_message_internalv(f->contents, loc, note_colored, fmt, args);
 }
 
 void

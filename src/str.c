@@ -3,9 +3,8 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-
-#include "allocator.h"
 
 bool
 string_eq(string a, string b) {
@@ -25,7 +24,7 @@ string_endswith(string a, string b) {
 string
 string_substr_(string a, uint32_t start, uint32_t end) {
     assert(a.len >= end && a.len >= start && end >= start);
-    return string(a.data + start, end - start);
+    return (string){a.data + start, end - start};
 }
 
 string
@@ -111,35 +110,35 @@ string
 string_substr(string a, uint32_t start, uint32_t end) {
     assert(start <= a.len && end <= a.len);
     assert(end >= start);
-    return string(a.data + start, end - start);
+    return (string){a.data + start, end - start};
 }
 
 string
-string_memprintf(allocator *a, char *format, ...) {
+string_memprintf(char *format, ...) {
     va_list args;
     va_start(args, format);
     char buffer[4096];
     vsnprintf(buffer, sizeof(buffer), format, args);
     uint32_t len  = strlen(buffer);
-    char *str_mem = aalloc(a, len + 1);
+    char *str_mem = malloc(len + 1);
     memcpy(str_mem, buffer, len);
     str_mem[len] = 0;
-    return stringz(str_mem);
+    return (string){str_mem, len};
 }
 
 string
-string_strdup(allocator *a, char *data) {
+string_strdup(char *data) {
     uint32_t len  = strlen(data);
-    char *str_mem = aalloc(a, len + 1);
+    char *str_mem = malloc(len + 1);
     memcpy(str_mem, data, len);
     str_mem[len] = 0;
-    return stringz(str_mem);
+    return (string){str_mem, len};
 }
 
 string
-string_dup(struct allocator *a, string str) {
-    char *new_mem = aalloc(a, str.len + 1);
+string_dup(string str) {
+    char *new_mem = malloc(str.len + 1);
     memcpy(new_mem, str.data, str.len);
     new_mem[str.len] = 0;
-    return string(new_mem, str.len);
+    return (string){new_mem, str.len};
 }

@@ -1,9 +1,9 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "allocator.h"
 #include "ast.h"
 #include "c_lang.h"
 #include "darray.h"
@@ -42,7 +42,6 @@ static program_settings settings;
 
 static void
 parse_clargs(uint32_t argc, char **argv) {
-    allocator *a      = get_system_allocator();
     string *filenames = NULL;
     for (uint32_t arg_idx = 1; arg_idx < argc; arg_idx++) {
         char *option = argv[arg_idx];
@@ -63,11 +62,11 @@ parse_clargs(uint32_t argc, char **argv) {
         } else if (strncmp(option, "-I", 2) == 0) {
             char *path        = option + 2;
             uint32_t path_len = strlen(path);
-            char *new_path    = aalloc(a, path_len + 1);
+            char *new_path    = malloc(path_len + 1);
             memcpy(new_path, path, path_len + 1);
-            da_push(settings.include_paths, string(new_path, path_len), a);
+            da_push(settings.include_paths, ((string){new_path, path_len}));
         } else {
-            da_push(filenames, stringz(option), a);
+            da_push(filenames, ((string){option, strlen(option)}));
         }
     }
     settings.filenames = filenames;
@@ -75,13 +74,12 @@ parse_clargs(uint32_t argc, char **argv) {
 
 static void
 mptv(string filename) {
-    allocator *a = get_system_allocator();
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     file *f = fs_get_file(filename, 0);
 
     char token_buf[4096];
-    pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
+    pp_lexer *lex = calloc(1, sizeof(pp_lexer));
     pp_lexer_init(lex, f->contents.data, STRING_END(f->contents));
     pp_token tok = {0};
     uint32_t _;
@@ -95,13 +93,12 @@ mptv(string filename) {
 
 static void
 mptf(string filename) {
-    allocator *a = get_system_allocator();
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     file *f = fs_get_file(filename, 0);
 
     char token_buf[4096];
-    pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
+    pp_lexer *lex = calloc(1, sizeof(pp_lexer));
     pp_lexer_init(lex, f->contents.data, STRING_END(f->contents));
     pp_token tok = {0};
     uint32_t _;
@@ -121,13 +118,12 @@ mptf(string filename) {
 
 static void
 mpt(string filename) {
-    allocator *a = get_system_allocator();
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
     file *f = fs_get_file(filename, 0);
 
     char token_buf[4096];
-    pp_lexer *lex = aalloc(a, sizeof(pp_lexer));
+    pp_lexer *lex = calloc(1, sizeof(pp_lexer));
     pp_lexer_init(lex, f->contents.data, STRING_END(f->contents));
     pp_token tok = {0};
     uint32_t _;
@@ -141,12 +137,9 @@ mpt(string filename) {
 
 static void
 mtp(string filename) {
-    allocator *a = get_system_allocator();
-
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    preprocessor *pp = aalloc(a, sizeof(preprocessor));
-    pp->a            = a;
+    preprocessor *pp = calloc(1, sizeof(preprocessor));
     pp_init(pp, filename);
 
     char buf[4096];
@@ -161,11 +154,9 @@ mtp(string filename) {
 
 static void
 mtpv(string filename) {
-    allocator *a = get_system_allocator();
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    preprocessor *pp = aalloc(a, sizeof(preprocessor));
-    pp->a            = a;
+    preprocessor *pp = calloc(1, sizeof(preprocessor));
     pp_init(pp, filename);
 
     char buf[4096];
@@ -180,12 +171,9 @@ mtpv(string filename) {
 
 static void
 mtpf(string filename) {
-    allocator *a = get_system_allocator();
-
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    preprocessor *pp = aalloc(a, sizeof(preprocessor));
-    pp->a            = a;
+    preprocessor *pp = calloc(1, sizeof(preprocessor));
     pp_init(pp, filename);
 
     char buf[4096];
@@ -206,14 +194,10 @@ mtpf(string filename) {
 
 static void
 mast(string filename) {
-    allocator *a = get_system_allocator();
-
-    token_iter *it = aalloc(a, sizeof(token_iter));
-    it->a          = a;
+    token_iter *it = calloc(1, sizeof(token_iter));
     ti_init(it, filename);
 
-    parser *p = aalloc(a, sizeof(parser));
-    p->a      = a;
+    parser *p = calloc(1, sizeof(parser));
     p->it     = it;
     parse(p);
 }
@@ -248,7 +232,6 @@ process_file(string filename) {
 
 int
 main(int argc, char **argv) {
-    get_file_storage()->a = get_system_allocator();
     fs_add_default_include_paths();
 
     parse_clargs(argc, argv);

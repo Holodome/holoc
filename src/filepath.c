@@ -18,7 +18,7 @@ path_is_dir(string path) {
     bool result;
     struct stat st;
     result = stat(path.data, &st) != -1;
-    return result || !!(st.st_mode & S_IFDIR);
+    return result || S_ISDIR(st.st_mode);
 }
 
 string
@@ -26,7 +26,7 @@ path_dirname(string path) {
     string result;
     string_find_result find_result = string_rfind(path, '/');
     if (!find_result.is_found) {
-        result = WRAPZ(".");
+        result = (string)WRAPZ(".");
     }
     result = string_substr(path, 0, find_result.idx);
     return result;
@@ -36,7 +36,7 @@ string
 path_filename(string path) {
     string result = WRAPZ(".");
 
-    while (string_endswith(path, WRAPZ("/"))) {
+    while (string_endswith(path, (string)WRAPZ("/"))) {
         path = string_substr(path, 0, path.len - 1);
     }
 
@@ -65,21 +65,21 @@ path_basename(string path) {
 }
 
 string
-path_to_absolute(string path, struct allocator *a) {
+path_to_absolute(string path) {
     string result;
-    if (string_startswith(path, WRAPZ("/"))) {
+    if (string_startswith(path, (string)WRAPZ("/"))) {
         result = path;
     } else {
         char dir[4096] = "";
         get_current_dir(dir, sizeof(dir));
-        result = string_memprintf(a, "%s/%.*s", dir, path.len, path.data);
+        result = string_memprintf("%s/%.*s", dir, path.len, path.data);
     }
     return result;
 }
 
 string
-path_clean(string path, struct allocator *a) {
-    bool is_rooted = string_startswith(path, WRAPZ("/"));
+path_clean(string path) {
+    bool is_rooted = string_startswith(path, (string)WRAPZ("/"));
     string *its    = NULL;  // da
 
     while (path.len) {
@@ -94,23 +94,23 @@ path_clean(string path, struct allocator *a) {
             path = string_substr(path, slash.idx + 1, path.len);
         }
 
-        if (!elem.len || string_eq(elem, WRAPZ("."))) {
+        if (!elem.len || string_eq(elem, (string)WRAPZ("."))) {
             continue;
         }
 
-        if (string_eq(elem, WRAPZ(".."))) {
+        if (string_eq(elem, (string)WRAPZ(".."))) {
             if (!da_size(its)) {
                 if (is_rooted) {
                     continue;
                 }
-                da_push(its, WRAPZ(".."), a);
+                da_push(its, (string)WRAPZ(".."));
                 continue;
             }
 
-            if (string_eq(*da_last(its), WRAPZ(".."))) {
-                da_push(its, WRAPZ(".."), a);
+            if (string_eq(*da_last(its), (string)WRAPZ(".."))) {
+                da_push(its, (string)WRAPZ(".."));
             } else {
-                da_pop(its);
+                (void)da_pop(its);
             }
         }
     }
@@ -129,6 +129,6 @@ path_clean(string path, struct allocator *a) {
         }
     }
 
-    da_free(its, a);
-    return string_strdup(a, buffer);
+    da_free(its);
+    return string_strdup(buffer);
 }

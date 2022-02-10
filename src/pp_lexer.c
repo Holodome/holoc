@@ -25,34 +25,34 @@ get_str_opener(pp_string_kind kind) {
     switch (kind) {
         INVALID_DEFAULT_CASE;
     case PP_TOK_STR_SCHAR:
-        result = WRAPZ("\"");
+        result = (string)WRAPZ("\"");
         break;
     case PP_TOK_STR_SUTF8:
-        result = WRAPZ("u8\"");
+        result = (string)WRAPZ("u8\"");
         break;
     case PP_TOK_STR_SUTF16:
-        result = WRAPZ("u\"");
+        result = (string)WRAPZ("u\"");
         break;
     case PP_TOK_STR_SUTF32:
-        result = WRAPZ("U\"");
+        result = (string)WRAPZ("U\"");
         break;
     case PP_TOK_STR_SWIDE:
-        result = WRAPZ("L\"");
+        result = (string)WRAPZ("L\"");
         break;
     case PP_TOK_STR_CCHAR:
-        result = WRAPZ("\'");
+        result = (string)WRAPZ("\'");
         break;
     case PP_TOK_STR_CUTF8:
-        result = WRAPZ("u8\'");
+        result = (string)WRAPZ("u8\'");
         break;
     case PP_TOK_STR_CUTF16:
-        result = WRAPZ("u\'");
+        result = (string)WRAPZ("u\'");
         break;
     case PP_TOK_STR_CUTF32:
-        result = WRAPZ("U\'");
+        result = (string)WRAPZ("U\'");
         break;
     case PP_TOK_STR_CWIDE:
-        result = WRAPZ("L\'");
+        result = (string)WRAPZ("L\'");
         break;
     }
 
@@ -88,7 +88,7 @@ parse_whitespaces(pp_lexer *lex, pp_token *tok) {
     }
 
     // Skip single-line comments
-    if (next_eq(lex, WRAPZ("//"))) {
+    if (next_eq(lex, (string)WRAPZ("//"))) {
         result = true;
         while (*lex->cursor != '\n' && *lex->cursor) {
             ++lex->cursor;
@@ -103,9 +103,9 @@ parse_whitespaces(pp_lexer *lex, pp_token *tok) {
     }
 
     // Skip multi-line comments
-    if (next_eq(lex, WRAPZ("/*"))) {
+    if (next_eq(lex, (string)WRAPZ("/*"))) {
         result = true;
-        while (*lex->cursor && !next_eq(lex, WRAPZ("*/"))) {
+        while (*lex->cursor && !next_eq(lex, (string)WRAPZ("*/"))) {
             if (*lex->cursor == '\n') {
                 lex->last_line_start = lex->cursor;
                 ++lex->line;
@@ -373,7 +373,7 @@ parse_string_literal(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
         }
         tok->kind     = PP_TOK_STR;
         tok->str_kind = str_kind;
-        tok->str      = string(buf, *buf_writtenp);
+        tok->str      = (string){buf, *buf_writtenp};
     }
 
     return result;
@@ -406,7 +406,7 @@ parse_number(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
         }
         *write_cursor = 0;
         *buf_writtenp = write_cursor - buf;
-        tok->str      = string(buf, *buf_writtenp);
+        tok->str      = (string){buf, *buf_writtenp};
         assert(*buf_writtenp < buf_size);
         tok->kind = PP_TOK_NUM;
     }
@@ -463,7 +463,7 @@ parse_ident(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
 
         *buf_writtenp = write_cursor - buf;
         assert(*buf_writtenp < buf_size);
-        tok->str  = string(buf, *buf_writtenp);
+        tok->str  = (string){buf, *buf_writtenp};
         tok->kind = PP_TOK_ID;
 
         result = true;
@@ -495,7 +495,7 @@ pp_lexer_parse(pp_lexer *lex, pp_token *tok, char *buf, uint32_t buf_size,
                 buf[0]        = cp;
                 buf[1]        = 0;
                 *buf_writtenp = 1;
-                tok->str      = string(buf, *buf_writtenp);
+                tok->str      = (string){buf, *buf_writtenp};
                 break;
             }
         }

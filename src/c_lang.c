@@ -1,10 +1,10 @@
 #include "c_lang.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "allocator.h"
 #include "buffer_writer.h"
 #include "c_types.h"
 #include "pp_lexer.h"
@@ -175,7 +175,7 @@ get_kw_kind(string test) {
 
 bool
 convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
-                 uint32_t *buf_writtenp, allocator *a) {
+                 uint32_t *buf_writtenp) {
     bool result         = false;
     tok->at_line_start  = pp_tok->at_line_start;
     tok->has_whitespace = pp_tok->has_whitespace;
@@ -193,7 +193,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
         } else {
             tok->kind     = TOK_ID;
             *buf_writtenp = snprintf(buf, buf_size, "%.*s", pp_tok->str.len, pp_tok->str.data);
-            tok->str      = string(buf, *buf_writtenp);
+            tok->str      = (string){buf, *buf_writtenp};
         }
         result = true;
     } break;
@@ -271,8 +271,8 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
             *buf_writtenp = byte_stride * len;
 
             tok->kind = TOK_STR;
-            tok->str  = string(buf, byte_stride * len);
-            tok->type = make_array_type(base_type, len + 1, a);
+            tok->str  = (string){buf, byte_stride * len};
+            tok->type = make_array_type(base_type, len + 1);
             result    = true;
         } break;
         case PP_TOK_STR_CCHAR:
@@ -300,7 +300,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
             while (*cursor) {
                 uint32_t cp;
                 cursor = utf8_decode(cursor, &cp);
-                if (cp >= 1 << (8 * byte_stride)) {
+                if (cp >= 1u << (8u * byte_stride)) {
                     // TODO: Diagnostic
                     break;
                 }
@@ -332,7 +332,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
 void
 fmt_c_numw(fmt_c_num_args args, buffer_writer *w) {
     if (c_type_kind_is_int(args.type->kind)) {
-        buf_write(w, "%llu", args.uint_value);
+        buf_write(w, "%" PRIu64, args.uint_value);
         switch (args.type->kind) {
         default:
             break;
@@ -408,7 +408,7 @@ void
 fmt_tokenw(buffer_writer *w, token *tok) {
     switch (tok->kind) {
     case TOK_EOF:
-        buf_write(w, "");
+        buf_write(w, "%s", "");
         break;
     case TOK_ID:
         buf_write(w, "%.*s", tok->str.len, tok->str.data);

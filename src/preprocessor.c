@@ -3,10 +3,10 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include "allocator.h"
 #include "ast.h"
 #include "buffer_writer.h"
 #include "c_lang.h"
@@ -32,10 +32,11 @@
 // TODO: Free tokens too.
 static void
 free_macro_data(preprocessor *pp, pp_macro *macro) {
+    (void)pp;
     while (macro->args) {
         pp_macro_arg *arg = macro->args;
         macro->args       = arg->next;
-        afree(pp->a, arg, sizeof(pp_macro_arg));
+        free(arg);
     }
 }
 
@@ -43,14 +44,15 @@ free_macro_data(preprocessor *pp, pp_macro *macro) {
 // making a copy.
 static pp_token *
 copy_pp_token(preprocessor *pp, pp_token *tok) {
-    pp_token *new = aalloc(pp->a, sizeof(pp_token));
+    (void)pp;
+    pp_token *new = malloc(sizeof(pp_token));
     memcpy(new, tok, sizeof(pp_token));
     new->next = 0;
     return new;
 }
 
 // Function used when #define'ing a function-like macro. Parses given token list
-// and forms arguments, that are written to the given macro.
+// and forms /ents, that are written to the given macro.
 // Doesn't eat closing paren.
 static void
 get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro *macro) {
@@ -92,7 +94,7 @@ get_function_like_macro_arguments(preprocessor *pp, pp_token_iter *it, pp_macro 
                 tok = ppti_eat_peek(it);
             }
             // Add eof to the end
-            pp_token *eof = aalloc(pp->a, sizeof(pp_token));
+            pp_token *eof = calloc(1, sizeof(pp_token));
             eof->kind     = PP_TOK_EOF;
             LLISTC_ADD_LAST(&macro_tokens, eof);
 
@@ -176,9 +178,9 @@ expand_function_like_macro(preprocessor *pp, pp_token_iter *it, pp_macro *macro,
                 fmt_pp_tokw(&w, arg_tok);
             }
 
-            pp_token *new_token = aalloc(pp->a, sizeof(pp_token));
+            pp_token *new_token = calloc(1, sizeof(pp_token));
             new_token->kind     = PP_TOK_STR;
-            new_token->str      = string_strdup(pp->a, buffer);
+            new_token->str      = string_strdup(buffer);
             new_token->str_kind = PP_TOK_STR_SCHAR;
             LLISTC_ADD_LAST(&def, new_token);
             continue;
@@ -271,8 +273,8 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
             }
 
             macro->is_variadic = true;
-            pp_macro_arg *arg  = aalloc(pp->a, sizeof(pp_macro_arg));
-            arg->name          = WRAPZ("__VA_ARGS__");
+            pp_macro_arg *arg  = calloc(1, sizeof(pp_macro_arg));
+            arg->name          = (string)WRAPZ("__VA_ARGS__");
             LLISTC_ADD_LAST(&args, arg);
 
             tok = ppti_eat_peek(pp->it);
@@ -284,7 +286,7 @@ define_macro_function_like_args(preprocessor *pp, pp_macro *macro) {
                 report_error_pp_token(tok, "Argument after varargs");
             }
 
-            pp_macro_arg *arg = aalloc(pp->a, sizeof(pp_macro_arg));
+            pp_macro_arg *arg = calloc(1, sizeof(pp_macro_arg));
             arg->name         = tok->str;
             LLISTC_ADD_LAST(&args, arg);
             ++macro->arg_count;
@@ -322,7 +324,7 @@ define_macro(preprocessor *pp) {
     if (*macrop) {
         report_error_pp_token(tok, "#define on already defined macro");
     } else {
-        pp_macro *macro = aalloc(pp->a, sizeof(pp_macro));
+        pp_macro *macro = calloc(1, sizeof(pp_macro));
         LLIST_ADD(*macrop, macro);
     }
 
@@ -359,7 +361,7 @@ define_macro(preprocessor *pp) {
         tok = ppti_eat_peek(pp->it);
     }
 
-    pp_token *eof = aalloc(pp->a, sizeof(pp_token));
+    pp_token *eof = calloc(1, sizeof(pp_token));
     eof->kind     = PP_TOK_EOF;
     LLISTC_ADD_LAST(&def, eof);
     macro->definition = def.first;
@@ -379,13 +381,13 @@ undef_macro(preprocessor *pp) {
         pp_macro *macro = *macrop;
         free_macro_data(pp, macro);
         *macrop = macro->next;
-        afree(pp->a, macro, sizeof(pp_macro));
+        free(macro);
     }
 }
 
 static void
 push_cond_incl(preprocessor *pp, bool is_included) {
-    pp_conditional_include *incl = aalloc(pp->a, sizeof(pp_conditional_include));
+    pp_conditional_include *incl = calloc(1, sizeof(pp_conditional_include));
     incl->is_included            = is_included;
     LLIST_ADD(pp->cond_incl_stack, incl);
 }
@@ -407,16 +409,17 @@ skip_cond_incl(preprocessor *pp) {
             continue;
         }
 
-        if (string_eq(next->str, WRAPZ("if")) || string_eq(next->str, WRAPZ("ifdef")) ||
-            string_eq(next->str, WRAPZ("ifndef"))) {
+        if (string_eq(next->str, (string)WRAPZ("if")) ||
+            string_eq(next->str, (string)WRAPZ("ifdef")) ||
+            string_eq(next->str, (string)WRAPZ("ifndef"))) {
             ++depth;
-        } else if (string_eq(next->str, WRAPZ("elif")) ||
-                   string_eq(next->str, WRAPZ("else")) ||
-                   string_eq(next->str, WRAPZ("endif"))) {
+        } else if (string_eq(next->str, (string)WRAPZ("elif")) ||
+                   string_eq(next->str, (string)WRAPZ("else")) ||
+                   string_eq(next->str, (string)WRAPZ("endif"))) {
             if (!depth) {
                 break;
             }
-            if (string_eq(next->str, WRAPZ("endif"))) {
+            if (string_eq(next->str, (string)WRAPZ("endif"))) {
                 --depth;
             }
         }
@@ -440,7 +443,7 @@ eval_pp_expr(preprocessor *pp) {
         LLISTC_ADD_LAST(&copied, new_tok);
         tok = ppti_eat_peek(pp->it);
     }
-    pp_token *eof = aalloc(pp->a, sizeof(pp_token));
+    pp_token *eof = calloc(1, sizeof(pp_token));
     eof->kind     = PP_TOK_EOF;
     LLISTC_ADD_LAST(&copied, eof);
 
@@ -448,7 +451,7 @@ eval_pp_expr(preprocessor *pp) {
     tok                              = copied.first;
     linked_list_constructor modified = {0};
     while (tok) {
-        if (tok->kind == PP_TOK_ID && string_eq(tok->str, WRAPZ("defined"))) {
+        if (tok->kind == PP_TOK_ID && string_eq(tok->str, (string)WRAPZ("defined"))) {
             bool has_paren = false;
             tok            = tok->next;
             if (PP_TOK_IS_PUNCT(tok, '(')) {
@@ -464,9 +467,9 @@ eval_pp_expr(preprocessor *pp) {
             uint32_t macro_name_hash = hash_string(tok->str);
             pp_macro *macro          = GET_MACRO(pp, macro_name_hash);
 
-            pp_token *new_token = aalloc(pp->a, sizeof(pp_token));
+            pp_token *new_token = calloc(1, sizeof(pp_token));
             new_token->kind     = PP_TOK_NUM;
-            new_token->str      = (macro != 0) ? WRAPZ("1") : WRAPZ("0");
+            new_token->str      = (macro != 0) ? (string)WRAPZ("1") : (string)WRAPZ("0");
 
             LLISTC_ADD_LAST(&modified, new_token);
 
@@ -486,7 +489,8 @@ eval_pp_expr(preprocessor *pp) {
     // So now in tok we have a list of tokens that form constant expression.
     // Convert these tokens to C ones.
     linked_list_constructor converted = {0};
-    pp_token_iter iter                = {.a = pp->a};
+
+    pp_token_iter iter = {0};
     ppti_insert_tok_list(&iter, modified.first, modified.last);
     tok = ppti_peek(&iter);
     while (tok) {
@@ -505,20 +509,20 @@ eval_pp_expr(preprocessor *pp) {
                 break;
             } else {
                 tok->kind = PP_TOK_NUM;
-                tok->str  = WRAPZ("0");
+                tok->str  = (string)WRAPZ("0");
             }
         }
 
-        token *c_tok = aalloc(pp->a, sizeof(token));
+        token *c_tok = calloc(1, sizeof(token));
         char buf[4096];
         uint32_t buf_len = 0;
-        if (!convert_pp_token(tok, c_tok, buf, sizeof(buf), &buf_len, pp->a)) {
+        if (!convert_pp_token(tok, c_tok, buf, sizeof(buf), &buf_len)) {
             report_error_pp_token(tok, "Unexpected token");
             break;
         }
 
         if (buf_len) {
-            c_tok->str = string_dup(pp->a, c_tok->str);
+            c_tok->str = string_dup(c_tok->str);
         }
         LLISTC_ADD_LAST(&converted, c_tok);
         tok = ppti_eat_peek(&iter);
@@ -533,7 +537,7 @@ eval_pp_expr(preprocessor *pp) {
     }
     printf("\n");
 #endif
-    ast *expr_ast  = ast_cond_incl_expr_ternary(pp->a, &expr_tokens);
+    ast *expr_ast  = ast_cond_incl_expr_ternary(&expr_tokens);
     int64_t result = ast_cond_incl_eval(expr_ast);
 
     return result;
@@ -546,13 +550,13 @@ process_pp_directive(preprocessor *pp) {
     if (PP_TOK_IS_PUNCT(tok, '#') && tok->at_line_start) {
         tok = ppti_eat_peek(pp->it);
         if (tok->kind == PP_TOK_ID) {
-            if (string_eq(tok->str, WRAPZ("define"))) {
+            if (string_eq(tok->str, (string)WRAPZ("define"))) {
                 tok = ppti_eat_peek(pp->it);
                 define_macro(pp);
-            } else if (string_eq(tok->str, WRAPZ("undef"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("undef"))) {
                 tok = ppti_eat_peek(pp->it);
                 undef_macro(pp);
-            } else if (string_eq(tok->str, WRAPZ("if"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("if"))) {
                 /* report_error_pp_token(pp, tok, "DBG: IF"); */
                 tok = ppti_eat_peek(pp->it);
 
@@ -561,7 +565,7 @@ process_pp_directive(preprocessor *pp) {
                 if (!expr_result) {
                     skip_cond_incl(pp);
                 }
-            } else if (string_eq(tok->str, WRAPZ("elif"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("elif"))) {
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
                     report_error_pp_token(tok, "Stray #elif");
@@ -583,7 +587,7 @@ process_pp_directive(preprocessor *pp) {
                         skip_cond_incl(pp);
                     }
                 }
-            } else if (string_eq(tok->str, WRAPZ("else"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("else"))) {
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
                     report_error_pp_token(tok, "Stray #else");
@@ -599,7 +603,7 @@ process_pp_directive(preprocessor *pp) {
                         skip_cond_incl(pp);
                     }
                 }
-            } else if (string_eq(tok->str, WRAPZ("endif"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("endif"))) {
                 pp_conditional_include *incl = pp->cond_incl_stack;
                 if (!incl) {
                     report_error_pp_token(tok, "Stray #endif");
@@ -608,9 +612,9 @@ process_pp_directive(preprocessor *pp) {
                     /* report_error_pp_token(pp, tok, "DBG: ENDIF"); */
                     tok = ppti_eat_peek(pp->it);
                     LLIST_POP(pp->cond_incl_stack);
-                    afree(pp->a, incl, sizeof(pp_conditional_include));
+                    free(incl);
                 }
-            } else if (string_eq(tok->str, WRAPZ("ifdef"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("ifdef"))) {
                 tok = ppti_eat_peek(pp->it);
                 if (tok->kind != PP_TOK_ID) {
                     report_error_pp_token(tok, "Expected identifier");
@@ -623,7 +627,7 @@ process_pp_directive(preprocessor *pp) {
                 if (!is_defined) {
                     skip_cond_incl(pp);
                 }
-            } else if (string_eq(tok->str, WRAPZ("ifndef"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("ifndef"))) {
                 tok = ppti_eat_peek(pp->it);
 
                 if (tok->kind != PP_TOK_ID) {
@@ -637,11 +641,11 @@ process_pp_directive(preprocessor *pp) {
                 if (is_defined) {
                     skip_cond_incl(pp);
                 }
-            } else if (string_eq(tok->str, WRAPZ("line"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("line"))) {
                 // TODO:
-            } else if (string_eq(tok->str, WRAPZ("pragma"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("pragma"))) {
                 NOT_IMPL;
-            } else if (string_eq(tok->str, WRAPZ("error"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("error"))) {
                 source_loc error_loc = tok->loc;
 
                 tok = ppti_eat_peek(pp->it);
@@ -653,7 +657,7 @@ process_pp_directive(preprocessor *pp) {
                     tok = ppti_eat_peek(pp->it);
                 }
                 report_error(error_loc, "%s", buffer);
-            } else if (string_eq(tok->str, WRAPZ("warning"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("warning"))) {
                 source_loc error_loc = tok->loc;
 
                 tok = ppti_eat_peek(pp->it);
@@ -665,7 +669,7 @@ process_pp_directive(preprocessor *pp) {
                     tok = ppti_eat_peek(pp->it);
                 }
                 report_warning(error_loc, "%s", buffer);
-            } else if (string_eq(tok->str, WRAPZ("include"))) {
+            } else if (string_eq(tok->str, (string)WRAPZ("include"))) {
                 tok = ppti_eat_peek(pp->it);
 
                 if (tok->at_line_start) {
@@ -688,7 +692,7 @@ process_pp_directive(preprocessor *pp) {
                         tok = ppti_eat_peek(pp->it);
                     }
 
-                    string filename = string(filename_buffer, cursor - filename_buffer);
+                    string filename = (string){filename_buffer, cursor - filename_buffer};
                     ppti_include_file(pp->it, filename);
                 } else if (tok->kind == PP_TOK_STR) {
                     string filename = tok->str;
@@ -706,9 +710,9 @@ process_pp_directive(preprocessor *pp) {
         }
 
         tok = ppti_peek(pp->it);
-        if (tok->kind != TOK_EOF && !tok->at_line_start) {
+        if (tok->kind != PP_TOK_EOF && !tok->at_line_start) {
             report_error_pp_token(tok, "Unexpected tokens aftern preprocessor directive");
-            while (tok->kind != TOK_EOF && !tok->at_line_start) {
+            while (tok->kind != PP_TOK_EOF && !tok->at_line_start) {
                 tok = ppti_eat_peek(pp->it);
             }
         }
@@ -727,11 +731,11 @@ predefined_macro(preprocessor *pp, string name, string value) {
         char buf[4096];
         uint32_t buf_len = 0;
 
-        pp_token *tok        = aalloc(pp->a, sizeof(pp_token));
+        pp_token *tok        = calloc(1, sizeof(pp_token));
         bool should_continue = pp_lexer_parse(&lex, tok, buf, sizeof(buf), &buf_len);
-        tok->loc.filename    = WRAPZ("BUILTIN");
+        tok->loc.filename    = (string)WRAPZ("BUILTIN");
         if (tok->str.data) {
-            tok->str = string_dup(pp->a, tok->str);
+            tok->str = string_dup(tok->str);
         }
         LLISTC_ADD_LAST(&tokens, tok);
         if (!should_continue) {
@@ -742,7 +746,7 @@ predefined_macro(preprocessor *pp, string name, string value) {
     uint32_t name_hash = hash_string(name);
     pp_macro **macrop  = GET_MACROP(pp, name_hash);
     assert(!*macrop);
-    pp_macro *macro = aalloc(pp->a, sizeof(pp_token));
+    pp_macro *macro = calloc(1, sizeof(pp_token));
     *macrop         = macro;
 
     macro->name       = name;
@@ -754,12 +758,11 @@ predefined_macro(preprocessor *pp, string name, string value) {
 static void
 define_common_predefined_macros(preprocessor *pp, string filename) {
     string file_onlyname = path_filename(filename);
-    string file_name =
-        string_memprintf(pp->a, "\"%.*s\"", file_onlyname.len, file_onlyname.data);
-    predefined_macro(pp, WRAPZ("__FILE_NAME__"), file_name);
+    string file_name     = string_memprintf("\"%.*s\"", file_onlyname.len, file_onlyname.data);
+    predefined_macro(pp, (string)WRAPZ("__FILE_NAME__"), file_name);
 
-    string base_file = string_memprintf(pp->a, "\"%.*s\"", filename.len, filename.data);
-    predefined_macro(pp, WRAPZ("__BASE_FILE__"), base_file);
+    string base_file = string_memprintf("\"%.*s\"", filename.len, filename.data);
+    predefined_macro(pp, (string)WRAPZ("__BASE_FILE__"), base_file);
 
     time_t now    = time(0);
     struct tm *tm = localtime(&now);
@@ -768,50 +771,58 @@ define_common_predefined_macros(preprocessor *pp, string filename) {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     };
     assert((unsigned)tm->tm_mon < ARRAY_SIZE(months));
-    string date = string_memprintf(pp->a, "\"%s %2d %d\"", months[tm->tm_mon], tm->tm_mday,
-                                   tm->tm_year + 1900);
-    predefined_macro(pp, WRAPZ("__DATE__"), date);
+    string date =
+        string_memprintf("\"%s %2d %d\"", months[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
+    predefined_macro(pp, (string)WRAPZ("__DATE__"), date);
 
-    string time =
-        string_memprintf(pp->a, "\"%02d:%02d:%02d\"", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    predefined_macro(pp, WRAPZ("__TIME__"), time);
+    string time = string_memprintf("\"%02d:%02d:%02d\"", tm->tm_hour, tm->tm_min, tm->tm_sec);
+    predefined_macro(pp, (string)WRAPZ("__TIME__"), time);
 
-    predefined_macro(pp, WRAPZ("__SIZE_TYPE__"), WRAPZ("unsigned long"));
-    predefined_macro(pp, WRAPZ("__PTRDIFF_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__WCHAR_TYPE__"), WRAPZ("unsigned int"));
-    predefined_macro(pp, WRAPZ("__WINT_TYPE__"), WRAPZ("unsigned int"));
-    predefined_macro(pp, WRAPZ("__INTMAX_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__UINTMAX_TYPE__"), WRAPZ("unsigned long long"));
-    /* predefined_macro(pp, WRAPZ("__SIG_ATOMIC_TYPE__"),
-     * WRAPZ("sig_atomic_t")); */
-    predefined_macro(pp, WRAPZ("__INT8_TYPE__"), WRAPZ("signed char"));
-    predefined_macro(pp, WRAPZ("__INT16_TYPE__"), WRAPZ("short"));
-    predefined_macro(pp, WRAPZ("__INT32_TYPE__"), WRAPZ("int"));
-    predefined_macro(pp, WRAPZ("__INT64_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__UINT8_TYPE__"), WRAPZ("unsigned char"));
-    predefined_macro(pp, WRAPZ("__UINT16_TYPE__"), WRAPZ("unsigned short"));
-    predefined_macro(pp, WRAPZ("__UINT32_TYPE__"), WRAPZ("unsigned"));
-    predefined_macro(pp, WRAPZ("__UINT64_TYPE__"), WRAPZ("unsigned long long"));
-    predefined_macro(pp, WRAPZ("__INT_LEAST8_TYPE__"), WRAPZ("signed char"));
-    predefined_macro(pp, WRAPZ("__INT_LEAST16_TYPE__"), WRAPZ("short"));
-    predefined_macro(pp, WRAPZ("__INT_LEAST32_TYPE__"), WRAPZ("int"));
-    predefined_macro(pp, WRAPZ("__INT_LEAST64_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__UINT_LEAST8_TYPE__"), WRAPZ("unsigned char"));
-    predefined_macro(pp, WRAPZ("__UINT_LEAST16_TYPE__"), WRAPZ("unsigned short"));
-    predefined_macro(pp, WRAPZ("__UINT_LEAST32_TYPE__"), WRAPZ("unsigned int"));
-    predefined_macro(pp, WRAPZ("__UINT_LEAST64_TYPE__"), WRAPZ("unsigned long long"));
-    predefined_macro(pp, WRAPZ("__INT_FAST8_TYPE__"), WRAPZ("signed char"));
-    predefined_macro(pp, WRAPZ("__INT_FAST16_TYPE__"), WRAPZ("short"));
-    predefined_macro(pp, WRAPZ("__INT_FAST32_TYPE__"), WRAPZ("int"));
-    predefined_macro(pp, WRAPZ("__INT_FAST64_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__UINT_FAST8_TYPE__"), WRAPZ("unsigned char"));
-    predefined_macro(pp, WRAPZ("__UINT_FAST16_TYPE__"), WRAPZ("unsigned short"));
-    predefined_macro(pp, WRAPZ("__UINT_FAST32_TYPE__"), WRAPZ("unsigned int"));
-    predefined_macro(pp, WRAPZ("__UINT_FAST64_TYPE__"), WRAPZ("unsigned long long"));
-    predefined_macro(pp, WRAPZ("__INTPTR_TYPE__"), WRAPZ("long long"));
-    predefined_macro(pp, WRAPZ("__UINTPTR_TYPE__"), WRAPZ("unsigned long long"));
+    predefined_macro(pp, (string)WRAPZ("__SIZE_TYPE__"), (string)WRAPZ("unsigned long"));
+    predefined_macro(pp, (string)WRAPZ("__PTRDIFF_TYPE__"), (string)WRAPZ("long long"));
+    predefined_macro(pp, (string)WRAPZ("__WCHAR_TYPE__"), (string)WRAPZ("unsigned int"));
+    predefined_macro(pp, (string)WRAPZ("__WINT_TYPE__"), (string)WRAPZ("unsigned int"));
+    predefined_macro(pp, (string)WRAPZ("__INTMAX_TYPE__"), (string)WRAPZ("long long"));
+    predefined_macro(pp, (string)WRAPZ("__UINTMAX_TYPE__"),
+                     (string)WRAPZ("unsigned long long"));
+    /* predefined_macro(pp, (string)WRAPZ("__SIG_ATOMIC_TYPE__"),
+     * (string)WRAPZ("sig_atomic_t")); */
+    predefined_macro(pp, (string)WRAPZ("__INT8_TYPE__"), (string)WRAPZ("signed char"));
+    predefined_macro(pp, (string)WRAPZ("__INT16_TYPE__"), (string)WRAPZ("short"));
+    predefined_macro(pp, (string)WRAPZ("__INT32_TYPE__"), (string)WRAPZ("int"));
+    predefined_macro(pp, (string)WRAPZ("__INT64_TYPE__"), (string)WRAPZ("long long"));
+    predefined_macro(pp, (string)WRAPZ("__UINT8_TYPE__"), (string)WRAPZ("unsigned char"));
+    predefined_macro(pp, (string)WRAPZ("__UINT16_TYPE__"), (string)WRAPZ("unsigned short"));
+    predefined_macro(pp, (string)WRAPZ("__UINT32_TYPE__"), (string)WRAPZ("unsigned"));
+    predefined_macro(pp, (string)WRAPZ("__UINT64_TYPE__"),
+                     (string)WRAPZ("unsigned long long"));
+    predefined_macro(pp, (string)WRAPZ("__INT_LEAST8_TYPE__"), (string)WRAPZ("signed char"));
+    predefined_macro(pp, (string)WRAPZ("__INT_LEAST16_TYPE__"), (string)WRAPZ("short"));
+    predefined_macro(pp, (string)WRAPZ("__INT_LEAST32_TYPE__"), (string)WRAPZ("int"));
+    predefined_macro(pp, (string)WRAPZ("__INT_LEAST64_TYPE__"), (string)WRAPZ("long long"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_LEAST8_TYPE__"),
+                     (string)WRAPZ("unsigned char"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_LEAST16_TYPE__"),
+                     (string)WRAPZ("unsigned short"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_LEAST32_TYPE__"),
+                     (string)WRAPZ("unsigned int"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_LEAST64_TYPE__"),
+                     (string)WRAPZ("unsigned long long"));
+    predefined_macro(pp, (string)WRAPZ("__INT_FAST8_TYPE__"), (string)WRAPZ("signed char"));
+    predefined_macro(pp, (string)WRAPZ("__INT_FAST16_TYPE__"), (string)WRAPZ("short"));
+    predefined_macro(pp, (string)WRAPZ("__INT_FAST32_TYPE__"), (string)WRAPZ("int"));
+    predefined_macro(pp, (string)WRAPZ("__INT_FAST64_TYPE__"), (string)WRAPZ("long long"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_FAST8_TYPE__"), (string)WRAPZ("unsigned char"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_FAST16_TYPE__"),
+                     (string)WRAPZ("unsigned short"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_FAST32_TYPE__"), (string)WRAPZ("unsigned int"));
+    predefined_macro(pp, (string)WRAPZ("__UINT_FAST64_TYPE__"),
+                     (string)WRAPZ("unsigned long long"));
+    predefined_macro(pp, (string)WRAPZ("__INTPTR_TYPE__"), (string)WRAPZ("long long"));
+    predefined_macro(pp, (string)WRAPZ("__UINTPTR_TYPE__"),
+                     (string)WRAPZ("unsigned long long"));
 
-    predefined_macro(pp, WRAPZ("__CHAR_BIT__"), WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__CHAR_BIT__"), (string)WRAPZ("8"));
 
     /* TODO:
      * __SCHAR_MAX__
@@ -889,54 +900,53 @@ __INT_FAST64_WIDTH__
 __INTPTR_WIDTH__
 __INTMAX_WIDTH__
 */
-    predefined_macro(pp, WRAPZ("__SIZEOF_INT__"), WRAPZ("4"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_LONG"), WRAPZ("8"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_LONG_LONG__"), WRAPZ("8"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_SHORT__"), WRAPZ("2"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_POINTER__"), WRAPZ("8"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_FLOAT__"), WRAPZ("4"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_DOUBLE__"), WRAPZ("8"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_LONG_DOUBLE__"), WRAPZ("8"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_SIZE_T__"), WRAPZ("8"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_WCHAR_T__"), WRAPZ("4"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_WINT_T__"), WRAPZ("4"));
-    predefined_macro(pp, WRAPZ("__SIZEOF_PTRDIFF_T__"), WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_INT__"), (string)WRAPZ("4"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_LONG"), (string)WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_LONG_LONG__"), (string)WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_SHORT__"), (string)WRAPZ("2"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_POINTER__"), (string)WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_FLOAT__"), (string)WRAPZ("4"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_DOUBLE__"), (string)WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_LONG_DOUBLE__"), (string)WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_SIZE_T__"), (string)WRAPZ("8"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_WCHAR_T__"), (string)WRAPZ("4"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_WINT_T__"), (string)WRAPZ("4"));
+    predefined_macro(pp, (string)WRAPZ("__SIZEOF_PTRDIFF_T__"), (string)WRAPZ("8"));
 
-    predefined_macro(pp, WRAPZ("__STDC_HOSTED__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__STDC_NO_COMPLEX__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__STDC_UTF_16__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__STDC_UTF_32__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__STDC__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__STDC_VERSION__"), WRAPZ("201112L"));
+    predefined_macro(pp, (string)WRAPZ("__STDC_HOSTED__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__STDC_NO_COMPLEX__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__STDC_UTF_16__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__STDC_UTF_32__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__STDC__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__STDC_VERSION__"), (string)WRAPZ("201112L"));
 
-    predefined_macro(pp, WRAPZ("__LP64__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("_LP64"), WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__LP64__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("_LP64"), (string)WRAPZ("1"));
 
-    predefined_macro(pp, WRAPZ("__x86_64__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__x86_64"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__amd64"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__amd64__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__holoc__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__gnu_linux__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__linux__"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("__linux"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("linux"), WRAPZ("1"));
-    predefined_macro(pp, WRAPZ("unix"), WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__x86_64__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__x86_64"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__amd64"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__amd64__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__holoc__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__gnu_linux__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__linux__"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("__linux"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("linux"), (string)WRAPZ("1"));
+    predefined_macro(pp, (string)WRAPZ("unix"), (string)WRAPZ("1"));
 
-    predefined_macro(pp, WRAPZ("__inline__"), WRAPZ("inline"));
-    predefined_macro(pp, WRAPZ("__signed__"), WRAPZ("signed"));
-    predefined_macro(pp, WRAPZ("__typeof__"), WRAPZ("typeof"));
-    predefined_macro(pp, WRAPZ("__volatile__"), WRAPZ("volatile"));
-    predefined_macro(pp, WRAPZ("__alignof__"), WRAPZ("_Alignof"));
+    predefined_macro(pp, (string)WRAPZ("__inline__"), (string)WRAPZ("inline"));
+    predefined_macro(pp, (string)WRAPZ("__signed__"), (string)WRAPZ("signed"));
+    predefined_macro(pp, (string)WRAPZ("__typeof__"), (string)WRAPZ("typeof"));
+    predefined_macro(pp, (string)WRAPZ("__volatile__"), (string)WRAPZ("volatile"));
+    predefined_macro(pp, (string)WRAPZ("__alignof__"), (string)WRAPZ("_Alignof"));
 }
 
 void
 pp_init(preprocessor *pp, string filename) {
     define_common_predefined_macros(pp, filename);
 
-    pp->it                  = aalloc(pp->a, sizeof(pp_token_iter));
-    pp->it->a               = pp->a;
-    pp->it->eof_token       = aalloc(pp->a, sizeof(pp_token));
+    pp->it                  = calloc(1, sizeof(pp_token_iter));
+    pp->it->eof_token       = calloc(1, sizeof(pp_token));
     pp->it->eof_token->kind = PP_TOK_EOF;
     ppti_include_file(pp->it, filename);
 }
@@ -958,7 +968,7 @@ pp_parse(preprocessor *pp, struct token *tok, char *buf, uint32_t buf_size,
             break;
         }
 
-        if (!convert_pp_token(pp_tok, tok, buf, buf_size, buf_writtenp, pp->a)) {
+        if (!convert_pp_token(pp_tok, tok, buf, buf_size, buf_writtenp)) {
             report_error_pp_token(pp_tok, "Unexpected token");
             ppti_eat(pp->it);
             continue;
@@ -968,7 +978,7 @@ pp_parse(preprocessor *pp, struct token *tok, char *buf, uint32_t buf_size,
         {
             char buffer[4096];
             uint32_t len     = fmt_token_verbose(buffer, sizeof(buffer), tok);
-            char *debug_info = aalloc(get_debug_allocator(), len + 1);
+            char *debug_info = malloc(len + 1);
             memcpy(debug_info, buffer, len + 1);
             tok->_debug_info = debug_info;
         }

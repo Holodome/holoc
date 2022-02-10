@@ -2,34 +2,36 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdlib.h>
 
-#include "allocator.h"
 #include "buffer_writer.h"
 #include "c_lang.h"
 #include "c_types.h"
 #include "str.h"
 
-static uint64_t AST_STRUCT_SIZES[] = {
-    sizeof(ast),        sizeof(ast_identifier), sizeof(ast_string),  sizeof(ast_number),
-    sizeof(ast_unary),  sizeof(ast_binary),     sizeof(ast_ternary), sizeof(ast_if),
-    sizeof(ast_for),    sizeof(ast_do),         sizeof(ast_switch),  sizeof(ast_case),
-    sizeof(ast_block),  sizeof(ast_goto),       sizeof(ast_label),   sizeof(ast_func_call),
-    sizeof(ast_cast),   sizeof(ast_member),     sizeof(ast_return),  sizeof(ast_func),
-    sizeof(ast_typedef)};
+static string
+get_binary_str(uint32_t binary) {
+    static string AST_BINARY_STRS[] = {
+        WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),   WRAPZ("*"),  WRAPZ("/"),  WRAPZ("%"),
+        WRAPZ("<="),        WRAPZ("<"),   WRAPZ(">="),  WRAPZ(">"),  WRAPZ("=="), WRAPZ("!="),
+        WRAPZ("&"),         WRAPZ("|"),   WRAPZ("^"),   WRAPZ("<<"), WRAPZ(">>"), WRAPZ("&&"),
+        WRAPZ("||"),        WRAPZ("="),   WRAPZ("+="),  WRAPZ("-="), WRAPZ("*="), WRAPZ("/="),
+        WRAPZ("%="),        WRAPZ("<<="), WRAPZ(">>="), WRAPZ("&="), WRAPZ("|="), WRAPZ("^="),
+        WRAPZ(","),
+    };
+    assert(binary < ARRAY_SIZE(AST_BINARY_STRS));
+    return AST_BINARY_STRS[binary];
+}
 
-static string AST_BINARY_STRS[] = {
-    WRAPZ("(unknown)"), WRAPZ("+"),   WRAPZ("-"),   WRAPZ("*"),  WRAPZ("/"),  WRAPZ("%"),
-    WRAPZ("<="),        WRAPZ("<"),   WRAPZ(">="),  WRAPZ(">"),  WRAPZ("=="), WRAPZ("!="),
-    WRAPZ("&"),         WRAPZ("|"),   WRAPZ("^"),   WRAPZ("<<"), WRAPZ(">>"), WRAPZ("&&"),
-    WRAPZ("||"),        WRAPZ("="),   WRAPZ("+="),  WRAPZ("-="), WRAPZ("*="), WRAPZ("/="),
-    WRAPZ("%="),        WRAPZ("<<="), WRAPZ(">>="), WRAPZ("&="), WRAPZ("|="), WRAPZ("^="),
-    WRAPZ(","),
-};
-
-static string AST_UN_STRS[] = {
-    WRAPZ("-"),  WRAPZ("+"),  WRAPZ("!"),  WRAPZ("~"), WRAPZ("++"),
-    WRAPZ("++"), WRAPZ("--"), WRAPZ("--"), WRAPZ("*"), WRAPZ("&"),
-};
+static string
+get_unary_str(uint32_t kind) {
+    static string AST_UN_STRS[] = {
+        WRAPZ("-"),  WRAPZ("+"),  WRAPZ("!"),  WRAPZ("~"), WRAPZ("++"),
+        WRAPZ("++"), WRAPZ("--"), WRAPZ("--"), WRAPZ("*"), WRAPZ("&"),
+    };
+    assert(kind < ARRAY_SIZE(AST_UN_STRS));
+    return AST_UN_STRS[kind];
+}
 
 void
 fmt_astw(void *node, buffer_writer *w) {
@@ -98,7 +100,7 @@ fmt_astw(void *node, buffer_writer *w) {
     } break;
     case AST_BIN: {
         ast_binary *bin = node;
-        string op_str   = AST_BINARY_STRS[bin->bin_kind];
+        string op_str   = get_binary_str(bin->bin_kind);
         fmt_astw(bin->left, w);
         buf_write(w, " %s ", op_str.data);
         fmt_astw(bin->right, w);
@@ -173,7 +175,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         ast_unary *un = node;
         buf_write(w, "%*s", depth, "");
         buf_write(w, "Unary expr:\n");
-        string op_str = AST_UN_STRS[un->un_kind];
+        string op_str = get_unary_str(un->un_kind);
         if (un->un_kind == AST_UN_POSTINC || un->un_kind == AST_UN_POSTDEC) {
             fmt_ast_verbosew_internal(un->expr, w, depth + 1);
             buf_write(w, "%*c%s\n", depth + 1, ' ', op_str.data);
@@ -186,7 +188,7 @@ fmt_ast_verbosew_internal(void *node, buffer_writer *w, uint32_t depth) {
         ast_binary *bin = node;
         buf_write(w, "%*s", depth, "");
         buf_write(w, "Binary expr:\n");
-        string op_str = AST_BINARY_STRS[bin->bin_kind];
+        string op_str = get_binary_str(bin->bin_kind);
         fmt_ast_verbosew_internal(bin->left, w, depth + 1);
         buf_write(w, "%*c%s\n", depth + 1, ' ', op_str.data);
         fmt_ast_verbosew_internal(bin->right, w, depth + 1);
@@ -327,17 +329,25 @@ fmt_ast_verbose(void *node, char *buf, uint32_t buf_size) {
 }
 
 void *
-make_ast(struct allocator *a, ast_kind kind, source_loc loc) {
+make_ast(ast_kind kind, source_loc loc) {
+    static uint64_t AST_STRUCT_SIZES[] = {
+        sizeof(ast),        sizeof(ast_identifier), sizeof(ast_string),  sizeof(ast_number),
+        sizeof(ast_unary),  sizeof(ast_binary),     sizeof(ast_ternary), sizeof(ast_if),
+        sizeof(ast_for),    sizeof(ast_do),         sizeof(ast_switch),  sizeof(ast_case),
+        sizeof(ast_block),  sizeof(ast_goto),       sizeof(ast_label),   sizeof(ast_func_call),
+        sizeof(ast_cast),   sizeof(ast_member),     sizeof(ast_return),  sizeof(ast_func),
+        sizeof(ast_typedef)};
+
     assert(kind < ARRAY_SIZE(AST_STRUCT_SIZES));
-    ast *node  = aalloc(a, AST_STRUCT_SIZES[kind]);
+    ast *node  = calloc(AST_STRUCT_SIZES[kind], 1);
     node->kind = kind;
     node->loc  = loc;
     return node;
 }
 
 ast *
-make_ast_num_int(struct allocator *a, source_loc loc, uint64_t value, struct c_type *type) {
-    ast_number *num = make_ast(a, AST_NUM, loc);
+make_ast_num_int(source_loc loc, uint64_t value, struct c_type *type) {
+    ast_number *num = make_ast(AST_NUM, loc);
     num->uint_value = value;
     num->type       = type;
     assert(c_type_is_int(type));
@@ -345,8 +355,8 @@ make_ast_num_int(struct allocator *a, source_loc loc, uint64_t value, struct c_t
 }
 
 ast *
-make_ast_num_flt(struct allocator *a, source_loc loc, double value, struct c_type *type) {
-    ast_number *num  = make_ast(a, AST_NUM, loc);
+make_ast_num_flt(source_loc loc, double value, struct c_type *type) {
+    ast_number *num  = make_ast(AST_NUM, loc);
     num->float_value = value;
     num->type        = type;
     assert(!c_type_is_int(type));
@@ -354,18 +364,18 @@ make_ast_num_flt(struct allocator *a, source_loc loc, double value, struct c_typ
 }
 
 ast *
-make_ast_unary(struct allocator *a, source_loc loc, ast_unary_kind kind, ast *expr) {
+make_ast_unary(source_loc loc, ast_unary_kind kind, ast *expr) {
     assert(expr);
-    ast_unary *un = make_ast(a, AST_UN, loc);
+    ast_unary *un = make_ast(AST_UN, loc);
     un->un_kind   = kind;
     un->expr      = expr;
     return (ast *)un;
 }
 
 ast *
-make_ast_binary(struct allocator *a, ast_binary_kind kind, ast *left, ast *right) {
+make_ast_binary(ast_binary_kind kind, ast *left, ast *right) {
     assert(left && right);
-    ast_binary *bin = make_ast(a, AST_BIN, left->loc);
+    ast_binary *bin = make_ast(AST_BIN, left->loc);
     bin->bin_kind   = kind;
     bin->left       = left;
     bin->right      = right;
@@ -373,18 +383,18 @@ make_ast_binary(struct allocator *a, ast_binary_kind kind, ast *left, ast *right
 }
 
 ast *
-make_ast_cast(struct allocator *a, source_loc loc, ast *expr, struct c_type *type) {
+make_ast_cast(source_loc loc, ast *expr, struct c_type *type) {
     assert(expr && type);
-    ast_cast *cast = make_ast(a, AST_CAST, loc);
+    ast_cast *cast = make_ast(AST_CAST, loc);
     cast->type     = type;
     cast->expr     = expr;
     return (ast *)cast;
 }
 
 ast *
-make_ast_ternary(struct allocator *a, ast *cond, ast *cond_true, ast *cond_false) {
+make_ast_ternary(ast *cond, ast *cond_true, ast *cond_false) {
     assert(cond && cond_true && cond_false);
-    ast_ternary *ter = make_ast(a, AST_TER, cond->loc);
+    ast_ternary *ter = make_ast(AST_TER, cond->loc);
     ter->cond        = cond;
     ter->cond_true   = cond_true;
     ter->cond_false  = cond_false;

@@ -6,7 +6,6 @@
 #define PARSER_SCOPE_VAR_HASH_SIZE 1024
 #define PARSER_SCOPE_TAG_HASH_SIZE 1024
 
-struct allocator;
 struct token_iter;
 struct ast;
 
@@ -44,8 +43,6 @@ typedef struct parser_scope {
 } parser_scope;
 
 typedef struct parser {
-    struct allocator *a;
-
     struct token_iter *it;
 
     parser_scope *scope;
