@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "token_iter.h"
 #include "ast.h"
 #include "c_lang.h"
 #include "darray.h"

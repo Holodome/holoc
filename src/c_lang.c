@@ -75,7 +75,7 @@ get_kw_str(c_keyword_kind kind) {
     return KEYWORD_STRINGS[kind];
 }
 
-// NOTE: Only called for multisymbol punctuators (not ASCII ones)
+// NOTE: Only called for multi symbol punctuators (not ASCII ones)
 static string
 get_punct_str(c_punct_kind kind) {
     assert(kind > 0x100);
@@ -254,7 +254,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
                 uint32_t cp;
                 cursor = utf8_decode(cursor, &cp);
                 if (byte_stride == 1) {
-                    // TODO: If resulting string is utf8 we can skip decodind
+                    // TODO: If resulting string is utf8 we can skip decoding
                     // and encoding
                     write_cursor = utf8_encode(write_cursor, cp);
                 } else if (byte_stride == 2) {
@@ -292,7 +292,7 @@ convert_pp_token(pp_token *pp_tok, token *tok, char *buf, uint32_t buf_size,
         process_char:
             (void)0;
             c_type *base_type = get_standard_type(base_type_kind);
-            // Treat all character literals as mutltibyte.
+            // Treat all character literals as mutlti byte.
             // Convert it to number
             uint64_t value       = 0;
             char *cursor         = pp_tok->str.data;

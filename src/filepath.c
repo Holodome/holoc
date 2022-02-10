@@ -27,8 +27,9 @@ path_dirname(string path) {
     string_find_result find_result = string_rfind(path, '/');
     if (!find_result.is_found) {
         result = (string)WRAPZ(".");
+    } else {
+        result = string_substr(path, 0, find_result.idx);
     }
-    result = string_substr(path, 0, find_result.idx);
     return result;
 }
 

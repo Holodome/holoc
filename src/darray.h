@@ -8,7 +8,7 @@
 #define DARRAY_DEFAULT_SIZE 10
 
 // Structure allocated with dynamic array and placed before it in memory
-// Holds metainformation about array and can be accessed with da_header macro
+// Holds meta information about array and can be accessed with da_header macro
 typedef struct {
     uint32_t size;
     uint32_t capacity;
@@ -42,7 +42,7 @@ typedef struct {
 // Returns pointer to last element
 #define da_last(_da) ((_da) ? ((_da) + da_size(_da) - 1) : 0)
 
-// Grows array geomentrically or creates new
+// Grows array geometrically or creates new
 void *da_grow(void *da, uintptr_t stride);
 // Internal use functions
 void *da_reserve_(uintptr_t stride, uint32_t size);

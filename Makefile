@@ -24,7 +24,9 @@ $(DIR)/%.i: %.c
 
 $(DIR)/%.o: %.c | $(DEPS)
 	mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c -o $@ $<  
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+%.c: | $(DEPS)
 
 $(DIR):
 	mkdir -p $@

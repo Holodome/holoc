@@ -1,4 +1,4 @@
-# Codestyle
+# Code style
 
 ## Naming conventions
 

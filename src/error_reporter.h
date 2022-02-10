@@ -6,6 +6,8 @@
 typedef struct error_reporter {
     uint32_t error_count;
     uint32_t warning_count;
+
+    bool treat_warnings_as_errors;
 } error_reporter;
 
 error_reporter *get_error_reporter(void);

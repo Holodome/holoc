@@ -9,7 +9,6 @@
 #include "filepath.h"
 #include "llist.h"
 #include "str.h"
-#include "unicode.h"
 
 static file_storage fs_;
 static file_storage *fs = &fs_;

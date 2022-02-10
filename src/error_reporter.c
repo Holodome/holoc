@@ -3,10 +3,10 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <unicode.h>
 
 #include "file_storage.h"
 #include "str.h"
+#include "unicode.h"
 
 static error_reporter er_;
 static error_reporter *er = &er_;
@@ -86,6 +86,11 @@ report_error(source_loc loc, char *fmt, ...) {
 
 void
 report_warningv(source_loc loc, char *fmt, va_list args) {
+    if (er->treat_warnings_as_errors) {
+        report_errorv(loc, fmt, args);
+        return;
+    }
+
     file *f                = fs_get_file(loc.filename, 0);
     string warning_colored = WRAPZ("\033[35;1mwarning\033[0m");
     report_message_internalv(f->contents, loc, warning_colored, fmt, args);

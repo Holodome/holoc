@@ -6,9 +6,9 @@
 struct ast;
 struct token;
 
-// Generally, exprsession inside the #if are named constant, but in reality they
+// Generally, expression inside the #if are named constant, but in reality they
 // implement only a subset of them (like there is no operator sizeof in #if's).
-// So it has been decided to put all of these expression ast builders into
+// So it has been decided to put all of these expressions ast builders into
 // separate functions.
 // Expression parsing should be started from 'ternary' call because comma is not
 // allowed in top-level expression context.
