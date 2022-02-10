@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "token_iter.h"
 #include "ast.h"
 #include "c_lang.h"
 #include "darray.h"
@@ -139,16 +140,15 @@ static void
 mtp(string filename) {
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    preprocessor *pp = calloc(1, sizeof(preprocessor));
-    pp_init(pp, filename);
+    token_iter ti = {0};
+    ti_init(&ti, filename);
 
-    char buf[4096];
-    uint32_t _;
-    token tok = {0};
-    while (pp_parse(pp, &tok, buf, sizeof(buf), &_)) {
+    token *tok;
+    while ((tok = ti_peek(&ti))->kind != TOK_EOF) {
         char fmt_buf[4096];
-        fmt_token(fmt_buf, sizeof(fmt_buf), &tok);
-        printf("%s\n", buf);
+        fmt_token(fmt_buf, sizeof(fmt_buf), tok);
+        printf("%s\n", fmt_buf);
+        ti_eat(&ti);
     }
 }
 
@@ -156,15 +156,14 @@ static void
 mtpv(string filename) {
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    preprocessor *pp = calloc(1, sizeof(preprocessor));
-    pp_init(pp, filename);
+    token_iter ti = {0};
+    ti_init(&ti, filename);
 
-    char buf[4096];
-    uint32_t _;
-    token tok = {0};
-    while (pp_parse(pp, &tok, buf, sizeof(buf), &_)) {
+    token *tok;
+    while ((tok = ti_peek(&ti))->kind != TOK_EOF) {
         char fmt_buf[4096];
-        fmt_token_verbose(fmt_buf, sizeof(fmt_buf), &tok);
+        fmt_token_verbose(fmt_buf, sizeof(fmt_buf), tok);
+        ti_eat(&ti);
         printf("%s\n", fmt_buf);
     }
 }
@@ -173,21 +172,20 @@ static void
 mtpf(string filename) {
     fs_add_include_paths(settings.include_paths, da_size(settings.include_paths));
 
-    preprocessor *pp = calloc(1, sizeof(preprocessor));
-    pp_init(pp, filename);
+    token_iter ti = {0};
+    ti_init(&ti, filename);
 
-    char buf[4096];
-    uint32_t _;
-    token tok = {0};
-    while (pp_parse(pp, &tok, buf, sizeof(buf), &_)) {
+    token *tok;
+    while ((tok = ti_peek(&ti))->kind != TOK_EOF) {
         char fmt_buf[4096];
-        fmt_token(fmt_buf, sizeof(fmt_buf), &tok);
-        if (tok.at_line_start) {
+        fmt_token(fmt_buf, sizeof(fmt_buf), tok);
+        if (tok->at_line_start) {
             printf("\n");
-        } else if (tok.has_whitespace) {
+        } else if (tok->has_whitespace) {
             printf(" ");
         }
         printf("%s", fmt_buf);
+        ti_eat(&ti);
     }
     printf("\n");
 }
